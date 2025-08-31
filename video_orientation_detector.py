@@ -651,7 +651,7 @@ class OrientationDetector:
         print("Detecting faces and bodies for orientation analysis...")
 
         frame_count = 0
-        skip_frames = 25  # Process every 25th frame
+        skip_frames = 12  # Process every 12th frame
 
         while True:
             ret, frame = cap.read()
