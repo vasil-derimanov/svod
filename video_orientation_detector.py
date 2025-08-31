@@ -91,16 +91,25 @@ class OrientationDetector:
 
     def setup_feature_detection(self):
         """Setup facial landmark detection for precise orientation"""
-        # Using dlib would be ideal, but we'll use OpenCV's methods
-        # For facial landmarks, we can use a pre-trained model
-        landmark_model = "lbfmodel.yaml"  # OpenCV's facial landmark model
-
-        if os.path.exists(landmark_model):
-            self.landmark_detector = cv2.face.createFacemarkLBF()
-            self.landmark_detector.loadModel(landmark_model)
-            self.use_landmarks = True
-        else:
-            print("Landmark model not found. Using geometric analysis only.")
+        # Check if cv2.face module is available (requires opencv-contrib-python)
+        self.use_landmarks = False
+        try:
+            # Only try to use face module if it exists
+            if hasattr(cv2, 'face'):
+                landmark_model = "lbfmodel.yaml"  # OpenCV's facial landmark model
+                if os.path.exists(landmark_model):
+                    self.landmark_detector = cv2.face.createFacemarkLBF()
+                    self.landmark_detector.loadModel(landmark_model)
+                    self.use_landmarks = True
+                    print("Facial landmark detection enabled.")
+                else:
+                    print("Landmark model not found. Using geometric analysis only.")
+            else:
+                print("OpenCV face module not available. Using geometric analysis only.")
+                print("(Optional: Install opencv-contrib-python for enhanced features)")
+        except Exception as e:
+            print(f"Could not setup landmark detection: {e}")
+            print("Using geometric analysis only.")
             self.use_landmarks = False
 
     def detect_faces_dnn(self, frame: np.ndarray) -> List[Dict]:

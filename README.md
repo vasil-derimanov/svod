@@ -4,9 +4,19 @@
 ```
 pip install opencv-python numpy
 ```
+
+```
+pip install opencv-contrib-python
+```
+
 ## Download yolov4.weights
 ```
 wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights
+```
+
+## Download res10_300x300_ssd_iter_140000.caffemodel
+```
+wget https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
 ```
 
 ## Usage
