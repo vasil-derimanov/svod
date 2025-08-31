@@ -83,8 +83,9 @@ class OrientationDetector:
         )
 
         # DNN-based face detection (more robust)
-        model_path = "res10_300x300_ssd_iter_140000.caffemodel"
-        config_path = "deploy.prototxt"
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(script_dir, "res10_300x300_ssd_iter_140000.caffemodel")
+        config_path = os.path.join(script_dir, "deploy.prototxt")
 
         if os.path.exists(model_path) and os.path.exists(config_path):
             self.face_net = cv2.dnn.readNet(model_path, config_path)
@@ -96,8 +97,9 @@ class OrientationDetector:
     def setup_person_detection(self):
         """Setup person/body detection"""
         # YOLO for full person detection
-        weights_path = "yolov4.weights"
-        config_path = "yolov4.cfg"
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        weights_path = os.path.join(script_dir, "yolov4.weights")
+        config_path = os.path.join(script_dir, "yolov4.cfg")
 
         if os.path.exists(weights_path) and os.path.exists(config_path):
             self.net = cv2.dnn.readNet(weights_path, config_path)
@@ -121,7 +123,8 @@ class OrientationDetector:
         try:
             # Only try to use face module if it exists
             if hasattr(cv2, 'face'):
-                landmark_model = "lbfmodel.yaml"  # OpenCV's facial landmark model
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                landmark_model = os.path.join(script_dir, "lbfmodel.yaml")
                 if os.path.exists(landmark_model):
                     self.landmark_detector = cv2.face.createFacemarkLBF()
                     self.landmark_detector.loadModel(landmark_model)
