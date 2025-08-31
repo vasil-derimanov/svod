@@ -267,12 +267,12 @@ class OrientationDetector:
             # Determine orientation based on angle
             if -30 <= angle <= 30:
                 return 'upright'  # Eyes are roughly horizontal
-            elif 60 <= angle <= 120 or -120 <= angle <= -60:
-                return 'sideways'  # Eyes are roughly vertical
+            # elif 60 <= angle <= 120 or -120 <= angle <= -60:
+            #     return 'sideways'  # Eyes are roughly vertical
             elif 150 <= angle or angle <= -150:
                 return 'upside_down'  # Eyes are horizontal but inverted
-            else:
-                return 'tilted'
+            # else:
+            #     return 'tilted'
 
         # Fallback: analyze face aspect ratio and position
         face_aspect = h / w if w > 0 else 1
