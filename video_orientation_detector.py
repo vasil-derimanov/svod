@@ -5,6 +5,10 @@ import argparse
 from typing import Tuple, List, Dict, Optional
 import os
 import math
+from pathlib import Path
+import time
+from datetime import datetime
+import json
 
 
 class VideoOrientation(Enum):
@@ -12,6 +16,27 @@ class VideoOrientation(Enum):
     CORRECT = "CORRECT - Humans are upright"
     INCORRECT = "INCORRECT - Humans are sideways/rotated"
     UNCERTAIN = "UNCERTAIN - Cannot determine orientation"
+
+
+class BatchResult:
+    """Data class for batch processing results"""
+
+    def __init__(self, filepath: str, orientation: VideoOrientation, confidence: float,
+                 detection_info: Dict, processing_time: float, error: str = None):
+        self.filepath = filepath
+        self.filename = Path(filepath).name
+        self.orientation = orientation
+        self.confidence = confidence
+        self.detection_info = detection_info
+        self.processing_time = processing_time
+        self.error = error
+        self.filesize = self._get_file_size()
+
+    def _get_file_size(self):
+        try:
+            return os.path.getsize(self.filepath) / (1024 * 1024)  # MB
+        except:
+            return 0.0
 
 
 class OrientationDetector:
@@ -307,6 +332,19 @@ class OrientationDetector:
 
         return (face_area / frame_area) > 0.05  # Face is more than 5% of frame
 
+    def reset_stats(self):
+        """Reset statistics for new video processing"""
+        self.stats = {
+            'total_frames': 0,
+            'frames_with_humans': 0,
+            'correct_orientation_frames': 0,
+            'incorrect_orientation_frames': 0,
+            'uncertain_frames': 0,
+            'face_detections': 0,
+            'body_detections': 0,
+            'close_up_frames': 0
+        }
+
     def determine_frame_orientation(self, frame: np.ndarray) -> Tuple[VideoOrientation, Dict]:
         """
         Determine the orientation of a single frame with detailed analysis
@@ -509,11 +547,88 @@ class OrientationDetector:
 
         return annotated
 
+    def process_video_quick(self, video_path: str) -> BatchResult:
+        """
+        Quick video processing for batch analysis (no display, fast sampling)
+        """
+        start_time = time.time()
+
+        try:
+            self.reset_stats()
+
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                return BatchResult(video_path, VideoOrientation.UNCERTAIN, 0.0, {},
+                                   time.time() - start_time, "Cannot open video")
+
+            # Get video properties
+            fps = int(cap.get(cv2.CAP_PROP_FPS))
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+            # Sample fewer frames for batch processing
+            skip_frames = max(50, total_frames // 20)  # Sample ~20 frames max
+            frame_count = 0
+
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                frame_count += 1
+
+                # Skip frames for efficiency
+                if frame_count % skip_frames != 0:
+                    continue
+
+                # Analyze frame
+                orientation, detection_info = self.determine_frame_orientation(frame)
+
+                # Update statistics
+                self.stats['total_frames'] += 1
+                if orientation == VideoOrientation.CORRECT:
+                    self.stats['correct_orientation_frames'] += 1
+                    if detection_info['faces'] or detection_info['bodies']:
+                        self.stats['frames_with_humans'] += 1
+                elif orientation == VideoOrientation.INCORRECT:
+                    self.stats['incorrect_orientation_frames'] += 1
+                    if detection_info['faces'] or detection_info['bodies']:
+                        self.stats['frames_with_humans'] += 1
+                else:
+                    self.stats['uncertain_frames'] += 1
+
+            cap.release()
+
+            # Calculate results
+            results = self.calculate_final_verdict()
+            processing_time = time.time() - start_time
+
+            return BatchResult(
+                video_path,
+                self._get_orientation_from_verdict(results['verdict']),
+                results['confidence'],
+                results,
+                processing_time
+            )
+
+        except Exception as e:
+            return BatchResult(video_path, VideoOrientation.UNCERTAIN, 0.0, {},
+                               time.time() - start_time, str(e))
+
+    def _get_orientation_from_verdict(self, verdict: str) -> VideoOrientation:
+        """Extract VideoOrientation from verdict string"""
+        if "CORRECT" in verdict:
+            return VideoOrientation.CORRECT
+        elif "ROTATED" in verdict:
+            return VideoOrientation.INCORRECT
+        else:
+            return VideoOrientation.UNCERTAIN
+
     def process_video(self, video_path: str, display: bool = True,
                       output_path: str = None) -> Dict:
         """
         Process entire video with enhanced detection
         """
+        self.reset_stats()
         cap = cv2.VideoCapture(video_path)
 
         if not cap.isOpened():
@@ -666,6 +781,223 @@ class OrientationDetector:
         print(f"  • Close-up frames: {results['detection_types']['close_up_frames']}")
         print("=" * 60)
 
+    def process_folder(self, folder_path: str, recursive: bool = False,
+                       output_file: str = None) -> List[BatchResult]:
+        """
+        Process all video files in a folder and generate summary report
+        """
+        video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v'}
+        results = []
+
+        # Find all video files
+        folder = Path(folder_path)
+        if not folder.exists():
+            print(f"Error: Folder '{folder_path}' does not exist")
+            return results
+
+        if recursive:
+            video_files = [f for f in folder.rglob('*') if f.suffix.lower() in video_extensions]
+        else:
+            video_files = [f for f in folder.iterdir() if f.is_file() and f.suffix.lower() in video_extensions]
+
+        if not video_files:
+            print(f"No video files found in {folder_path}")
+            return results
+
+        print(f"\n🎬 Found {len(video_files)} video files to process...")
+        print("=" * 80)
+
+        # Process each video
+        for i, video_file in enumerate(video_files, 1):
+            print(f"[{i}/{len(video_files)}] Processing: {video_file.name}")
+
+            result = self.process_video_quick(str(video_file))
+            results.append(result)
+
+            # Show progress
+            if result.error:
+                print(f"  ❌ Error: {result.error}")
+            else:
+                status_icon = "✅" if result.orientation == VideoOrientation.CORRECT else "❌" if result.orientation == VideoOrientation.INCORRECT else "⚠️"
+                print(f"  {status_icon} {result.orientation.value.split(' -')[0]} ({result.confidence:.1%} confidence)")
+
+            print(f"  ⏱️  Processing time: {result.processing_time:.1f}s")
+            print()
+
+        # Generate and display summary
+        self.print_batch_summary(results)
+
+        # Save detailed report if requested
+        if output_file:
+            self.save_batch_report(results, output_file)
+            print(f"\n📊 Detailed report saved to: {output_file}")
+
+        return results
+
+    def print_batch_summary(self, results: List[BatchResult]):
+        """
+        Print summary table of batch processing results
+        """
+        print("\n" + "=" * 120)
+        print(" BATCH PROCESSING SUMMARY - SORTED BY PRIORITY")
+        print("=" * 120)
+
+        # Separate results by category
+        needs_rotation = [r for r in results if r.orientation == VideoOrientation.INCORRECT and not r.error]
+        manual_review = [r for r in results if r.orientation == VideoOrientation.UNCERTAIN and not r.error]
+        correct_files = [r for r in results if r.orientation == VideoOrientation.CORRECT and not r.error]
+        error_files = [r for r in results if r.error]
+
+        # Sort each category
+        needs_rotation.sort(key=lambda x: x.confidence, reverse=True)
+        manual_review.sort(key=lambda x: x.confidence, reverse=True)
+        correct_files.sort(key=lambda x: x.confidence, reverse=True)
+        error_files.sort(key=lambda x: x.filename)
+
+        # Print header
+        print(f"{'STATUS':<12} {'FILENAME':<35} {'SIZE(MB)':<8} {'CONF':<6} {'TIME(s)':<7} {'RECOMMENDATION':<25}")
+        print("-" * 120)
+
+        # Print files that need rotation (highest priority)
+        if needs_rotation:
+            print(f"\n🔴 FILES REQUIRING ROTATION ({len(needs_rotation)} files):")
+            print("-" * 60)
+            for result in needs_rotation:
+                self._print_result_row(result, "ROTATE")
+
+        # Print files needing manual review
+        if manual_review:
+            print(f"\n🟡 FILES REQUIRING MANUAL REVIEW ({len(manual_review)} files):")
+            print("-" * 60)
+            for result in manual_review:
+                self._print_result_row(result, "MANUAL")
+
+        # Print correct files
+        if correct_files:
+            print(f"\n🟢 FILES WITH CORRECT ORIENTATION ({len(correct_files)} files):")
+            print("-" * 60)
+            for result in correct_files:
+                self._print_result_row(result, "OK")
+
+        # Print error files
+        if error_files:
+            print(f"\n⚫ FILES WITH ERRORS ({len(error_files)} files):")
+            print("-" * 60)
+            for result in error_files:
+                self._print_result_row(result, "ERROR")
+
+        # Print overall statistics
+        total_files = len(results)
+        print(f"\n📈 OVERALL STATISTICS:")
+        print(f"  • Total files processed: {total_files}")
+        print(f"  • Need rotation: {len(needs_rotation)} ({len(needs_rotation) / total_files * 100:.1f}%)")
+        print(f"  • Need manual review: {len(manual_review)} ({len(manual_review) / total_files * 100:.1f}%)")
+        print(f"  • Correct orientation: {len(correct_files)} ({len(correct_files) / total_files * 100:.1f}%)")
+        print(f"  • Processing errors: {len(error_files)} ({len(error_files) / total_files * 100:.1f}%)")
+
+        total_time = sum(r.processing_time for r in results)
+        avg_time = total_time / len(results) if results else 0
+        print(f"  • Total processing time: {total_time:.1f}s")
+        print(f"  • Average time per file: {avg_time:.1f}s")
+
+        print("=" * 120)
+
+    def _print_result_row(self, result: BatchResult, status: str):
+        """Print a single result row in the table"""
+        # Truncate filename if too long
+        filename = result.filename
+        if len(filename) > 35:
+            filename = filename[:32] + "..."
+
+        confidence_str = f"{result.confidence:.1%}" if not result.error else "N/A"
+        recommendation = self._get_short_recommendation(result)
+
+        print(f"{status:<12} {filename:<35} {result.filesize:<8.1f} {confidence_str:<6} "
+              f"{result.processing_time:<7.1f} {recommendation:<25}")
+
+    def _get_short_recommendation(self, result: BatchResult) -> str:
+        """Get short recommendation text for table display"""
+        if result.error:
+            return "Check file integrity"
+        elif result.orientation == VideoOrientation.INCORRECT:
+            return "Rotate 90° clockwise"
+        elif result.orientation == VideoOrientation.UNCERTAIN:
+            return "Manual inspection"
+        else:
+            return "No action needed"
+
+    def save_batch_report(self, results: List[BatchResult], output_file: str):
+        """
+        Save detailed batch processing report to file
+        """
+        report_data = {
+            'timestamp': datetime.now().isoformat(),
+            'total_files': len(results),
+            'summary': {
+                'needs_rotation': len([r for r in results if r.orientation == VideoOrientation.INCORRECT]),
+                'manual_review': len([r for r in results if r.orientation == VideoOrientation.UNCERTAIN]),
+                'correct_orientation': len([r for r in results if r.orientation == VideoOrientation.CORRECT]),
+                'errors': len([r for r in results if r.error])
+            },
+            'files': []
+        }
+
+        for result in results:
+            file_data = {
+                'filepath': result.filepath,
+                'filename': result.filename,
+                'filesize_mb': result.filesize,
+                'orientation': result.orientation.value if result.orientation else 'ERROR',
+                'confidence': result.confidence,
+                'processing_time': result.processing_time,
+                'error': result.error,
+                'detection_info': result.detection_info if hasattr(result, 'detection_info') else {}
+            }
+            report_data['files'].append(file_data)
+
+        # Save as JSON
+        if output_file.lower().endswith('.json'):
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(report_data, f, indent=2, ensure_ascii=False)
+        else:
+            # Save as text report
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write("VIDEO ORIENTATION ANALYSIS REPORT\n")
+                f.write("=" * 50 + "\n")
+                f.write(f"Generated: {report_data['timestamp']}\n")
+                f.write(f"Total files: {report_data['total_files']}\n\n")
+
+                f.write("SUMMARY:\n")
+                f.write(f"  Need rotation: {report_data['summary']['needs_rotation']}\n")
+                f.write(f"  Manual review: {report_data['summary']['manual_review']}\n")
+                f.write(f"  Correct orientation: {report_data['summary']['correct_orientation']}\n")
+                f.write(f"  Errors: {report_data['summary']['errors']}\n\n")
+
+                f.write("DETAILED RESULTS:\n")
+                f.write("-" * 50 + "\n")
+
+                for file_data in report_data['files']:
+                    f.write(f"File: {file_data['filename']}\n")
+                    f.write(f"  Path: {file_data['filepath']}\n")
+                    f.write(f"  Size: {file_data['filesize_mb']:.1f} MB\n")
+                    f.write(f"  Orientation: {file_data['orientation']}\n")
+                    f.write(f"  Confidence: {file_data['confidence']:.1%}\n")
+                    f.write(f"  Processing time: {file_data['processing_time']:.1f}s\n")
+                    if file_data['error']:
+                        f.write(f"  Error: {file_data['error']}\n")
+                    f.write("\n")
+
+
+def get_video_files_in_folder(folder_path: str, recursive: bool = False) -> List[Path]:
+    """Get list of video files in folder"""
+    video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v'}
+    folder = Path(folder_path)
+
+    if recursive:
+        return [f for f in folder.rglob('*') if f.suffix.lower() in video_extensions]
+    else:
+        return [f for f in folder.iterdir() if f.is_file() and f.suffix.lower() in video_extensions]
+
 
 def main():
     """Main function to run the video orientation detector"""
@@ -674,50 +1006,98 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s video.mp4                    # Basic analysis with display
-  %(prog)s video.mp4 -o corrected.mp4   # Save annotated output
-  %(prog)s video.mp4 --no-display       # Process without display
-  %(prog)s video.mp4 -c 0.7             # Higher confidence threshold
+  Single video analysis:
+    %(prog)s video.mp4                    # Basic analysis with display
+    %(prog)s video.mp4 -o corrected.mp4   # Save annotated output
+    %(prog)s video.mp4 --no-display       # Process without display
+
+  Batch folder processing:
+    %(prog)s /path/to/videos --batch      # Process all videos in folder
+    %(prog)s /path/to/videos --batch -r   # Process recursively (subfolders)
+    %(prog)s /path/to/videos --batch --report summary.txt  # Save detailed report
+
+  Advanced options:
+    %(prog)s video.mp4 -c 0.7             # Higher confidence threshold
         """
     )
 
-    parser.add_argument('video_path', help='Path to input video file')
-    parser.add_argument('--output', '-o', help='Path to save annotated video')
+    parser.add_argument('path', help='Path to video file or folder for batch processing')
+    parser.add_argument('--output', '-o', help='Path to save annotated video (single file mode)')
     parser.add_argument('--no-display', action='store_true',
-                        help='Process without displaying video')
+                        help='Process without displaying video (single file mode)')
     parser.add_argument('--confidence', '-c', type=float, default=0.5,
                         help='Confidence threshold for detection (0-1, default: 0.5)')
 
+    # Batch processing options
+    parser.add_argument('--batch', action='store_true',
+                        help='Enable batch processing mode for folders')
+    parser.add_argument('--recursive', '-r', action='store_true',
+                        help='Process subfolders recursively (batch mode only)')
+    parser.add_argument('--report', help='Save detailed batch report to file (batch mode only)')
+
     args = parser.parse_args()
 
-    # Validate input file
-    if not os.path.exists(args.video_path):
-        print(f"Error: Video file '{args.video_path}' not found")
+    # Validate input path
+    if not os.path.exists(args.path):
+        print(f"Error: Path '{args.path}' not found")
         return 1
 
     # Create detector
     print("Initializing orientation detector...")
     detector = OrientationDetector(confidence_threshold=args.confidence)
 
-    # Process video
     try:
-        results = detector.process_video(
-            args.video_path,
-            display=not args.no_display,
-            output_path=args.output
-        )
+        if args.batch:
+            # Batch processing mode
+            if not os.path.isdir(args.path):
+                print("Error: Batch mode requires a folder path")
+                return 1
 
-        # Print results
-        detector.print_results(results)
+            print(f"🎬 Starting batch processing of folder: {args.path}")
+            if args.recursive:
+                print("📁 Recursive mode enabled - processing subfolders")
 
-        if args.output:
-            print(f"\n✓ Annotated video saved to: {args.output}")
+            results = detector.process_folder(
+                args.path,
+                recursive=args.recursive,
+                output_file=args.report
+            )
+
+            if not results:
+                print("No video files found or processed")
+                return 1
+
+            # Quick summary for command line
+            needs_rotation = sum(1 for r in results if r.orientation == VideoOrientation.INCORRECT)
+            total_files = len(results)
+
+            print(f"\n🏁 Batch processing complete!")
+            print(f"📋 {needs_rotation} out of {total_files} files need rotation")
+
+        else:
+            # Single file processing mode
+            if os.path.isdir(args.path):
+                print("Error: Single file mode requires a video file path")
+                print("Use --batch flag for folder processing")
+                return 1
+
+            results = detector.process_video(
+                args.path,
+                display=not args.no_display,
+                output_path=args.output
+            )
+
+            # Print results
+            detector.print_results(results)
+
+            if args.output:
+                print(f"\n✓ Annotated video saved to: {args.output}")
 
     except KeyboardInterrupt:
         print("\n\nProcessing interrupted by user")
         return 1
     except Exception as e:
-        print(f"\nError processing video: {e}")
+        print(f"\nError processing: {e}")
         return 1
 
     return 0
