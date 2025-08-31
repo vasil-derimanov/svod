@@ -42,14 +42,16 @@ class BatchResult:
 class OrientationDetector:
     """Enhanced class for detecting video orientation based on human features"""
 
-    def __init__(self, confidence_threshold: float = 0.5):
+    def __init__(self, confidence_threshold: float = 0.5, time_limit: Optional[float] = None):
         """
         Initialize the orientation detector
 
         Args:
             confidence_threshold: Minimum confidence for detection (0-1)
+            time_limit: Maximum time in seconds to analyze from start of video (None = entire video)
         """
         self.confidence_threshold = confidence_threshold
+        self.time_limit = time_limit  # New parameter
 
         # Initialize face detection (works for close-ups)
         self.setup_face_detection()
@@ -69,7 +71,9 @@ class OrientationDetector:
             'uncertain_frames': 0,
             'face_detections': 0,
             'body_detections': 0,
-            'close_up_frames': 0
+            'close_up_frames': 0,
+            'analyzed_duration': 0.0,  # Track actual analyzed duration
+            'video_duration': 0.0  # Track total video duration
         }
 
     def setup_face_detection(self):
@@ -139,6 +143,20 @@ class OrientationDetector:
             print(f"Could not setup landmark detection: {e}")
             print("Using geometric analysis only.")
             self.use_landmarks = False
+
+    def get_max_frame_for_time_limit(self, fps: float) -> Optional[int]:
+        """
+        Calculate maximum frame number to process based on time limit
+
+        Args:
+            fps: Video frames per second
+
+        Returns:
+            Maximum frame number or None if no limit
+        """
+        if self.time_limit is None:
+            return None
+        return int(self.time_limit * fps)
 
     def detect_faces_dnn(self, frame: np.ndarray) -> List[Dict]:
         """
@@ -345,7 +363,9 @@ class OrientationDetector:
             'uncertain_frames': 0,
             'face_detections': 0,
             'body_detections': 0,
-            'close_up_frames': 0
+            'close_up_frames': 0,
+            'analyzed_duration': 0.0,
+            'video_duration': 0.0
         }
 
     def determine_frame_orientation(self, frame: np.ndarray) -> Tuple[VideoOrientation, Dict]:
@@ -535,6 +555,10 @@ class OrientationDetector:
         if detection_info['is_close_up']:
             status_text += " (Close-up)"
 
+        # Add time limit info if active
+        if self.time_limit:
+            status_text += f" (Analyzing first {self.time_limit}s)"
+
         status_color = (0, 255, 0) if orientation == VideoOrientation.CORRECT else \
             (0, 0, 255) if orientation == VideoOrientation.INCORRECT else \
                 (255, 255, 0)
@@ -565,8 +589,17 @@ class OrientationDetector:
                                    time.time() - start_time, "Cannot open video")
 
             # Get video properties
-            fps = int(cap.get(cv2.CAP_PROP_FPS))
+            fps = cap.get(cv2.CAP_PROP_FPS)
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            self.stats['video_duration'] = total_frames / fps if fps > 0 else 0
+
+            # Calculate maximum frame to process based on time limit
+            max_frame = self.get_max_frame_for_time_limit(fps)
+            if max_frame is not None:
+                max_frame = min(max_frame, total_frames)
+                self.stats['analyzed_duration'] = max_frame / fps if fps > 0 else 0
+            else:
+                self.stats['analyzed_duration'] = self.stats['video_duration']
 
             # Sample fewer frames for batch processing
             skip_frames = 12
@@ -578,6 +611,11 @@ class OrientationDetector:
                     break
 
                 frame_count += 1
+
+                # Check time limit
+                if max_frame is not None and frame_count > max_frame:
+                    print(f"  ⏱️  Time limit reached: analyzed first {self.time_limit}s of video")
+                    break
 
                 # Skip frames for efficiency
                 if frame_count % skip_frames != 0:
@@ -629,7 +667,7 @@ class OrientationDetector:
     def process_video(self, video_path: str, display: bool = True,
                       output_path: str = None) -> Dict:
         """
-        Process entire video with enhanced detection
+        Process entire video (or time-limited portion) with enhanced detection
         """
         self.reset_stats()
         cap = cv2.VideoCapture(video_path)
@@ -638,10 +676,19 @@ class OrientationDetector:
             raise ValueError(f"Cannot open video: {video_path}")
 
         # Get video properties
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        fps = cap.get(cv2.CAP_PROP_FPS)
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.stats['video_duration'] = total_frames / fps if fps > 0 else 0
+
+        # Calculate maximum frame to process based on time limit
+        max_frame = self.get_max_frame_for_time_limit(fps)
+        if max_frame is not None:
+            max_frame = min(max_frame, total_frames)
+            self.stats['analyzed_duration'] = max_frame / fps if fps > 0 else 0
+        else:
+            self.stats['analyzed_duration'] = self.stats['video_duration']
 
         # Setup video writer
         writer = None
@@ -650,7 +697,10 @@ class OrientationDetector:
             writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
         print(f"Processing video: {video_path}")
-        print(f"Resolution: {width}x{height}, Total frames: {total_frames}, FPS: {fps}")
+        print(f"Resolution: {width}x{height}, Total frames: {total_frames}, FPS: {fps:.1f}")
+        print(f"Video duration: {self.stats['video_duration']:.1f}s")
+        if self.time_limit:
+            print(f"⏱️  Analyzing only first {self.time_limit}s ({self.stats['analyzed_duration']:.1f}s actual)")
         print("Detecting faces and bodies for orientation analysis...")
 
         frame_count = 0
@@ -662,6 +712,11 @@ class OrientationDetector:
                 break
 
             frame_count += 1
+
+            # Check time limit
+            if max_frame is not None and frame_count > max_frame:
+                print(f"\n⏱️  Time limit reached: analyzed first {self.time_limit}s of video")
+                break
 
             # Skip frames for efficiency
             if frame_count % skip_frames != 0:
@@ -699,7 +754,10 @@ class OrientationDetector:
 
             # Progress update
             if frame_count % 90 == 0:
-                progress = (frame_count / total_frames) * 100
+                if max_frame:
+                    progress = (frame_count / max_frame) * 100
+                else:
+                    progress = (frame_count / total_frames) * 100
                 print(f"Progress: {progress:.1f}% | Faces detected: {self.stats['face_detections']} | "
                       f"Bodies detected: {self.stats['body_detections']}")
 
@@ -755,6 +813,13 @@ class OrientationDetector:
                 'face_detections': self.stats['face_detections'],
                 'body_detections': self.stats['body_detections'],
                 'close_up_frames': self.stats['close_up_frames']
+            },
+            'time_analysis': {
+                'video_duration': self.stats['video_duration'],
+                'analyzed_duration': self.stats['analyzed_duration'],
+                'analysis_percentage': (self.stats['analyzed_duration'] / max(self.stats['video_duration'],
+                                                                              0.01)) * 100 if self.stats[
+                                                                                                  'video_duration'] > 0 else 0
             }
         }
 
@@ -782,6 +847,15 @@ class OrientationDetector:
         print(f"  • Face detections: {results['detection_types']['face_detections']}")
         print(f"  • Body detections: {results['detection_types']['body_detections']}")
         print(f"  • Close-up frames: {results['detection_types']['close_up_frames']}")
+
+        print(f"\n⏱️ Time Analysis:")
+        print(f"  • Video duration: {results['time_analysis']['video_duration']:.1f}s")
+        print(f"  • Analyzed duration: {results['time_analysis']['analyzed_duration']:.1f}s")
+        print(f"  • Analysis coverage: {results['time_analysis']['analysis_percentage']:.1f}%")
+
+        if self.time_limit and results['time_analysis']['analysis_percentage'] < 100:
+            print(f"  • Time limit: {self.time_limit}s (only analyzed beginning of video)")
+
         print("=" * 60)
 
     def process_folder(self, folder_path: str, recursive: bool = False,
@@ -807,7 +881,8 @@ class OrientationDetector:
             print(f"No video files found in {folder_path}")
             return results
 
-        print(f"\n🎬 Found {len(video_files)} video files to process...")
+        time_limit_info = f" (analyzing first {self.time_limit}s of each file)" if self.time_limit else ""
+        print(f"\n🎬 Found {len(video_files)} video files to process{time_limit_info}...")
         print("=" * 80)
 
         # Process each video
@@ -825,6 +900,9 @@ class OrientationDetector:
                 print(f"  {status_icon} {result.orientation.value.split(' -')[0]} ({result.confidence:.1%} confidence)")
 
             print(f"  ⏱️  Processing time: {result.processing_time:.1f}s")
+            if hasattr(result.detection_info, 'time_analysis') and self.time_limit:
+                coverage = result.detection_info.get('time_analysis', {}).get('analysis_percentage', 0)
+                print(f"  📊 Analyzed {coverage:.0f}% of video duration")
             print()
 
         # Generate and display summary
@@ -841,9 +919,11 @@ class OrientationDetector:
         """
         Print summary table of batch processing results
         """
-        print("\n" + "=" * 120)
+        print("\n" + "=" * 130)
         print(" BATCH PROCESSING SUMMARY - SORTED BY PRIORITY")
-        print("=" * 120)
+        if self.time_limit:
+            print(f" (Analysis limited to first {self.time_limit} seconds of each video)")
+        print("=" * 130)
 
         # Separate results by category
         needs_rotation = [r for r in results if r.orientation == VideoOrientation.INCORRECT and not r.error]
@@ -859,7 +939,7 @@ class OrientationDetector:
 
         # Print header
         print(f"{'STATUS':<12} {'FILENAME':<35} {'SIZE(MB)':<8} {'CONF':<6} {'TIME(s)':<7} {'RECOMMENDATION':<25}")
-        print("-" * 120)
+        print("-" * 130)
 
         # Print files that need rotation (highest priority)
         if needs_rotation:
@@ -903,7 +983,10 @@ class OrientationDetector:
         print(f"  • Total processing time: {total_time:.1f}s")
         print(f"  • Average time per file: {avg_time:.1f}s")
 
-        print("=" * 120)
+        if self.time_limit:
+            print(f"  • Analysis time limit: {self.time_limit}s per video")
+
+        print("=" * 130)
 
     def _print_result_row(self, result: BatchResult, status: str):
         """Print a single result row in the table"""
@@ -936,6 +1019,8 @@ class OrientationDetector:
         report_data = {
             'timestamp': datetime.now().isoformat(),
             'total_files': len(results),
+            'time_limit_seconds': self.time_limit,
+            'confidence_threshold': self.confidence_threshold,
             'summary': {
                 'needs_rotation': len([r for r in results if r.orientation == VideoOrientation.INCORRECT]),
                 'manual_review': len([r for r in results if r.orientation == VideoOrientation.UNCERTAIN]),
@@ -968,7 +1053,10 @@ class OrientationDetector:
                 f.write("VIDEO ORIENTATION ANALYSIS REPORT\n")
                 f.write("=" * 50 + "\n")
                 f.write(f"Generated: {report_data['timestamp']}\n")
-                f.write(f"Total files: {report_data['total_files']}\n\n")
+                f.write(f"Total files: {report_data['total_files']}\n")
+                f.write(f"Time limit: {report_data['time_limit_seconds']}s per video\n" if report_data[
+                    'time_limit_seconds'] else "Time limit: Full video analysis\n")
+                f.write(f"Confidence threshold: {report_data['confidence_threshold']}\n\n")
 
                 f.write("SUMMARY:\n")
                 f.write(f"  Need rotation: {report_data['summary']['needs_rotation']}\n")
@@ -1013,14 +1101,16 @@ Examples:
     %(prog)s video.mp4                    # Basic analysis with display
     %(prog)s video.mp4 -o corrected.mp4   # Save annotated output
     %(prog)s video.mp4 --no-display       # Process without display
+    %(prog)s video.mp4 --time-limit 10    # Analyze only first 10 seconds
 
   Batch folder processing:
     %(prog)s /path/to/videos --batch      # Process all videos in folder
     %(prog)s /path/to/videos --batch -r   # Process recursively (subfolders)
     %(prog)s /path/to/videos --batch --report summary.txt  # Save detailed report
+    %(prog)s /path/to/videos --batch --time-limit 15       # Analyze first 15s of each video
 
   Advanced options:
-    %(prog)s video.mp4 -c 0.7             # Higher confidence threshold
+    %(prog)s video.mp4 -c 0.7 --time-limit 30  # Higher confidence + 30s limit
         """
     )
 
@@ -1030,6 +1120,10 @@ Examples:
                         help='Process without displaying video (single file mode)')
     parser.add_argument('--confidence', '-c', type=float, default=0.5,
                         help='Confidence threshold for detection (0-1, default: 0.5)')
+
+    # NEW: Time limit parameter
+    parser.add_argument('--time-limit', '-t', type=float, default=None,
+                        help='Maximum time in seconds to analyze from start of video (default: analyze entire video)')
 
     # Batch processing options
     parser.add_argument('--batch', action='store_true',
@@ -1045,9 +1139,20 @@ Examples:
         print(f"Error: Path '{args.path}' not found")
         return 1
 
-    # Create detector
+    # Validate time limit
+    if args.time_limit is not None and args.time_limit <= 0:
+        print("Error: Time limit must be positive")
+        return 1
+
+    # Create detector with time limit
     print("Initializing orientation detector...")
-    detector = OrientationDetector(confidence_threshold=args.confidence)
+    if args.time_limit:
+        print(f"⏱️  Time limit set to {args.time_limit} seconds")
+
+    detector = OrientationDetector(
+        confidence_threshold=args.confidence,
+        time_limit=args.time_limit
+    )
 
     try:
         if args.batch:

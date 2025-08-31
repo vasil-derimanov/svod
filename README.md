@@ -30,6 +30,9 @@ python video_orientation_detector.py path/to/video.mp4 --no-display
 # Process folder recursively with detailed report
 python video_orientation_detector.py /path/to/videos --batch --recursive --report summary.txt
 
+# Batch process folder, analyzing first 15 seconds of each video
+python video_orientation_detector.py /path/to/videos --batch --time-limit 15
+
 # Adjust confidence threshold
 python video_orientation_detector.py path/to/video.mp4 --confidence 0.7
 ```
