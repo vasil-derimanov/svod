@@ -4,11 +4,6 @@
 *.swp
 *.swo
 
-# Project management files (dependencies are documented in README.md)
-requirements.txt
-requirements*.txt
-pip-requirements.txt
-
 # Python cache and virtual environments  
 __pycache__/
 *.pyc
