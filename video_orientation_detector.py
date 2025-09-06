@@ -35,7 +35,7 @@ import platform
 import shutil
 
 # Version information
-__version__ = "4.6.1"
+__version__ = "4.6.0"
 __release_date__ = "2025-09-07"
 __release_name__ = "Production Ready - Clean Settings & Virtual Environment"
 
@@ -99,11 +99,7 @@ def check_system_requirements():
     if python_version < (3, 8):
         issues.append(f"Python version {platform.python_version()} is too old. Minimum required: 3.8")
     elif python_version >= (3, 12):
-        if sys.platform == "darwin":  # macOS specific warning
-            warnings.append(f"Python {platform.python_version()} on macOS may have OpenVINO compatibility issues")
-            warnings.append("Consider using Python 3.11 for better macOS compatibility")
-        else:
-            warnings.append(f"Python {platform.python_version()} is very new - some packages might not be fully compatible")
+        warnings.append(f"Python {platform.python_version()} is very new - some packages might not be fully compatible")
     
     # Check essential dependencies
     essential_deps = [
@@ -368,12 +364,6 @@ def download_model_files():
         
         print(f"🔧 Trying OpenVINO Model Zoo approach...")
         
-        # Skip OpenVINO tools on macOS with Python 3.12+ due to compatibility issues
-        if sys.platform == "darwin" and sys.version_info >= (3, 12):
-            print(f"⚠️ Skipping OpenVINO tools on macOS with Python {sys.version_info.major}.{sys.version_info.minor}")
-            print(f"   Known compatibility issues with OpenVINO and Python 3.12+ on macOS")
-            return False
-        
         try:
             # Install OpenVINO dev tools if not available
             import subprocess
@@ -385,8 +375,8 @@ def download_model_files():
                                        capture_output=True, text=True, timeout=10)
                 if result.returncode != 0:
                     raise Exception("omz_downloader not found")
-            except Exception as e:
-                print(f"📦 Installing OpenVINO development tools... (Error: {e})")
+            except:
+                print("📦 Installing OpenVINO development tools...")
                 install_result = subprocess.run([sys.executable, "-m", "pip", "install", "openvino-dev"], 
                                               capture_output=True, text=True)
                 if install_result.returncode != 0:
@@ -450,17 +440,8 @@ def download_model_files():
         except subprocess.TimeoutExpired:
             print("❌ Download/conversion timed out")
             return False
-        except ImportError as e:
-            if "Core" in str(e) or "openvino" in str(e):
-                print(f"❌ OpenVINO import error (common on macOS Python 3.12+): {e}")
-                print("   Falling back to direct model download...")
-            else:
-                print(f"❌ Import error: {e}")
-            return False
         except Exception as e:
             print(f"❌ OpenVINO Model Zoo tools failed: {e}")
-            if "ImportError" in str(e) or "Core" in str(e):
-                print("   This is likely a Python 3.12/OpenVINO compatibility issue")
             return False
     
     def download_file(filename, url):
