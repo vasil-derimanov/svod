@@ -35,37 +35,55 @@ import platform
 import shutil
 
 # Version information
-__version__ = "4.5.0"
+__version__ = "4.6.0"
 __release_date__ = "2025-09-07"
 __release_name__ = "Production Ready - Clean Settings & Virtual Environment"
 
 
 def check_required_model_files():
     """
-    Check if all required model files are available (ALL FILES ARE REQUIRED!)
-    Returns: (bool, list) - (all_files_present, missing_files)
+    Check if all required model files are available
+    Returns: (bool, list) - (all_critical_files_present, missing_files)
+    Note: MobileNet files are optional for enhanced detection
     """
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    required_files = {
+    # Critical files required for basic functionality
+    critical_files = {
         "yolov4.cfg": "YOLO configuration file",
         "yolov4.weights": "YOLO weights file", 
         "coco.names": "COCO class names",
         "deploy.prototxt": "DNN face detector configuration",
         "res10_300x300_ssd_iter_140000.caffemodel": "DNN face detector model",
-        "lbfmodel.yaml": "Facial landmark model",
-        "mobilenet-v2.xml": "MobileNet model configuration",
-        "mobilenet-v2.bin": "MobileNet model weights"
+        "lbfmodel.yaml": "Facial landmark model"
     }
     
-    missing_files = []
+    # Optional files for enhanced detection
+    optional_files = {
+        "mobilenet-v2.xml": "MobileNet model configuration (optional enhancement)",
+        "mobilenet-v2.bin": "MobileNet model weights (optional enhancement)"
+    }
     
-    for filename, description in required_files.items():
+    missing_critical = []
+    missing_optional = []
+    
+    # Check critical files
+    for filename, description in critical_files.items():
         file_path = os.path.join(script_dir, filename)
         if not os.path.exists(file_path):
-            missing_files.append(f"{filename} ({description})")
+            missing_critical.append(f"{filename} ({description})")
     
-    return len(missing_files) == 0, missing_files
+    # Check optional files
+    for filename, description in optional_files.items():
+        file_path = os.path.join(script_dir, filename)
+        if not os.path.exists(file_path):
+            missing_optional.append(f"{filename} ({description})")
+    
+    # Combine all missing files for reporting
+    all_missing = missing_critical + missing_optional
+    
+    # Return True only if all critical files are present
+    return len(missing_critical) == 0, all_missing
 
 
 def check_system_requirements():
@@ -285,8 +303,8 @@ def download_model_files():
             print(f"Warning: Could not validate {filename}: {e}")
             return False
     
-    def download_mobilenet_with_omz(script_dir, filename):
-        """Download and convert MobileNet using OpenVINO Model Zoo tools"""
+    def download_mobilenet_with_fallback(script_dir, filename):
+        """Download MobileNet with fallback for macOS compatibility"""
         dest_path = os.path.join(script_dir, filename)
         
         if os.path.exists(dest_path):
@@ -300,7 +318,51 @@ def download_model_files():
                 except:
                     pass
         
-        print(f"⬇️ Downloading MobileNet using OpenVINO Model Zoo tools...")
+        # First try OpenVINO Model Zoo tools
+        print(f"⬇️ Attempting MobileNet download using OpenVINO Model Zoo tools...")
+        omz_success = download_mobilenet_with_omz(script_dir, filename)
+        
+        if omz_success:
+            return True
+        
+        # Fallback: Download pre-converted models from Intel Open Model Zoo
+        print(f"🔄 OpenVINO tools failed, trying fallback download...")
+        
+        fallback_urls = {
+            "mobilenet-v2.xml": "https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/models/public/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.xml",
+            "mobilenet-v2.bin": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.bin"
+        }
+        
+        if filename in fallback_urls:
+            try:
+                print(f"📥 Downloading {filename} from fallback source...")
+                import urllib.request
+                urllib.request.urlretrieve(fallback_urls[filename], dest_path)
+                
+                # Validate downloaded file
+                if validate_model_file(dest_path, filename):
+                    print(f"✅ {filename} downloaded successfully via fallback")
+                    return True
+                else:
+                    print(f"❌ Downloaded {filename} is invalid")
+                    try:
+                        os.remove(dest_path)
+                    except:
+                        pass
+                    return False
+                    
+            except Exception as e:
+                print(f"❌ Fallback download failed for {filename}: {e}")
+                return False
+        
+        print(f"❌ No fallback available for {filename}")
+        return False
+
+    def download_mobilenet_with_omz(script_dir, filename):
+        """Download and convert MobileNet using OpenVINO Model Zoo tools"""
+        dest_path = os.path.join(script_dir, filename)
+        
+        print(f"🔧 Trying OpenVINO Model Zoo approach...")
         
         try:
             # Install OpenVINO dev tools if not available
@@ -315,7 +377,11 @@ def download_model_files():
                     raise Exception("omz_downloader not found")
             except:
                 print("📦 Installing OpenVINO development tools...")
-                subprocess.run([sys.executable, "-m", "pip", "install", "openvino-dev"], check=True)
+                install_result = subprocess.run([sys.executable, "-m", "pip", "install", "openvino-dev"], 
+                                              capture_output=True, text=True)
+                if install_result.returncode != 0:
+                    print(f"❌ Failed to install openvino-dev: {install_result.stderr}")
+                    return False
             
             # Create models subdirectory
             models_dir = os.path.join(script_dir, "models")
@@ -375,15 +441,15 @@ def download_model_files():
             print("❌ Download/conversion timed out")
             return False
         except Exception as e:
-            print(f"❌ Failed to download MobileNet: {e}")
+            print(f"❌ OpenVINO Model Zoo tools failed: {e}")
             return False
     
     def download_file(filename, url):
         dest_path = os.path.join(script_dir, filename)
         
-        # Special handling for MobileNet files - use OpenVINO Model Zoo tools
+        # Special handling for MobileNet files - use fallback approach for cross-platform compatibility
         if filename in ["mobilenet-v2.xml", "mobilenet-v2.bin"]:
-            return download_mobilenet_with_omz(script_dir, filename)
+            return download_mobilenet_with_fallback(script_dir, filename)
         
         if not os.path.exists(dest_path):
             print(f"⬇️ Downloading {filename}...")
@@ -1997,20 +2063,32 @@ Examples:
     except Exception as e:
         print(f"⚠️ Setup warning: {e}")
     
-    # Final check - ensure all required model files are now present
+    # Final check - ensure critical model files are now present
     print("🔍 Final validation of required files...")
     files_ok, missing_files_final = check_required_model_files()
-    if not files_ok:
-        print("❌ Critical model files are still missing after download attempt:")
-        for missing_file in missing_files_final:
-            print(f"   • {missing_file}")
-        print("\n💡 Possible solutions:")
-        print("   1. Check internet connectivity")
-        print("   2. Manually download files to script directory")
-        print("   3. Check firewall/proxy settings")
-        return 1
     
-    print("✅ All required model files verified!")
+    if not files_ok:
+        # Separate critical and optional missing files
+        critical_missing = [f for f in missing_files_final if "MobileNet" not in f]
+        optional_missing = [f for f in missing_files_final if "MobileNet" in f]
+        
+        if critical_missing:
+            print("❌ Critical model files are still missing after download attempt:")
+            for missing_file in critical_missing:
+                print(f"   • {missing_file}")
+            print("\n💡 Possible solutions:")
+            print("   1. Check internet connectivity")
+            print("   2. Manually download files to script directory")
+            print("   3. Check firewall/proxy settings")
+            return 1
+        else:
+            print("✅ All critical model files verified!")
+            if optional_missing:
+                print("ℹ️  Optional enhancement files missing (script will run without them):")
+                for missing_file in optional_missing:
+                    print(f"   • {missing_file}")
+    else:
+        print("✅ All model files verified!")
     print()
 
     # Create detector with time limit
