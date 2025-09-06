@@ -31,15 +31,124 @@ import subprocess
 import urllib.request
 import sys
 from collections import Counter
+import platform
+import shutil
 
 # Version information
-__version__ = "4.1.1"
+__version__ = "4.4.0"
 __release_date__ = "2025-09-06"
-__release_name__ = "Cross-Platform Fix"
+__release_name__ = "OpenVINO Model Zoo Integration"
+
+
+def check_required_model_files():
+    """
+    Check if all required model files are available (ALL FILES ARE REQUIRED!)
+    Returns: (bool, list) - (all_files_present, missing_files)
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    required_files = {
+        "yolov4.cfg": "YOLO configuration file",
+        "yolov4.weights": "YOLO weights file", 
+        "coco.names": "COCO class names",
+        "deploy.prototxt": "DNN face detector configuration",
+        "res10_300x300_ssd_iter_140000.caffemodel": "DNN face detector model",
+        "lbfmodel.yaml": "Facial landmark model",
+        "mobilenet-v2.xml": "MobileNet model configuration",
+        "mobilenet-v2.bin": "MobileNet model weights"
+    }
+    
+    missing_files = []
+    
+    for filename, description in required_files.items():
+        file_path = os.path.join(script_dir, filename)
+        if not os.path.exists(file_path):
+            missing_files.append(f"{filename} ({description})")
+    
+    return len(missing_files) == 0, missing_files
+
+
+def check_system_requirements():
+    """
+    Quick system requirements check including required model files
+    Returns: (bool, list) - (all_checks_passed, issues_found)
+    """
+    issues = []
+    warnings = []
+    
+    # Check Python version
+    python_version = tuple(map(int, platform.python_version().split('.')))
+    if python_version < (3, 8):
+        issues.append(f"Python version {platform.python_version()} is too old. Minimum required: 3.8")
+    elif python_version >= (3, 12):
+        warnings.append(f"Python {platform.python_version()} is very new - some packages might not be fully compatible")
+    
+    # Check essential dependencies
+    essential_deps = [
+        ('cv2', 'opencv-python'),
+        ('numpy', 'numpy'),
+    ]
+    
+    for module_name, package_name in essential_deps:
+        try:
+            __import__(module_name)
+        except ImportError:
+            issues.append(f"Missing essential package: {package_name}")
+    
+    # Check required model files
+    files_ok, missing_files = check_required_model_files()
+    if not files_ok:
+        for missing_file in missing_files:
+            issues.append(f"Missing required model file: {missing_file}")
+    
+    # Check OpenCV capabilities
+    try:
+        import cv2
+        # Quick DNN check
+        try:
+            cv2.dnn.readNet()
+        except:
+            warnings.append("OpenCV DNN support might be limited")
+    except Exception as e:
+        issues.append(f"OpenCV check failed: {str(e)}")
+    
+    # Check internet connectivity for model downloads
+    try:
+        urllib.request.urlopen('https://github.com', timeout=3)
+    except:
+        warnings.append("Internet connectivity issues - model auto-download may fail")
+    
+    # Check file permissions
+    try:
+        current_dir = Path.cwd()
+        test_file = current_dir / 'test_write_permission.tmp'
+        test_file.write_text('test')
+        test_file.unlink()
+    except Exception as e:
+        issues.append(f"No write permissions in current directory: {str(e)}")
+    
+    # Check available disk space
+    try:
+        current_dir = Path.cwd()
+        if platform.system() == 'Windows':
+            total, used, free = shutil.disk_usage(current_dir)
+            free_gb = free / (1024**3)
+        else:
+            statvfs = os.statvfs(current_dir)
+            free_gb = (statvfs.f_frsize * statvfs.f_bavail) / (1024**3)
+        
+        if free_gb < 1:
+            warnings.append("Low disk space - model downloads may fail")
+    except:
+        pass  # Non-critical
+    
+    return len(issues) == 0, issues + warnings
 
 
 def install_required_packages():
-    """Install required packages if not available"""
+    """Install required packages if not available with enhanced error handling"""
+    print("📦 Checking and installing required packages...")
+    
     required_packages = [
         ('cv2', 'opencv-python'),
         ('numpy', 'numpy'),
@@ -51,32 +160,68 @@ def install_required_packages():
     
     missing_packages = []
     
+    # Check required packages
     for module_name, package_name in required_packages:
         try:
             __import__(module_name)
+            print(f"✅ {package_name}: Already installed")
         except ImportError:
             missing_packages.append(package_name)
+            print(f"❌ {package_name}: Missing")
     
-    if missing_packages:
-        print(f"📦 Installing required packages: {', '.join(missing_packages)}")
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install'] + missing_packages)
-        print("✅ Required packages installed successfully")
-    
-    # Try to install optional packages (don't fail if they can't be installed)
+    # Check optional packages
     for module_name, package_name in optional_packages:
         try:
             __import__(module_name)
+            print(f"✅ {package_name}: Available (optional)")
         except ImportError:
-            try:
-                print(f"📦 Installing optional package: {package_name}")
-                subprocess.check_call([sys.executable, '-m', 'pip', 'install', package_name])
-                print(f"✅ {package_name} installed successfully")
-            except subprocess.CalledProcessError:
-                print(f"⚠️ Could not install {package_name}, continuing without it")
+            print(f"⚠️  {package_name}: Not installed (optional)")
+    
+    if missing_packages:
+        print(f"\n📦 Installing required packages: {', '.join(missing_packages)}")
+        
+        # Check if pip is available
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', '--version'], 
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError:
+            print("❌ pip is not available. Please install pip first.")
+            return False
+        
+        try:
+            # Try to upgrade pip first
+            print("🔄 Upgrading pip...")
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip'],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # Install missing packages
+            for package in missing_packages:
+                print(f"📦 Installing {package}...")
+                result = subprocess.run([sys.executable, '-m', 'pip', 'install', package], 
+                                      capture_output=True, text=True)
+                if result.returncode != 0:
+                    print(f"❌ Failed to install {package}:")
+                    print(f"   Error: {result.stderr}")
+                    return False
+                else:
+                    print(f"✅ Successfully installed {package}")
+            
+            print("✅ All required packages installed successfully!")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Package installation failed: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Unexpected error during installation: {e}")
+            return False
+    
+    print("✅ All required packages are already available!")
+    return True
 
 
 def download_model_files():
-    """Download required model files automatically"""
+    """Download ALL required model files automatically (no optional files!)"""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
     files_to_download = {
@@ -84,21 +229,190 @@ def download_model_files():
         "yolov4.weights": "https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights",
         "coco.names": "https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names",
         "deploy.prototxt": "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt",
-        "res10_300x300_ssd_iter_140000.caffemodel": "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel"
+        "res10_300x300_ssd_iter_140000.caffemodel": "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel",
+        "lbfmodel.yaml": "https://github.com/kurnianggoro/GSOC2017/raw/master/data/lbfmodel.yaml"
     }
+    
+    # MobileNet models (OpenVINO format) - Using OpenVINO Model Zoo tools
+    # These will be downloaded and converted using omz_downloader and omz_converter
+    mobilenet_files = {
+        "mobilenet-v2.xml": "MobileNet model configuration (will be generated)",
+        "mobilenet-v2.bin": "MobileNet model weights (will be generated)"
+    }
+    print("📝 MobileNet will be downloaded using OpenVINO Model Zoo tools")
+    
+    # Combine all files
+    files_to_download.update(mobilenet_files)
+    
+    def validate_model_file(file_path, filename):
+        """Validate that a downloaded model file is in correct format"""
+        try:
+            if not os.path.exists(file_path):
+                return False
+                
+            # Check file size - HTML error pages are usually small
+            file_size = os.path.getsize(file_path)
+            if file_size < 100:  # Any valid model should be larger than 100 bytes
+                return False
+            
+            # Read first few bytes to check for HTML
+            with open(file_path, 'rb') as f:
+                first_bytes = f.read(20)
+                if first_bytes.startswith(b'<!DOCTYPE') or first_bytes.startswith(b'<html'):
+                    return False
+            
+            # Additional validation for specific file types
+            if filename.endswith('.xml'):
+                # XML files should contain proper OpenVINO model XML
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read(500)  # Check first 500 chars
+                    if 'net name=' not in content or 'layer' not in content:
+                        return False
+                        
+            elif filename.endswith('.weights'):
+                # YOLO weights files should be binary and fairly large
+                if file_size < 1000000:  # Should be at least 1MB
+                    return False
+                    
+            elif filename.endswith('.caffemodel'):
+                # Caffe models should be binary
+                if file_size < 100000:  # Should be at least 100KB
+                    return False
+            
+            return True
+            
+        except Exception as e:
+            print(f"Warning: Could not validate {filename}: {e}")
+            return False
+    
+    def download_mobilenet_with_omz(script_dir, filename):
+        """Download and convert MobileNet using OpenVINO Model Zoo tools"""
+        dest_path = os.path.join(script_dir, filename)
+        
+        if os.path.exists(dest_path):
+            print(f"✔️ {filename} already available")
+            if validate_model_file(dest_path, filename):
+                return True
+            else:
+                print(f"❌ Existing {filename} is invalid - will re-download")
+                try:
+                    os.remove(dest_path)
+                except:
+                    pass
+        
+        print(f"⬇️ Downloading MobileNet using OpenVINO Model Zoo tools...")
+        
+        try:
+            # Install OpenVINO dev tools if not available
+            import subprocess
+            import sys
+            
+            # Check if omz_downloader is available
+            try:
+                result = subprocess.run(["omz_downloader", "--help"], 
+                                       capture_output=True, text=True, timeout=10)
+                if result.returncode != 0:
+                    raise Exception("omz_downloader not found")
+            except:
+                print("📦 Installing OpenVINO development tools...")
+                subprocess.run([sys.executable, "-m", "pip", "install", "openvino-dev"], check=True)
+            
+            # Create models subdirectory
+            models_dir = os.path.join(script_dir, "models")
+            os.makedirs(models_dir, exist_ok=True)
+            
+            # Download the model
+            print("📥 Downloading mobilenet-v2-pytorch model...")
+            result = subprocess.run([
+                "omz_downloader", 
+                "--name", "mobilenet-v2-pytorch",
+                "--output_dir", models_dir
+            ], capture_output=True, text=True, timeout=300)
+            
+            if result.returncode != 0:
+                print(f"❌ Download failed: {result.stderr}")
+                return False
+            
+            # Convert the model to OpenVINO IR format
+            print("🔄 Converting model to OpenVINO IR format...")
+            result = subprocess.run([
+                "omz_converter",
+                "--name", "mobilenet-v2-pytorch", 
+                "--download_dir", models_dir,
+                "--output_dir", models_dir
+            ], capture_output=True, text=True, timeout=300)
+            
+            if result.returncode != 0:
+                print(f"❌ Conversion failed: {result.stderr}")
+                return False
+            
+            # Move the converted files to script directory
+            model_path = os.path.join(models_dir, "public", "mobilenet-v2-pytorch", "FP32")
+            if os.path.exists(model_path):
+                xml_file = os.path.join(model_path, "mobilenet-v2-pytorch.xml")
+                bin_file = os.path.join(model_path, "mobilenet-v2-pytorch.bin")
+                
+                if os.path.exists(xml_file):
+                    import shutil
+                    shutil.copy2(xml_file, os.path.join(script_dir, "mobilenet-v2.xml"))
+                    print("✅ mobilenet-v2.xml copied successfully")
+                
+                if os.path.exists(bin_file):
+                    import shutil
+                    shutil.copy2(bin_file, os.path.join(script_dir, "mobilenet-v2.bin"))
+                    print("✅ mobilenet-v2.bin copied successfully")
+                    
+                # Clean up models directory
+                import shutil
+                shutil.rmtree(models_dir, ignore_errors=True)
+                
+                return os.path.exists(os.path.join(script_dir, filename))
+            else:
+                print(f"❌ Converted model not found in expected location: {model_path}")
+                return False
+                
+        except subprocess.TimeoutExpired:
+            print("❌ Download/conversion timed out")
+            return False
+        except Exception as e:
+            print(f"❌ Failed to download MobileNet: {e}")
+            return False
     
     def download_file(filename, url):
         dest_path = os.path.join(script_dir, filename)
+        
+        # Special handling for MobileNet files - use OpenVINO Model Zoo tools
+        if filename in ["mobilenet-v2.xml", "mobilenet-v2.bin"]:
+            return download_mobilenet_with_omz(script_dir, filename)
+        
         if not os.path.exists(dest_path):
             print(f"⬇️ Downloading {filename}...")
             try:
                 urllib.request.urlretrieve(url, dest_path)
                 print(f"✅ {filename} downloaded successfully")
+                
+                # Validate the downloaded file
+                if not validate_model_file(dest_path, filename):
+                    print(f"❌ Downloaded file {filename} is invalid - removing")
+                    try:
+                        os.remove(dest_path)
+                    except:
+                        pass
+                    return False
+                
             except Exception as e:
                 print(f"❌ Failed to download {filename}: {e}")
                 return False
         else:
             print(f"✔️ {filename} already available")
+            # Validate existing file too
+            if not validate_model_file(dest_path, filename):
+                print(f"❌ Existing file {filename} is invalid - removing and re-downloading")
+                try:
+                    os.remove(dest_path)
+                    return download_file(filename, url)  # Retry download
+                except:
+                    return False
         return True
     
     # Download all required files
@@ -107,64 +421,11 @@ def download_model_files():
         if not download_file(filename, url):
             all_downloaded = False
     
-    # Try to download MobileNet models for OpenVINO (optional)
-    try:
-        # Check if OpenVINO model tools are available
-        import openvino as ov
-        
-        mobilenet_dir = os.path.join(script_dir, "public", "mobilenet-v2-pytorch", "FP32")
-        mobilenet_xml = os.path.join(mobilenet_dir, "mobilenet-v2-pytorch.xml")
-        mobilenet_bin = os.path.join(mobilenet_dir, "mobilenet-v2-pytorch.bin")
-        
-        # Also check for simplified names in script directory
-        simple_xml = os.path.join(script_dir, "mobilenet-v2.xml")
-        simple_bin = os.path.join(script_dir, "mobilenet-v2.bin")
-        
-        if not (os.path.exists(mobilenet_xml) and os.path.exists(mobilenet_bin)) and not (os.path.exists(simple_xml) and os.path.exists(simple_bin)):
-            print("⬇️ Downloading MobileNet models for enhanced detection...")
-            
-            # Try OpenVINO model tools (may not be available on all systems)
-            try:
-                subprocess.run(["omz_downloader", "--name", "mobilenet-v2-pytorch", "--output_dir", script_dir], 
-                             check=True, capture_output=True, timeout=60)
-                subprocess.run([
-                    "omz_converter", "--name", "mobilenet-v2-pytorch", "--precisions", "FP32",
-                    "--download_dir", script_dir, "--output_dir", script_dir
-                ], check=True, capture_output=True, timeout=60)
-                print("✅ MobileNet models downloaded successfully")
-            except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
-                print(f"⚠️ OpenVINO model tools not available ({e}), trying alternative download...")
-                
-                # Alternative: Download pre-converted models directly
-                try:
-                    mobilenet_urls = {
-                        "mobilenet-v2.xml": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.xml",
-                        "mobilenet-v2.bin": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.bin"
-                    }
-                    
-                    for filename, url in mobilenet_urls.items():
-                        dest_path = os.path.join(script_dir, filename)
-                        if not os.path.exists(dest_path):
-                            print(f"⬇️ Downloading {filename}...")
-                            urllib.request.urlretrieve(url, dest_path)
-                    
-                    print("✅ MobileNet models downloaded via direct download")
-                except Exception as download_error:
-                    print(f"⚠️ Could not download MobileNet models ({download_error}), continuing without them")
-    except ImportError:
-        print("⚠️ OpenVINO not available, skipping MobileNet model download")
-    except Exception as e:
-        print(f"⚠️ Could not download MobileNet models ({e}), continuing without them")
-    
     return all_downloaded
 
 
 # Auto-install packages and download models on import
-try:
-    install_required_packages()
-    download_model_files()
-except Exception as e:
-    print(f"⚠️ Setup warning: {e}")
+# Setup will be done in main() when needed
 
 
 class VideoOrientation(Enum):
@@ -315,29 +576,71 @@ class OrientationDetector:
 
     def setup_mobilenet(self):
         """Setup OpenVINO MobileNetV2 for additional feature detection"""
+        self.mobilenet_available = False
+        
         try:
-            # Use new OpenVINO import (not deprecated)
-            import openvino as ov
+            # Try to import OpenVINO with multiple compatibility approaches
+            ov_core = None
+            ov_module = None
             
+            # Method 1: Try new OpenVINO 2023+ API
+            try:
+                import openvino as ov
+                ov_core = ov.Core()
+                ov_module = ov
+                print("✓ Using OpenVINO 2023+ API")
+            except (ImportError, AttributeError):
+                pass
+            
+            # Method 2: Try deprecated runtime API
+            if ov_core is None:
+                try:
+                    import openvino.runtime as ov
+                    ov_core = ov.Core()
+                    ov_module = ov
+                    print("✓ Using OpenVINO runtime API (deprecated)")
+                except (ImportError, AttributeError):
+                    pass
+            
+            # Method 3: Try legacy inference engine (very old versions)
+            if ov_core is None:
+                try:
+                    from openvino.inference_engine import IECore
+                    ov_core = IECore()
+                    ov_module = None  # Legacy mode
+                    print("✓ Using OpenVINO legacy inference engine")
+                except ImportError:
+                    pass
+            
+            if ov_core is None:
+                print("⚠ No compatible OpenVINO API found - enhanced detection disabled")
+                return
+            
+            # Check for model files
             script_dir = os.path.dirname(os.path.abspath(__file__))
             mobilenet_model_path = os.path.join(script_dir, "mobilenet-v2.xml")
             mobilenet_weights_path = os.path.join(script_dir, "mobilenet-v2.bin")
             
             if os.path.exists(mobilenet_model_path) and os.path.exists(mobilenet_weights_path):
-                self.ov_core = ov.Core()
-                self.mobilenet_model = self.ov_core.read_model(mobilenet_model_path)
-                self.mobilenet_compiled = self.ov_core.compile_model(self.mobilenet_model, "CPU")
+                self.ov_core = ov_core
+                
+                if ov_module is not None:
+                    # New/Current API
+                    self.mobilenet_model = self.ov_core.read_model(mobilenet_model_path)
+                    self.mobilenet_compiled = self.ov_core.compile_model(self.mobilenet_model, "CPU")
+                else:
+                    # Legacy API
+                    self.mobilenet_model = self.ov_core.read_network(mobilenet_model_path, mobilenet_weights_path)
+                    self.mobilenet_compiled = self.ov_core.load_network(self.mobilenet_model, "CPU")
+                
                 self.mobilenet_available = True
                 print("✓ MobileNetV2 OpenVINO model loaded successfully")
             else:
-                self.mobilenet_available = False
-                print("⚠ MobileNetV2 model files not found - enhanced detection disabled")
-        except ImportError:
-            self.mobilenet_available = False
-            print("⚠ OpenVINO not available - enhanced detection disabled")
+                print("ℹ️  MobileNet models not found - using core detection algorithms only")
+                
         except Exception as e:
+            print(f"ℹ️  MobileNet setup skipped: {e}")
             self.mobilenet_available = False
-            print(f"⚠ Error setting up MobileNetV2: {e}")
 
     def mobilenet_detect_orientation(self, frame: np.ndarray) -> str:
         """Use MobileNet to detect orientation based on general image features"""
@@ -1636,6 +1939,10 @@ Examples:
     args = parser.parse_args()
 
     # Validate input path
+    if not args.path:
+        parser.error("path is required")
+
+    # Validate input path exists
     if not os.path.exists(args.path):
         print(f"Error: Path '{args.path}' not found")
         return 1
@@ -1644,6 +1951,67 @@ Examples:
     if args.time_limit is not None and args.time_limit <= 0:
         print("Error: Time limit must be positive")
         return 1
+
+    # Quick system check and setup
+    print("🔍 Checking system requirements...")
+    success, issues = check_system_requirements()
+    
+    # Separate different types of issues
+    missing_files = [issue for issue in issues if 'missing required model file' in issue.lower()]
+    other_critical_issues = [issue for issue in issues if any(keyword in issue.lower() 
+                            for keyword in ['missing essential', 'python version', 'no write permissions', 'opencv check failed'])
+                            and 'missing required model file' not in issue.lower()]
+    
+    # Stop immediately for non-file critical issues (Python, packages, permissions)
+    if other_critical_issues:
+        print("❌ Critical system issues detected:")
+        for issue in other_critical_issues:
+            print(f"   • {issue}")
+        return 1
+    
+    # Show missing files but continue to try downloading them
+    if missing_files:
+        print("⚠️  Missing required model files (will attempt to download):")
+        for issue in missing_files:
+            print(f"   • {issue}")
+        print()
+    
+    # Show warnings (non-critical)
+    warnings = [issue for issue in issues if issue not in other_critical_issues and issue not in missing_files]
+    if warnings:
+        print("⚠️  System warnings (non-critical):")
+        for warning in warnings[:3]:  # Show only first 3 warnings
+            print(f"   • {warning}")
+        if len(warnings) > 3:
+            print(f"   ... and {len(warnings) - 3} more")
+        print()
+    
+    # Install packages and download models (this should fix missing model files)
+    print("📦 Setting up dependencies...")
+    try:
+        if not install_required_packages():
+            print("❌ Package installation failed.")
+            return 1
+        download_model_files()
+        print("✅ Dependencies setup complete!")
+    except Exception as e:
+        print(f"⚠️ Setup warning: {e}")
+    
+    # Final check - ensure all required model files are now present
+    print("🔍 Final validation of required files...")
+    files_ok, missing_files_final = check_required_model_files()
+    if not files_ok:
+        print("❌ Critical model files are still missing after download attempt:")
+        for missing_file in missing_files_final:
+            print(f"   • {missing_file}")
+        print("\n💡 Possible solutions:")
+        print("   1. Check internet connectivity")
+        print("   2. Manually download files to script directory")
+        print("   3. Check firewall/proxy settings")
+        return 1
+    
+    print("✅ All required model files verified!")
+    print()
 
     # Create detector with time limit
     print(f"🎬 Smart Video Orientation Detector (SVOD) v{version}")
