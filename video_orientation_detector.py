@@ -2,8 +2,8 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.1.1 - Cross-Platform Fix (macOS Compatible)
-Date: September 6, 2025
+Version: 4.7.0 - Mandatory Dependencies (No Optional Models)
+Date: September 7, 2025
 Author: Enhanced with AI assistance
 
 Features:
@@ -168,13 +168,12 @@ def install_required_packages():
     print("📦 Checking and installing required packages...")
     
     required_packages = [
-        ('cv2', 'opencv-python'),
+        ('cv2', 'opencv-contrib-python'),  # Changed to contrib version for face landmarks
         ('numpy', 'numpy'),
+        ('openvino', 'openvino'),  # Moved from optional to required
     ]
     
-    optional_packages = [
-        ('openvino', 'openvino'),
-    ]
+    # Note: No optional packages - all models must work!
     
     missing_packages = []
     
@@ -186,14 +185,6 @@ def install_required_packages():
         except ImportError:
             missing_packages.append(package_name)
             print(f"❌ {package_name}: Missing")
-    
-    # Check optional packages
-    for module_name, package_name in optional_packages:
-        try:
-            __import__(module_name)
-            print(f"✅ {package_name}: Available (optional)")
-        except ImportError:
-            print(f"⚠️  {package_name}: Not installed (optional)")
     
     if missing_packages:
         print(f"\n📦 Installing required packages: {', '.join(missing_packages)}")
@@ -618,24 +609,23 @@ class OrientationDetector:
         # Check if cv2.face module is available (requires opencv-contrib-python)
         self.use_landmarks = False
         try:
-            # Only try to use face module if it exists
-            if hasattr(cv2, 'face'):
-                script_dir = os.path.dirname(os.path.abspath(__file__))
-                landmark_model = os.path.join(script_dir, "lbfmodel.yaml")
-                if os.path.exists(landmark_model):
-                    self.landmark_detector = cv2.face.createFacemarkLBF()
-                    self.landmark_detector.loadModel(landmark_model)
-                    self.use_landmarks = True
-                    print("Facial landmark detection enabled.")
-                else:
-                    print("Landmark model not found. Using geometric analysis only.")
-            else:
-                print("OpenCV face module not available. Using geometric analysis only.")
-                print("(Optional: Install opencv-contrib-python for enhanced features)")
+            # Face module is REQUIRED - no optional functionality!
+            if not hasattr(cv2, 'face'):
+                raise ImportError("cv2.face module is missing! Install opencv-contrib-python: pip install opencv-contrib-python")
+            
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            landmark_model = os.path.join(script_dir, "lbfmodel.yaml")
+            if not os.path.exists(landmark_model):
+                raise FileNotFoundError(f"Landmark model not found: {landmark_model}")
+                
+            self.landmark_detector = cv2.face.createFacemarkLBF()
+            self.landmark_detector.loadModel(landmark_model)
+            self.use_landmarks = True
+            print("✅ Facial landmark detection enabled.")
         except Exception as e:
-            print(f"Could not setup landmark detection: {e}")
-            print("Using geometric analysis only.")
-            self.use_landmarks = False
+            print(f"❌ CRITICAL: Could not setup landmark detection: {e}")
+            print("❌ This is a REQUIRED component - all models must work!")
+            raise
             
         # Setup additional enhanced detection methods
         self.setup_mobilenet()
