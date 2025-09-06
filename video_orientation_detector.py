@@ -2,7 +2,7 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.1.0 - Perfect Accuracy (Context-Aware Algorithm)
+Version: 4.1.1 - Cross-Platform Fix (macOS Compatible)
 Date: September 6, 2025
 Author: Enhanced with AI assistance
 
@@ -33,9 +33,9 @@ import sys
 from collections import Counter
 
 # Version information
-__version__ = "4.1.0"
+__version__ = "4.1.1"
 __release_date__ = "2025-09-06"
-__release_name__ = "Perfect Accuracy"
+__release_name__ = "Cross-Platform Fix"
 
 
 def install_required_packages():
@@ -109,21 +109,52 @@ def download_model_files():
     
     # Try to download MobileNet models for OpenVINO (optional)
     try:
+        # Check if OpenVINO model tools are available
+        import openvino as ov
+        
         mobilenet_dir = os.path.join(script_dir, "public", "mobilenet-v2-pytorch", "FP32")
         mobilenet_xml = os.path.join(mobilenet_dir, "mobilenet-v2-pytorch.xml")
         mobilenet_bin = os.path.join(mobilenet_dir, "mobilenet-v2-pytorch.bin")
         
-        if not (os.path.exists(mobilenet_xml) and os.path.exists(mobilenet_bin)):
+        # Also check for simplified names in script directory
+        simple_xml = os.path.join(script_dir, "mobilenet-v2.xml")
+        simple_bin = os.path.join(script_dir, "mobilenet-v2.bin")
+        
+        if not (os.path.exists(mobilenet_xml) and os.path.exists(mobilenet_bin)) and not (os.path.exists(simple_xml) and os.path.exists(simple_bin)):
             print("⬇️ Downloading MobileNet models for enhanced detection...")
-            subprocess.run(["omz_downloader", "--name", "mobilenet-v2-pytorch", "--output_dir", script_dir], 
-                         check=True, capture_output=True)
-            subprocess.run([
-                "omz_converter", "--name", "mobilenet-v2-pytorch", "--precisions", "FP32",
-                "--download_dir", script_dir, "--output_dir", script_dir
-            ], check=True, capture_output=True)
-            print("✅ MobileNet models downloaded successfully")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print("⚠️ Could not download MobileNet models (optional), continuing without them")
+            
+            # Try OpenVINO model tools (may not be available on all systems)
+            try:
+                subprocess.run(["omz_downloader", "--name", "mobilenet-v2-pytorch", "--output_dir", script_dir], 
+                             check=True, capture_output=True, timeout=60)
+                subprocess.run([
+                    "omz_converter", "--name", "mobilenet-v2-pytorch", "--precisions", "FP32",
+                    "--download_dir", script_dir, "--output_dir", script_dir
+                ], check=True, capture_output=True, timeout=60)
+                print("✅ MobileNet models downloaded successfully")
+            except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+                print(f"⚠️ OpenVINO model tools not available ({e}), trying alternative download...")
+                
+                # Alternative: Download pre-converted models directly
+                try:
+                    mobilenet_urls = {
+                        "mobilenet-v2.xml": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.xml",
+                        "mobilenet-v2.bin": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.bin"
+                    }
+                    
+                    for filename, url in mobilenet_urls.items():
+                        dest_path = os.path.join(script_dir, filename)
+                        if not os.path.exists(dest_path):
+                            print(f"⬇️ Downloading {filename}...")
+                            urllib.request.urlretrieve(url, dest_path)
+                    
+                    print("✅ MobileNet models downloaded via direct download")
+                except Exception as download_error:
+                    print(f"⚠️ Could not download MobileNet models ({download_error}), continuing without them")
+    except ImportError:
+        print("⚠️ OpenVINO not available, skipping MobileNet model download")
+    except Exception as e:
+        print(f"⚠️ Could not download MobileNet models ({e}), continuing without them")
     
     return all_downloaded
 
@@ -285,7 +316,8 @@ class OrientationDetector:
     def setup_mobilenet(self):
         """Setup OpenVINO MobileNetV2 for additional feature detection"""
         try:
-            import openvino.runtime as ov
+            # Use new OpenVINO import (not deprecated)
+            import openvino as ov
             
             script_dir = os.path.dirname(os.path.abspath(__file__))
             mobilenet_model_path = os.path.join(script_dir, "mobilenet-v2.xml")
