@@ -65,6 +65,7 @@ demo_*.py
 ~*
 *.orig
 *.rej
+.project_status
 
 # OS generated files
 .DS_Store

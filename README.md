@@ -66,6 +66,23 @@ The script will automatically download all required model files on first run. Fo
 python video_orientation_detector.py --version  # This will trigger model download
 ```
 
+## 🐧 WSL/Linux Setup
+
+For WSL (Windows Subsystem for Linux) users, ensure OpenVINO is installed for enhanced detection:
+
+```bash
+# Activate your virtual environment first
+source .venv/bin/activate
+
+# Install OpenVINO for enhanced detection features
+pip install openvino
+
+# Test the installation
+python3 video_orientation_detector.py --version
+```
+
+**Note**: OpenVINO provides enhanced MobileNet detection capabilities but is optional. The script works without it using core computer vision methods.
+
 ## 💻 Usage Examples
 
 ### Single Video Analysis
