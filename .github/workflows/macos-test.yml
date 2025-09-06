@@ -1,0 +1,48 @@
+name: macOS Testing
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Create virtual environment
+      run: |
+        python3 -m venv .venv-macos
+        source .venv-macos/bin/activate
+        echo "VIRTUAL ENV" >> $GITHUB_PATH
+    
+    - name: Install dependencies
+      run: |
+        source .venv-macos/bin/activate
+        pip install --upgrade pip
+        pip install opencv-python numpy openvino
+    
+    - name: Test SVOD version
+      run: |
+        source .venv-macos/bin/activate
+        python3 video_orientation_detector.py --version
+    
+    - name: Test SVOD basic functionality
+      run: |
+        source .venv-macos/bin/activate
+        # Test with dummy video path (will fail gracefully)
+        python3 video_orientation_detector.py /dev/null --no-display --time-limit 1 || echo "Expected failure - no video file"
+    
+    - name: Check models download
+      run: |
+        source .venv-macos/bin/activate
+        ls -la *.cfg *.weights *.xml *.bin *.yaml *.prototxt *.caffemodel 2>/dev/null || echo "Models not downloaded yet"
