@@ -17,7 +17,9 @@ env.bak/
 venv.bak/
 
 # Large model files (auto-downloaded)
+yolov4.cfg
 yolov4.weights
+deploy.prototxt
 res10_300x300_ssd_iter_140000.caffemodel
 lbfmodel.yaml
 mobilenet-v2.xml
