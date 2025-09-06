@@ -59,11 +59,12 @@ pip install opencv-python opencv-contrib-python numpy onnx torch torchvision ope
 ```
 
 3. **Download required model files:**
-The script will automatically download all required model files on first run:
-- YOLO v4 configuration and weights
-- DNN face detector model
-- Facial landmark detection model  
-- MobileNet models (optional enhancement)
+The script will automatically download all required model files on first run. For manual download or troubleshooting, see [Model Files Guide](#-model-files-detailed-guide) below.
+
+**Quick Start**: Just run the script - all models download automatically!
+```bash
+python video_orientation_detector.py --version  # This will trigger model download
+```
 
 ## 💻 Usage Examples
 
@@ -220,7 +221,110 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Issues**: https://github.com/vasil-derimanov/svod/issues
 - **Wiki**: https://github.com/vasil-derimanov/svod/wiki
 
-## 🙏 Acknowledgments
+## � Model Files Detailed Guide
+
+### Required Model Files
+
+The script uses several pre-trained models for optimal detection accuracy. All files are automatically downloaded on first run, but here are the details for manual setup or troubleshooting:
+
+#### 1. YOLO v4 Object Detection
+- **File**: `yolov4.cfg` (configuration)
+- **File**: `yolov4.weights` (weights, ~245MB)
+- **Source**: [AlexeyAB/darknet releases](https://github.com/AlexeyAB/darknet/releases)
+- **Version**: YOLOv4 optimal
+- **Purpose**: Person detection for body orientation analysis
+- **Manual Download**:
+  ```bash
+  # Configuration file
+  curl -O https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg
+  
+  # Weights file (large download)
+  curl -L -O https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights
+  ```
+
+#### 2. DNN Face Detection
+- **File**: `deploy.prototxt` (network architecture)
+- **File**: `res10_300x300_ssd_iter_140000.caffemodel` (weights, ~10MB)
+- **Source**: [OpenCV DNN Face Detector](https://github.com/opencv/opencv_3rdparty)
+- **Version**: SSD MobileNet-based face detector
+- **Purpose**: Primary face detection and orientation analysis
+- **Manual Download**:
+  ```bash
+  # Prototxt file
+  curl -O https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt
+  
+  # Model file
+  curl -O https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
+  ```
+
+#### 3. Facial Landmark Detection
+- **File**: `lbfmodel.yaml` (~54MB)
+- **Source**: [OpenCV Face Module](https://github.com/opencv/opencv_contrib)
+- **Version**: LBF (Local Binary Features) model
+- **Purpose**: Precise facial landmark detection for orientation analysis
+- **Manual Download**:
+  ```bash
+  curl -O https://github.com/opencv/opencv_3rdparty/raw/contrib_face_alignment_20170818/lbfmodel.yaml
+  ```
+
+#### 4. COCO Class Names
+- **File**: `coco.names` (text file)
+- **Source**: [COCO Dataset](https://github.com/AlexeyAB/darknet)
+- **Purpose**: Object class labels for YOLO detection
+- **Manual Download**:
+  ```bash
+  curl -O https://raw.githubusercontent.com/AlexeyAB/darknet/master/data/coco.names
+  ```
+
+### Optional Enhancement Files (MobileNet)
+
+These files provide enhanced detection accuracy but are **optional** - the script works without them:
+
+#### 5. MobileNet v2 Models (Optional)
+- **Files**: `mobilenet-v2.xml`, `mobilenet-v2.bin` (~14MB total)
+- **Source**: [Intel OpenVINO Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+- **Version**: MobileNet v2 1.0 224
+- **Purpose**: Enhanced image classification and orientation scoring
+- **Auto-download**: Uses Intel OpenVINO tools with macOS fallback
+- **Manual Download** (if OpenVINO tools fail):
+  ```bash
+  # XML configuration
+  curl -O https://download.01.org/opencv/2021/openvinotoolkit/2021.1/open_model_zoo/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.xml
+  mv mobilenet-v2-pytorch.xml mobilenet-v2.xml
+  
+  # Binary weights  
+  curl -O https://download.01.org/opencv/2021/openvinotoolkit/2021.1/open_model_zoo/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.bin
+  mv mobilenet-v2-pytorch.bin mobilenet-v2.bin
+  ```
+
+### File Size Summary
+| File | Size | Required | Purpose |
+|------|------|----------|---------|
+| `yolov4.weights` | ~245MB | ✅ Yes | Object detection |
+| `lbfmodel.yaml` | ~54MB | ✅ Yes | Facial landmarks |
+| `mobilenet-v2.bin` | ~14MB | ⚠️ Optional | Enhanced detection |
+| `res10_300x300_ssd_iter_140000.caffemodel` | ~10MB | ✅ Yes | Face detection |
+| Other files | <1MB each | ✅ Yes | Configurations |
+| **Total Required** | **~310MB** | | |
+| **Total with Optional** | **~324MB** | | |
+
+### Troubleshooting Model Downloads
+
+**If automatic download fails:**
+
+1. **Check internet connectivity and firewall settings**
+2. **Manual download**: Use the curl commands above
+3. **Verify file integrity**: Check file sizes match the table above
+4. **Place files in script directory**: Same folder as `video_orientation_detector.py`
+5. **macOS OpenVINO issues**: MobileNet files are optional - script runs without them
+
+**Verification command:**
+```bash
+python video_orientation_detector.py --version
+# This will show if all required files are present
+```
+
+## �🙏 Acknowledgments
 
 - OpenCV community for computer vision libraries
 - YOLO authors for object detection framework
