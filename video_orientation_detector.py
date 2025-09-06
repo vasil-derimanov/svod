@@ -35,9 +35,9 @@ import platform
 import shutil
 
 # Version information
-__version__ = "4.4.0"
+__version__ = "4.4.1"
 __release_date__ = "2025-09-06"
-__release_name__ = "OpenVINO Model Zoo Integration"
+__release_name__ = "Enhanced .gitignore and Project Cleanup"
 
 
 def check_required_model_files():

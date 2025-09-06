@@ -8,6 +8,7 @@
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 .env
 .venv/
 env/
@@ -15,6 +16,22 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Large model files (auto-downloaded)
 yolov4.cfg
@@ -30,13 +47,23 @@ public/
 orientation_results*.csv
 detailed_votes*.csv
 speed_results*.csv
+batch_report*.txt
+batch_report*.json
+annotated_*.mp4
+test_*.py
+demo_*.py
 !reference_orientations.csv
 *.log
 
 # Temporary files
 *.tmp
 *.temp
+*.bak
+*.backup
+*~
 ~*
+*.orig
+*.rej
 
 # OS generated files
 .DS_Store
@@ -46,6 +73,9 @@ speed_results*.csv
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
 
 # Video test files (if any)
 *.mp4
@@ -56,3 +86,16 @@ Thumbs.db
 *.flv
 *.webm
 *.m4v
+
+# Performance and profiling
+*.prof
+*.cprof
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Documentation builds
+docs/_build/
+site/
