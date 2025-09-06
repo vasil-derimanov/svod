@@ -1,4 +1,4 @@
-# Smart Video Orientation Detector (SVOD) v4.6.1
+# Smart Video Orientation Detector (SVOD) v4.6.2
 
 🎥 **Intelligent video orientation detection using advanced computer vision and machine learning techniques**
 
@@ -196,6 +196,7 @@ python video_orientation_detector.py /videos --batch -r --time-limit 30 --report
 
 ## 📝 Version History
 
+- **v4.6.2** (2025-09-07): Clean project - removed cSpell dependencies, cross-platform testing verified
 - **v4.6.1** (2025-09-07): Enhanced macOS Python 3.12+ compatibility, improved OpenVINO error handling
 - **v4.6.0** (2025-09-07): Improved cross-platform compatibility, MobileNet files now optional
 - **v4.5.0**: Clean settings & virtual environment support
