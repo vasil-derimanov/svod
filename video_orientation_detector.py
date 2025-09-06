@@ -35,9 +35,9 @@ import platform
 import shutil
 
 # Version information
-__version__ = "4.6.1"
+__version__ = "4.6.2"
 __release_date__ = "2025-09-07"
-__release_name__ = "Production Ready - Clean Settings & Virtual Environment"
+__release_name__ = "Clean Project - Removed cSpell Dependencies"
 
 
 def check_required_model_files():
