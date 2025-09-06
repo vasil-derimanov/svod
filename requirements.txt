@@ -1,2 +1,8 @@
-opencv-python>=4.5.0
-numpy>=1.21.0
+opencv-python
+opencv-contrib-python
+numpy
+onnx
+torch
+openvino
+openvino-dev
+torchvision
