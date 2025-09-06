@@ -1,4 +1,4 @@
-# Smart Video Orientation Detector (SVOD) v4.6.2
+# Smart Video Orientation Detector (SVOD) v4.7.0
 
 🎥 **Intelligent video orientation detection using advanced computer vision and machine learning techniques**
 
@@ -7,7 +7,7 @@
 SVOD automatically detects and analyzes video orientation using multiple detection methods:
 - **Face Detection** - Primary orientation indicator using DNN face detector
 - **Body Detection** - Secondary analysis using YOLO v4 object detection  
-- **Enhanced Detection** - Optional MobileNet models for improved accuracy
+- **Enhanced Detection** - MobileNet models for improved accuracy
 - **Facial Landmarks** - Precise orientation analysis using LBF landmark detection
 
 ## 🚀 Key Features
@@ -19,31 +19,23 @@ SVOD automatically detects and analyzes video orientation using multiple detecti
 - ✅ **Flexible Output** - Save annotated videos and detailed CSV/JSON reports
 - ✅ **Performance Optimized** - Time-limited analysis for large video sets
 - ✅ **Validation Mode** - Compare results against reference orientation data
+- ✅ **Automatic Setup** - All dependencies and models are installed automatically
 
-## 📦 Dependencies
+## 📦 Dependencies (Automatic Installation)
 
-Install all required packages using pip:
+**No manual installation required!** SVOD automatically installs and configures all dependencies:
 
-```bash
-# Core computer vision libraries
-pip install opencv-python
-pip install opencv-contrib-python
-pip install numpy
+- **opencv-contrib-python** (required for facial landmarks)
+- **numpy** (mathematical operations)
+- **openvino** (Intel OpenVINO for MobileNet inference)
 
-# Machine learning frameworks
-pip install onnx
-pip install torch
-pip install torchvision
-
-# Intel OpenVINO (optional for enhanced detection)
-pip install openvino
-pip install openvino-dev
-```
+All model files (YOLO, DNN, MobileNet, etc.) are downloaded automatically on first run.
 
 **System Requirements:**
 - Python 3.8+ (recommended: Python 3.11+)
 - 4GB+ RAM for optimal performance
-- GPU support optional but recommended for large batch processing
+- Internet connection for initial model downloads
+- No optional components - all models are mandatory for operation
 
 ## 🔧 Installation & Setup
 
@@ -53,18 +45,17 @@ git clone https://github.com/vasil-derimanov/svod.git
 cd svod
 ```
 
-2. **Install dependencies:**
+2. **Run the script - that's it!**
 ```bash
-pip install opencv-python opencv-contrib-python numpy onnx torch torchvision openvino openvino-dev
+python video_orientation_detector.py your_video.mp4
 ```
 
-3. **Download required model files:**
-The script will automatically download all required model files on first run. For manual download or troubleshooting, see [Model Files Guide](#-model-files-detailed-guide) below.
+**The script automatically:**
+- Installs all required Python packages (opencv-contrib-python, numpy, openvino)
+- Downloads all model files (YOLO, DNN Face detector, MobileNet, etc.)
+- Validates all components before processing
 
-**Quick Start**: Just run the script - all models download automatically!
-```bash
-python video_orientation_detector.py --version  # This will trigger model download
-```
+**No manual setup required!** Everything is handled automatically on first run.
 
 ## 🐧 WSL/Linux Setup
 
