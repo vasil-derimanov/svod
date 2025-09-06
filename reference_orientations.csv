@@ -1,0 +1,7 @@
+filename,expected_orientation,confidence,notes
+P2170127.mp4,incorrect,high,needs 90° clockwise rotation - sideways portrait video
+P6160117.mp4,incorrect,high,needs 90° clockwise rotation - sideways portrait video  
+P9080828.mp4,incorrect,medium,needs 90° clockwise rotation - sideways portrait video
+P5051162.mp4,correct,high,proper portrait orientation - no rotation needed
+P8150092.mp4,correct,high,proper portrait orientation - no rotation needed
+P8170377.mp4,correct,medium,proper landscape orientation - no rotation needed

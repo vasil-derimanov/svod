@@ -1,3 +1,56 @@
-.idea
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python cache and virtual environments  
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Large model files (auto-downloaded)
 yolov4.weights
-/res10_300x300_ssd_iter_140000.caffemodel
+res10_300x300_ssd_iter_140000.caffemodel
+lbfmodel.yaml
+mobilenet-v2.xml
+mobilenet-v2.bin
+public/
+
+# Test results and logs (exclude reference files)
+orientation_results*.csv
+detailed_votes*.csv
+speed_results*.csv
+!reference_orientations.csv
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+~*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Video test files (if any)
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.m4v
