@@ -35,9 +35,9 @@ import platform
 import shutil
 
 # Version information
-__version__ = "4.4.1"
-__release_date__ = "2025-09-06"
-__release_name__ = "Enhanced .gitignore and Project Cleanup"
+__version__ = "4.5.0"
+__release_date__ = "2025-09-07"
+__release_name__ = "Production Ready - Clean Settings & Virtual Environment"
 
 
 def check_required_model_files():

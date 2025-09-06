@@ -1,0 +1,47 @@
+{
+    "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "python.pythonPath": "./.venv/Scripts/python.exe",
+    "cSpell.language": "en,bg",
+    "cSpell.enabledFileTypes": {
+        "python": true,
+        "markdown": true,
+        "plaintext": true,
+        "json": true,
+        "yaml": true,
+        "gitcommit": true,
+        "gitignore": true,
+        "ignore": true
+    },
+    "cSpell.words": [
+        "SVOD",
+        "OpenVINO", 
+        "lbfmodel",
+        "omz",
+        "yolov",
+        "darknet",
+        "alexey",
+        "pjreddie", 
+        "kurnianggoro",
+        "gsoc",
+        "васил",
+        "дериманов",
+        "борис",
+        "видео", 
+        "ориентация",
+        "детекция",
+        "алгоритъм",
+        "модел",
+        "файл",
+        "скрипт",
+        "проект",
+        "репозиторий"
+    ],
+    "cSpell.ignorePaths": [
+        "*.weights",
+        "*.caffemodel", 
+        "*.bin",
+        "*.xml",
+        "*.cfg"
+    ]
+}
