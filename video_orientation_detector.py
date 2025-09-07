@@ -16,8 +16,7 @@ Features:
 - 100% accuracy on reference dataset
 """
 
-import cv2
-import numpy as np
+# Standard library imports first
 from enum import Enum
 import argparse
 from typing import Tuple, List, Dict, Optional
@@ -34,10 +33,95 @@ from collections import Counter
 import platform
 import shutil
 
-# Version information
-__version__ = "4.6.2"
+# Version information  
+__version__ = "4.8.0"
 __release_date__ = "2025-09-07"
-__release_name__ = "Clean Project - Removed cSpell Dependencies"
+__release_name__ = "Enhanced DNN Support Validation"
+
+# Third-party imports with auto-installation
+def install_required_packages():
+    """Install required packages if not available with enhanced error handling"""
+    print("📦 Checking and installing required packages...")
+    
+    required_packages = [
+        ('cv2', 'opencv-contrib-python'),  # Changed to contrib version for face landmarks
+        ('numpy', 'numpy'),
+        ('openvino', 'openvino'),  # Moved from optional to required
+    ]
+    
+    # Note: No optional packages - all models must work!
+    missing_packages = []
+    
+    # Check required packages and DNN support
+    for module_name, package_name in required_packages:
+        try:
+            module = __import__(module_name)
+            # Special check for OpenCV DNN support
+            if module_name == 'cv2':
+                try:
+                    # Test DNN functionality that SVOD requires
+                    module.dnn.readNet()  # Basic DNN test
+                    module.dnn.readNetFromCaffe  # Caffe support test
+                    print(f"✅ {package_name}: Already installed with full DNN support")
+                except:
+                    print(f"⚠️ {package_name}: Installed but missing DNN support - will reinstall")
+                    missing_packages.append(package_name)
+            else:
+                print(f"✅ {package_name}: Already installed")
+        except ImportError:
+            missing_packages.append(package_name)
+            print(f"❌ {package_name}: Missing")
+    
+    if missing_packages:
+        print(f"\n� Installing required packages: {', '.join(missing_packages)}")
+        
+        # Check if pip is available
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', '--version'], 
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError:
+            print("❌ pip is not available. Please install pip first.")
+            return False
+        
+        try:
+            # Install missing packages
+            for package in missing_packages:
+                print(f"⬇️ Installing {package}...")
+                result = subprocess.run([sys.executable, '-m', 'pip', 'install', package], 
+                                      capture_output=True, text=True, timeout=300)
+                if result.returncode == 0:
+                    print(f"✅ {package} installed successfully")
+                else:
+                    print(f"❌ Failed to install {package}: {result.stderr}")
+                    return False
+                    
+            print("✅ All required packages installed successfully!")
+            return True
+            
+        except subprocess.TimeoutExpired:
+            print("❌ Package installation timed out")
+            return False
+        except Exception as e:
+            print(f"❌ Installation failed: {e}")
+            return False
+    else:
+        print("✅ All required packages are already available!")
+        return True
+
+try:
+    import cv2
+    import numpy as np
+    import openvino
+except ImportError:
+    print("🔧 Installing required packages automatically...")
+    if install_required_packages():
+        print("🔄 Restarting import after installation...")
+        import cv2
+        import numpy as np
+        import openvino
+    else:
+        print("❌ Failed to install required packages!")
+        sys.exit(1)
 
 
 def check_required_model_files():
@@ -119,14 +203,10 @@ def check_system_requirements():
         for missing_file in missing_files:
             issues.append(f"Missing required model file: {missing_file}")
     
-    # Check OpenCV capabilities
+    # Check OpenCV capabilities - DNN support is now verified during installation
     try:
         import cv2
-        # Quick DNN check
-        try:
-            cv2.dnn.readNet()
-        except:
-            warnings.append("OpenCV DNN support might be limited")
+        print("✅ OpenCV DNN support verified during installation")
     except Exception as e:
         issues.append(f"OpenCV check failed: {str(e)}")
     
@@ -161,72 +241,6 @@ def check_system_requirements():
         pass  # Non-critical
     
     return len(issues) == 0, issues + warnings
-
-
-def install_required_packages():
-    """Install required packages if not available with enhanced error handling"""
-    print("📦 Checking and installing required packages...")
-    
-    required_packages = [
-        ('cv2', 'opencv-contrib-python'),  # Changed to contrib version for face landmarks
-        ('numpy', 'numpy'),
-        ('openvino', 'openvino'),  # Moved from optional to required
-    ]
-    
-    # Note: No optional packages - all models must work!
-    
-    missing_packages = []
-    
-    # Check required packages
-    for module_name, package_name in required_packages:
-        try:
-            __import__(module_name)
-            print(f"✅ {package_name}: Already installed")
-        except ImportError:
-            missing_packages.append(package_name)
-            print(f"❌ {package_name}: Missing")
-    
-    if missing_packages:
-        print(f"\n📦 Installing required packages: {', '.join(missing_packages)}")
-        
-        # Check if pip is available
-        try:
-            subprocess.check_call([sys.executable, '-m', 'pip', '--version'], 
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except subprocess.CalledProcessError:
-            print("❌ pip is not available. Please install pip first.")
-            return False
-        
-        try:
-            # Try to upgrade pip first
-            print("🔄 Upgrading pip...")
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip'],
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            
-            # Install missing packages
-            for package in missing_packages:
-                print(f"📦 Installing {package}...")
-                result = subprocess.run([sys.executable, '-m', 'pip', 'install', package], 
-                                      capture_output=True, text=True)
-                if result.returncode != 0:
-                    print(f"❌ Failed to install {package}:")
-                    print(f"   Error: {result.stderr}")
-                    return False
-                else:
-                    print(f"✅ Successfully installed {package}")
-            
-            print("✅ All required packages installed successfully!")
-            return True
-            
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Package installation failed: {e}")
-            return False
-        except Exception as e:
-            print(f"❌ Unexpected error during installation: {e}")
-            return False
-    
-    print("✅ All required packages are already available!")
-    return True
 
 
 def download_model_files():

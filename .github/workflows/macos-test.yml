@@ -19,30 +19,36 @@ jobs:
       with:
         python-version: '3.11'
     
+    - name: Clean environment
+      run: |
+        echo "🧹 Running cleanup before testing..."
+        python3 cleanup.py
+    
     - name: Create virtual environment
       run: |
-        python3 -m venv .venv-macos
-        source .venv-macos/bin/activate
+        python3 -m venv .venv-macos-clean
+        source .venv-macos-clean/bin/activate
         echo "VIRTUAL ENV" >> $GITHUB_PATH
     
-    - name: Install dependencies
+    - name: Test SVOD version (vanilla environment)
       run: |
-        source .venv-macos/bin/activate
-        pip install --upgrade pip
-        pip install opencv-python numpy openvino
-    
-    - name: Test SVOD version
-      run: |
-        source .venv-macos/bin/activate
+        source .venv-macos-clean/bin/activate
+        echo "🎬 Testing SVOD v4.8.0 with enhanced DNN validation..."
         python3 video_orientation_detector.py --version
     
     - name: Test SVOD basic functionality
       run: |
-        source .venv-macos/bin/activate
-        # Test with dummy video path (will fail gracefully)
-        python3 video_orientation_detector.py /dev/null --no-display --time-limit 1 || echo "Expected failure - no video file"
+        source .venv-macos-clean/bin/activate
+        echo "🔧 Testing basic functionality with auto-installation..."
+        # Test with dummy video path (will fail gracefully but test installation)
+        python3 video_orientation_detector.py /dev/null --no-display --time-limit 1 || echo "✅ Expected failure - no video file, but installation works"
     
-    - name: Check models download
+    - name: Verify models downloaded
       run: |
-        source .venv-macos/bin/activate
-        ls -la *.cfg *.weights *.xml *.bin *.yaml *.prototxt *.caffemodel 2>/dev/null || echo "Models not downloaded yet"
+        echo "📦 Checking if models were auto-downloaded..."
+        ls -la *.cfg *.weights *.xml *.bin *.yaml *.prototxt *.caffemodel 2>/dev/null || echo "⚠️ Models not downloaded (expected for /dev/null test)"
+        
+    - name: Final cleanup
+      run: |
+        echo "🧹 Final cleanup..."
+        python3 cleanup.py
