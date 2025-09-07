@@ -2,12 +2,14 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.7.0 - Mandatory Dependencies (No Optional Models)
+Version: 4.11.0 - Cross-Platform Compatibility (omz_downloader + Apple Silicon)
 Date: September 7, 2025
 Author: Enhanced with AI assistance
 
 Features:
 - Multi-model detection: YOLO, DNN Face, Haar Cascades, MobileNet
+- Cross-platform compatibility (Windows, Linux, macOS with Apple Silicon graceful fallback)
+- Smart dependency installation with omz_downloader for MobileNet models
 - Context-aware weighted voting system (landscape/portrait awareness)
 - Reference-based validation
 - Auto-download of dependencies and models
@@ -34,12 +36,19 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.9.2"
+__version__ = "4.11.0"
 __release_date__ = "2025-09-07"
-__release_name__ = "Apple Silicon M3 Compatibility"
+__release_name__ = "Cross-Platform Compatibility (omz_downloader + Apple Silicon)"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
+
+def is_apple_silicon():
+    """Check if running on Apple Silicon (M1/M2/M3) Mac"""
+    try:
+        return platform.system() == "Darwin" and platform.machine() == "arm64"
+    except:
+        return False
 
 # Third-party imports with auto-installation
 def install_required_packages():
@@ -51,6 +60,13 @@ def install_required_packages():
         ('numpy', 'numpy'),
         ('openvino', 'openvino'),  # Moved from optional to required
     ]
+    
+    # Platform-specific packages for omz_downloader functionality
+    optional_dev_packages = []
+    if not is_apple_silicon():
+        # Only try to install openvino-dev on non-Apple Silicon platforms
+        # Apple Silicon has limited support for omz_downloader
+        optional_dev_packages = [('openvino.tools', 'openvino-dev')]
     
     # Note: No optional packages - all models must work!
     missing_packages = []
@@ -99,6 +115,24 @@ def install_required_packages():
                     return False
                     
             print("✅ All required packages installed successfully!")
+            
+            # Try to install development tools for omz_downloader (not critical if fails)
+            if optional_dev_packages:
+                print("\n🔧 Installing optional development tools for enhanced functionality...")
+                for module_name, package_name in optional_dev_packages:
+                    try:
+                        print(f"⬇️ Installing {package_name} (for omz_downloader support)...")
+                        result = subprocess.run([sys.executable, '-m', 'pip', 'install', package_name], 
+                                              capture_output=True, text=True, timeout=300)
+                        if result.returncode == 0:
+                            print(f"✅ {package_name} installed successfully")
+                        else:
+                            print(f"⚠️ Failed to install {package_name} (not critical): {result.stderr}")
+                            print(f"💡 Direct download fallbacks will be used instead")
+                    except Exception as e:
+                        print(f"⚠️ {package_name} installation failed (not critical): {e}")
+                        print(f"💡 Direct download fallbacks will be used instead")
+            
             return True
             
         except subprocess.TimeoutExpired:
@@ -127,15 +161,6 @@ except ImportError:
         sys.exit(1)
 
 
-def is_apple_silicon():
-    """Check if running on Apple Silicon (M1/M2/M3) Mac"""
-    try:
-        import platform
-        return platform.system() == "Darwin" and platform.machine() == "arm64"
-    except:
-        return False
-
-
 def check_required_model_files():
     """
     Check if all required model files are available
@@ -155,6 +180,8 @@ def check_required_model_files():
         "mobilenet-v2.xml": "MobileNet model configuration (required)",
         "mobilenet-v2.bin": "MobileNet model weights (required)"
     }
+    
+    # No optional files - all models are mandatory for operation
     
     missing_critical = []
     
@@ -176,12 +203,15 @@ def check_system_requirements():
     issues = []
     warnings = []
     
-    # Check Python version
+    # Check Python version - omz_downloader requires Python 3.11-3.12 for full compatibility
     python_version = tuple(map(int, platform.python_version().split('.')))
-    if python_version < (3, 8):
-        issues.append(f"Python version {platform.python_version()} is too old. Minimum required: 3.8")
-    elif python_version >= (3, 12):
-        warnings.append(f"Python {platform.python_version()} is very new - some packages might not be fully compatible")
+    if python_version < (3, 11):
+        issues.append(f"Python version {platform.python_version()} is too old. Minimum required: 3.11 (for omz_downloader compatibility)")
+    elif python_version >= (3, 13):
+        issues.append(f"Python version {platform.python_version()} is too new. Maximum supported: 3.12 (omz_downloader fails on 3.13+ due to NumPy compilation issues). Please use Python 3.11-3.12 for full compatibility.")
+    elif python_version >= (3, 11) and python_version <= (3, 12):
+        # Optimal range for all features including omz_downloader
+        pass
     
     # Check essential dependencies
     essential_deps = [
@@ -321,19 +351,24 @@ def download_model_files():
                 except:
                     pass
         
-        # First try OpenVINO Model Zoo tools
-        print(f"⬇️ Attempting MobileNet download using OpenVINO Model Zoo tools...")
-        omz_success = download_mobilenet_with_omz(script_dir, filename)
-        
-        if omz_success:
-            return True
-        
-        # Fallback: Download pre-converted models with improved URLs
-        print(f"🔄 OpenVINO tools failed, trying fallback download...")
-        
-        # Check if this is Apple Silicon - known compatibility issues
+        # Check platform-specific compatibility first
         if is_apple_silicon():
-            print("💡 Detected Apple Silicon (M1/M2/M3) - OpenVINO may have compatibility issues")
+            print("💡 Detected Apple Silicon (M1/M2/M3) - Using optimized fallback approach")
+            print("💡 omz_downloader may have limited support on Apple Silicon, trying direct downloads first")
+            # On Apple Silicon, skip omz_downloader and go directly to fallbacks
+            print(f"🔄 Skipping omz_downloader on Apple Silicon, using direct download...")
+        else:
+            # Try OpenVINO Model Zoo tools first on non-Apple Silicon platforms
+            print(f"⬇️ Attempting MobileNet download using OpenVINO Model Zoo tools...")
+            omz_success = download_mobilenet_with_omz(script_dir, filename)
+            
+            if omz_success:
+                return True
+            
+            # Fallback: Download pre-converted models with improved URLs
+            print(f"🔄 OpenVINO tools failed, trying fallback download...")
+        
+        # Direct download approach (used for Apple Silicon or as fallback)
         
         fallback_urls = {
             "mobilenet-v2.xml": [
@@ -1098,6 +1133,102 @@ class OrientationDetector:
             'conflict_resolutions': 0
         }
 
+    def detect_rotation_direction(self, frame: np.ndarray, faces: List[Dict], bodies: List[Dict]) -> str:
+        """
+        Determine rotation direction needed (clockwise vs counterclockwise)
+        Based on face and body orientation analysis
+        """
+        height, width = frame.shape[:2]
+        video_aspect_ratio = width / height
+        
+        # Direction votes: 'cw' = clockwise, 'ccw' = counterclockwise, 'none' = no rotation
+        direction_votes = {'cw': 0, 'ccw': 0, 'none': 0}
+        
+        # 1. Face-based direction detection
+        for face in faces:
+            x, y, w, h = face['box']
+            face_center_x = x + w // 2
+            face_center_y = y + h // 2
+            
+            # Face aspect ratio analysis
+            face_aspect = h / w if w > 0 else 1
+            
+            # If video is portrait format (mobile video)
+            if video_aspect_ratio < 0.8:  # Portrait video (e.g., 2160x3840)
+                # Face should be taller than wide in correct orientation
+                if face_aspect < 0.8:  # Face is wider than tall = rotated
+                    # Determine direction based on face position
+                    if face_center_y < height * 0.4:  # Face in upper part
+                        direction_votes['ccw'] += 2  # Counterclockwise to straighten
+                    else:  # Face in lower part
+                        direction_votes['cw'] += 2   # Clockwise to straighten
+                elif face_aspect > 1.2:  # Face properly oriented
+                    direction_votes['none'] += 1
+            
+            # If video is landscape format 
+            elif video_aspect_ratio > 1.2:  # Landscape video (e.g., 1920x1080)
+                # Face should be taller than wide in correct orientation
+                if face_aspect < 0.8:  # Face is wider than tall = likely rotated
+                    # Check position for direction
+                    if face_center_x < width * 0.3:  # Face on left side
+                        direction_votes['cw'] += 2   # Clockwise rotation needed
+                    elif face_center_x > width * 0.7:  # Face on right side  
+                        direction_votes['ccw'] += 2  # Counterclockwise rotation needed
+                    else:  # Face in center
+                        direction_votes['cw'] += 1   # Default to clockwise
+                elif face_aspect > 1.2:  # Face properly oriented
+                    direction_votes['none'] += 1
+        
+        # 2. Body-based direction detection
+        for body in bodies:
+            x, y, w, h = body['box']
+            body_aspect = h / w if w > 0 else 1
+            
+            # Bodies should typically be taller than wide
+            if body_aspect < 0.7:  # Body is wider than tall = likely rotated
+                body_center_x = x + w // 2
+                body_center_y = y + h // 2
+                
+                if video_aspect_ratio < 0.8:  # Portrait video
+                    if body_center_y < height * 0.4:
+                        direction_votes['ccw'] += 1
+                    else:
+                        direction_votes['cw'] += 1
+                else:  # Landscape video
+                    if body_center_x < width * 0.3:
+                        direction_votes['cw'] += 1
+                    elif body_center_x > width * 0.7:
+                        direction_votes['ccw'] += 1
+                    else:
+                        direction_votes['cw'] += 1
+            elif body_aspect > 1.5:  # Body properly oriented
+                direction_votes['none'] += 1
+        
+        # 3. Default heuristics based on video format
+        if not faces and not bodies:
+            # No faces/bodies detected, use video format as hint
+            if video_aspect_ratio < 0.8:  # Portrait video
+                direction_votes['ccw'] += 1  # Common for mobile videos
+            else:  # Landscape video
+                direction_votes['cw'] += 1   # Common for camera videos
+        
+        # Determine final direction
+        max_votes = max(direction_votes.values())
+        if max_votes == 0:
+            return 'clockwise'  # Default fallback
+        
+        # Find direction with most votes
+        for direction, votes in direction_votes.items():
+            if votes == max_votes:
+                if direction == 'cw':
+                    return 'clockwise'
+                elif direction == 'ccw':
+                    return 'counterclockwise'
+                else:
+                    return 'none'
+        
+        return 'clockwise'  # Fallback
+
     def determine_frame_orientation(self, frame: np.ndarray) -> Tuple[VideoOrientation, Dict]:
         """
         Enhanced orientation detection using multiple models and smart fusion with video context
@@ -1112,7 +1243,8 @@ class OrientationDetector:
             'primary_detection': None,
             'votes': {},
             'final_decision': None,
-            'video_context': None
+            'video_context': None,
+            'rotation_direction': None  # Added for direction tracking
         }
         
         # Get video context (resolution-based)
@@ -1467,6 +1599,10 @@ class OrientationDetector:
                     self.stats['incorrect_orientation_frames'] += 1
                     if detection_info['faces'] or detection_info['bodies']:
                         self.stats['frames_with_humans'] += 1
+                        # Store rotation direction for the first incorrect frame with humans
+                        if 'rotation_direction' not in self.stats:
+                            direction = self.detect_rotation_direction(frame, detection_info['faces'], detection_info['bodies'])
+                            self.stats['rotation_direction'] = direction
                 else:
                     self.stats['uncertain_frames'] += 1
 
@@ -1628,7 +1764,12 @@ class OrientationDetector:
             elif incorrect_ratio > 0.7:
                 verdict = "✗ VIDEO IS ROTATED"
                 confidence = incorrect_ratio
-                recommendation = "Rotate video 90° to correct orientation"
+                # Use stored rotation direction if available
+                if 'rotation_direction' in self.stats:
+                    direction = self.stats['rotation_direction']
+                    recommendation = f"Rotate video 90° {direction} to correct orientation"
+                else:
+                    recommendation = "Rotate video 90° to correct orientation"
             else:
                 verdict = "⚠ MIXED ORIENTATION DETECTED"
                 confidence = max(correct_ratio, incorrect_ratio)
@@ -1891,7 +2032,12 @@ class OrientationDetector:
         if result.error:
             return "Check file integrity"
         elif result.orientation == VideoOrientation.INCORRECT:
-            return "Rotate 90° clockwise"
+            # Get rotation direction from detection info if available
+            if hasattr(result, 'detection_info') and 'rotation_direction' in result.detection_info:
+                direction = result.detection_info['rotation_direction']
+                return f"Rotate 90° {direction}"
+            else:
+                return "Rotate 90° clockwise"  # Default fallback
         elif result.orientation == VideoOrientation.UNCERTAIN:
             return "Manual inspection"
         else:
@@ -1977,6 +2123,11 @@ def get_video_files_in_folder(folder_path: str, recursive: bool = False) -> List
 
 def main():
     """Main function to run the video orientation detector"""
+    # Python 3.13 UTF-8 encoding fix for Windows
+    import os
+    if os.name == 'nt' and not os.environ.get('PYTHONIOENCODING'):
+        os.environ['PYTHONIOENCODING'] = 'utf-8'
+    
     # Version info for CLI
     version = __version__
     release_date = __release_date__

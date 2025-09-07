@@ -12,6 +12,9 @@ __pycache__/
 .env
 .venv/
 .venv-linux/
+.venv-test*/
+.venv-wsl*/
+.venv-*-py*/
 env/
 venv/
 ENV/
@@ -35,6 +38,7 @@ wheels/
 *.egg
 
 # Large model files (auto-downloaded)
+coco.names
 yolov4.cfg
 yolov4.weights
 deploy.prototxt

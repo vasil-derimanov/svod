@@ -50,7 +50,18 @@ def main():
         ".venv-test", 
         ".venv-wsl-clean",
         ".venv-test-linux",
-        ".venv-test-linux-clean"
+        ".venv-test-linux-clean",
+        ".venv-test-v492",
+        ".venv-wsl-test-v492",
+        ".venv-test-py313",
+        ".venv-test-py311", 
+        ".venv-test-v410",
+        ".venv-test-v410-windows",
+        ".venv-test-v410-wsl",
+        ".venv-final-test",
+        ".venv-comprehensive-test",
+        ".venv-accuracy-test",
+        ".venv-rotation-test"
     ]
     
     print_colored("\n🗂️ Removing test virtual environments...", "yellow")
@@ -82,10 +93,14 @@ def main():
             os.remove(temp_file)
             print_colored(f"✅ Removed: {temp_file}", "green")
     
-    # Remove status file
-    if os.path.exists(".project_status"):
-        os.remove(".project_status")
-        print_colored("✅ Removed: .project_status", "green")
+    # Remove status files (all versions)
+    status_files = glob.glob(".project_status*")
+    for status_file in status_files:
+        os.remove(status_file)
+        print_colored(f"✅ Removed: {status_file}", "green")
+    
+    if not status_files:
+        print_colored("⚪ Not found: .project_status*", "gray")
     
     # Remove models directory if it exists
     if os.path.exists("models"):

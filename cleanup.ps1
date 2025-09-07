@@ -31,7 +31,18 @@ $testEnvs = @(
     ".venv-test", 
     ".venv-wsl-clean",
     ".venv-test-linux",
-    ".venv-test-linux-clean"
+    ".venv-test-linux-clean",
+    ".venv-test-v492",
+    ".venv-wsl-test-v492",
+    ".venv-test-py313",
+    ".venv-test-py311", 
+    ".venv-test-v410",
+    ".venv-test-v410-windows",
+    ".venv-test-v410-wsl",
+    ".venv-final-test",
+    ".venv-comprehensive-test",
+    ".venv-accuracy-test",
+    ".venv-rotation-test"
 )
 
 Write-Host "`n🗂️ Removing test virtual environments..." -ForegroundColor Yellow
