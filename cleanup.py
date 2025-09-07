@@ -87,6 +87,11 @@ def main():
         os.remove(".project_status")
         print_colored("✅ Removed: .project_status", "green")
     
+    # Remove models directory if it exists
+    if os.path.exists("models"):
+        shutil.rmtree("models")
+        print_colored("✅ Removed: models directory", "green")
+    
     print_colored("\n✨ Cleanup completed! Ready for vanilla testing.", "green")
     print_colored("📋 Project now contains only:", "cyan")
     

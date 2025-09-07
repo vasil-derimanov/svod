@@ -1,6 +1,6 @@
-# Smart Video Orientation Detector (SVOD) v4.8.0
+# Smart Video Orientation Detector (SVOD) v4.9.1
 
-🎥 **Intelligent video orientation detection with enhanced DNN validation and automated cleanup**
+🎥 **Intelligent video orientation detection with adaptive MobileNet requirement and automated cleanup**
 
 ## 📋 Overview
 
@@ -15,7 +15,7 @@ SVOD automatically detects and analyzes video orientation using multiple detecti
 - ✅ **Single Video Analysis** - Process individual videos with detailed orientation reports
 - ✅ **Batch Processing** - Process entire folders recursively with comprehensive reports
 - ✅ **Cross-Platform** - Works on Windows, macOS, and Linux
-- ✅ **Enhanced DNN Validation** - Robust error handling and model validation (v4.8.0)
+- ✅ **Adaptive Model Requirements** - Robust cross-platform compatibility (v4.9.1)
 - ✅ **Automated Cleanup** - Built-in scripts for clean testing environments (v4.8.0)
 - ✅ **Real-time Display** - Optional live preview during analysis
 - ✅ **Flexible Output** - Save annotated videos and detailed CSV/JSON reports
@@ -233,6 +233,8 @@ python video_orientation_detector.py /videos --batch -r --time-limit 30 --report
 
 ## 📝 Version History
 
+- **v4.9.1** (2025-09-07): Adaptive MobileNet requirement - graceful handling of WSL/Linux environments
+- **v4.9.0** (2025-09-07): Made MobileNet models mandatory for enhanced detection accuracy  
 - **v4.8.0** (2025-09-07): Enhanced DNN validation + Automated cleanup scripts for vanilla testing
 - **v4.7.0** (2025-09-07): Enhanced compatibility and MobileNet optimization
 - **v4.6.2** (2025-09-07): Clean project - removed cSpell dependencies, cross-platform testing verified

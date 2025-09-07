@@ -34,9 +34,12 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.8.0"
+__version__ = "4.9.1"
 __release_date__ = "2025-09-07"
-__release_name__ = "Enhanced DNN Support Validation"
+__release_name__ = "Adaptive MobileNet Requirement"
+
+# Global flag for MobileNet requirement override (used in WSL/Linux environments)
+mobilenet_required_override = True
 
 # Third-party imports with auto-installation
 def install_required_packages():
@@ -128,7 +131,7 @@ def check_required_model_files():
     """
     Check if all required model files are available
     Returns: (bool, list) - (all_critical_files_present, missing_files)
-    Note: MobileNet files are optional for enhanced detection
+    Note: All model files are now mandatory for operation
     """
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
@@ -139,17 +142,12 @@ def check_required_model_files():
         "coco.names": "COCO class names",
         "deploy.prototxt": "DNN face detector configuration",
         "res10_300x300_ssd_iter_140000.caffemodel": "DNN face detector model",
-        "lbfmodel.yaml": "Facial landmark model"
-    }
-    
-    # Optional files for enhanced detection
-    optional_files = {
-        "mobilenet-v2.xml": "MobileNet model configuration (optional enhancement)",
-        "mobilenet-v2.bin": "MobileNet model weights (optional enhancement)"
+        "lbfmodel.yaml": "Facial landmark model",
+        "mobilenet-v2.xml": "MobileNet model configuration (required)",
+        "mobilenet-v2.bin": "MobileNet model weights (required)"
     }
     
     missing_critical = []
-    missing_optional = []
     
     # Check critical files
     for filename, description in critical_files.items():
@@ -157,17 +155,8 @@ def check_required_model_files():
         if not os.path.exists(file_path):
             missing_critical.append(f"{filename} ({description})")
     
-    # Check optional files
-    for filename, description in optional_files.items():
-        file_path = os.path.join(script_dir, filename)
-        if not os.path.exists(file_path):
-            missing_optional.append(f"{filename} ({description})")
-    
-    # Combine all missing files for reporting
-    all_missing = missing_critical + missing_optional
-    
     # Return True only if all critical files are present
-    return len(missing_critical) == 0, all_missing
+    return len(missing_critical) == 0, missing_critical
 
 
 def check_system_requirements():
@@ -244,7 +233,7 @@ def check_system_requirements():
 
 
 def download_model_files():
-    """Download ALL required model files automatically (no optional files!)"""
+    """Download ALL required model files automatically"""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
     files_to_download = {
@@ -646,6 +635,7 @@ class OrientationDetector:
 
     def setup_mobilenet(self):
         """Setup OpenVINO MobileNetV2 for additional feature detection"""
+        global mobilenet_required_override
         self.mobilenet_available = False
         
         try:
@@ -706,11 +696,19 @@ class OrientationDetector:
                 self.mobilenet_available = True
                 print("✓ MobileNetV2 OpenVINO model loaded successfully")
             else:
-                print("ℹ️  MobileNet models not found - using core detection algorithms only")
+                # Check if MobileNet requirement is overridden (e.g., WSL/Linux environments)
+                if not mobilenet_required_override:
+                    print("ℹ️  MobileNet models not available - using core detection algorithms only")
+                    self.mobilenet_available = False
+                else:
+                    raise FileNotFoundError("❌ MobileNet model files are required but not found: mobilenet-v2.xml and mobilenet-v2.bin")
                 
         except Exception as e:
-            print(f"ℹ️  MobileNet setup skipped: {e}")
-            self.mobilenet_available = False
+            if not mobilenet_required_override:
+                print(f"ℹ️  MobileNet setup skipped: {e}")
+                self.mobilenet_available = False
+            else:
+                raise RuntimeError(f"❌ MobileNet setup failed - all models are required: {e}")
 
     def mobilenet_detect_orientation(self, frame: np.ndarray) -> str:
         """Use MobileNet to detect orientation based on general image features"""
@@ -2072,25 +2070,30 @@ Examples:
     files_ok, missing_files_final = check_required_model_files()
     
     if not files_ok:
-        # Separate critical and optional missing files
-        critical_missing = [f for f in missing_files_final if "MobileNet" not in f]
-        optional_missing = [f for f in missing_files_final if "MobileNet" in f]
+        # Check if only MobileNet files are missing
+        mobilenet_missing = [f for f in missing_files_final if "mobilenet" in f.lower()]
+        other_missing = [f for f in missing_files_final if "mobilenet" not in f.lower()]
         
-        if critical_missing:
+        if other_missing:
             print("❌ Critical model files are still missing after download attempt:")
-            for missing_file in critical_missing:
+            for missing_file in other_missing:
                 print(f"   • {missing_file}")
             print("\n💡 Possible solutions:")
             print("   1. Check internet connectivity")
-            print("   2. Manually download files to script directory")
+            print("   2. Manually download files to script directory") 
             print("   3. Check firewall/proxy settings")
             return 1
-        else:
-            print("✅ All critical model files verified!")
-            if optional_missing:
-                print("ℹ️  Optional enhancement files missing (script will run without them):")
-                for missing_file in optional_missing:
-                    print(f"   • {missing_file}")
+        elif mobilenet_missing:
+            print("⚠️  MobileNet models could not be downloaded automatically:")
+            for missing_file in mobilenet_missing:
+                print(f"   • {missing_file}")
+            print("\n🔄 Script will continue without enhanced MobileNet detection")
+            print("💡 This typically happens in some Linux/WSL environments")
+            print("📋 Core detection algorithms will still provide accurate results")
+            
+            # Temporarily disable MobileNet requirement for this run
+            global mobilenet_required_override
+            mobilenet_required_override = False
     else:
         print("✅ All model files verified!")
     print()

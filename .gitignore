@@ -43,6 +43,7 @@ lbfmodel.yaml
 mobilenet-v2.xml
 mobilenet-v2.bin
 public/
+models/
 
 # Test results and logs (exclude reference files)
 orientation_results*.csv

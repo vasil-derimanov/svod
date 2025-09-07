@@ -50,7 +50,8 @@ $tempFiles = @(
     "*.pyc",
     "*.tmp",
     "*.temp",
-    ".project_status"
+    ".project_status",
+    "models"
 )
 
 Write-Host "`n🗑️ Removing temporary files..." -ForegroundColor Yellow
