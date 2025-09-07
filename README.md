@@ -1,6 +1,6 @@
-# Smart Video Orientation Detector (SVOD) v4.7.0
+# Smart Video Orientation Detector (SVOD) v4.8.0
 
-🎥 **Intelligent video orientation detection using advanced computer vision and machine learning techniques**
+🎥 **Intelligent video orientation detection with enhanced DNN validation and automated cleanup**
 
 ## 📋 Overview
 
@@ -15,6 +15,8 @@ SVOD automatically detects and analyzes video orientation using multiple detecti
 - ✅ **Single Video Analysis** - Process individual videos with detailed orientation reports
 - ✅ **Batch Processing** - Process entire folders recursively with comprehensive reports
 - ✅ **Cross-Platform** - Works on Windows, macOS, and Linux
+- ✅ **Enhanced DNN Validation** - Robust error handling and model validation (v4.8.0)
+- ✅ **Automated Cleanup** - Built-in scripts for clean testing environments (v4.8.0)
 - ✅ **Real-time Display** - Optional live preview during analysis
 - ✅ **Flexible Output** - Save annotated videos and detailed CSV/JSON reports
 - ✅ **Performance Optimized** - Time-limited analysis for large video sets
@@ -53,9 +55,36 @@ python video_orientation_detector.py your_video.mp4
 **The script automatically:**
 - Installs all required Python packages (opencv-contrib-python, numpy, openvino)
 - Downloads all model files (YOLO, DNN Face detector, MobileNet, etc.)
-- Validates all components before processing
+- Validates all components with enhanced DNN support verification (v4.8.0)
 
 **No manual setup required!** Everything is handled automatically on first run.
+
+## 🧹 Clean Testing Environment (v4.8.0)
+
+SVOD v4.8.0 includes automated cleanup scripts for vanilla testing:
+
+### PowerShell Cleanup
+```powershell
+# Clean all models and test environments
+.\cleanup.ps1
+```
+
+### Python Cleanup  
+```bash
+# Cross-platform cleanup
+python cleanup.py
+```
+
+**Cleanup removes:**
+- All model files (YOLO, DNN, MobileNet, etc.)
+- Test virtual environments (.venv-clean, .venv-test, etc.)
+- Temporary/cache files (__pycache__, *.pyc, etc.)
+- Status tracking files
+
+**Perfect for:**
+- Vanilla environment testing
+- Clean CI/CD runs
+- Development workflow automation
 
 ## 🐧 WSL/Linux Setup
 
@@ -204,6 +233,8 @@ python video_orientation_detector.py /videos --batch -r --time-limit 30 --report
 
 ## 📝 Version History
 
+- **v4.8.0** (2025-09-07): Enhanced DNN validation + Automated cleanup scripts for vanilla testing
+- **v4.7.0** (2025-09-07): Enhanced compatibility and MobileNet optimization
 - **v4.6.2** (2025-09-07): Clean project - removed cSpell dependencies, cross-platform testing verified
 - **v4.6.1** (2025-09-07): Enhanced macOS Python 3.12+ compatibility, improved OpenVINO error handling
 - **v4.6.0** (2025-09-07): Improved cross-platform compatibility, MobileNet files now optional
