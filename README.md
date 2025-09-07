@@ -1,4 +1,4 @@
-# Smart Video Orientation Detector (SVOD) v4.11.0
+# Smart Video Orientation Detector (SVOD) v4.12.3
 
 🎥 **Intelligent video orientation detection with cross-platform compatibility**
 
@@ -33,6 +33,8 @@ SVOD automatically detects and analyzes video orientation using multiple detecti
 - **numpy** (mathematical operations)
 - **openvino** (Intel OpenVINO for MobileNet inference)
 - **openvino-dev** (OpenVINO Model Zoo tools - platform dependent)
+- **torch** (PyTorch CPU version for MobileNet model conversion)
+- **onnx** (ONNX format support for model conversion)
 
 All model files (YOLO, DNN, MobileNet, etc.) are downloaded automatically:
 - **omz_downloader** (preferred method for MobileNet models on compatible platforms)

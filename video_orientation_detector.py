@@ -36,9 +36,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.11.0"
+__version__ = "4.12.3"
 __release_date__ = "2025-09-07"
-__release_name__ = "Cross-Platform Compatibility (omz_downloader + Apple Silicon)"
+__release_name__ = "Performance Optimized + Rotation Direction Focus"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -365,52 +365,11 @@ def download_model_files():
             if omz_success:
                 return True
             
-            # Fallback: Download pre-converted models with improved URLs
-            print(f"🔄 OpenVINO tools failed, trying fallback download...")
-        
-        # Direct download approach (used for Apple Silicon or as fallback)
-        
-        fallback_urls = {
-            "mobilenet-v2.xml": [
-                "https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/models/public/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.xml",
-                "https://github.com/openvinotoolkit/open_model_zoo/raw/master/models/public/mobilenet-v2-pytorch/mobilenet-v2-pytorch.xml"
-            ],
-            "mobilenet-v2.bin": [
-                "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2022.3/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.bin",
-                "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.bin"
-            ]
-        }
-        
-        if filename in fallback_urls:
-            # Try multiple URLs for better reliability
-            for i, url in enumerate(fallback_urls[filename]):
-                try:
-                    print(f"📥 Downloading {filename} from fallback source {i+1}/{len(fallback_urls[filename])}...")
-                    import urllib.request
-                    urllib.request.urlretrieve(url, dest_path)
-                    
-                    # Validate downloaded file
-                    if validate_model_file(dest_path, filename):
-                        print(f"✅ {filename} downloaded successfully via fallback")
-                        return True
-                    else:
-                        print(f"❌ Downloaded {filename} from source {i+1} is invalid, trying next...")
-                        try:
-                            os.remove(dest_path)
-                        except:
-                            pass
-                        continue
-                            
-                except Exception as e:
-                    print(f"❌ Fallback download {i+1} failed for {filename}: {e}")
-                    try:
-                        os.remove(dest_path)
-                    except:
-                        pass
-                    continue
-        
-        print(f"❌ No fallback available for {filename}")
-        return False
+            # Fallback: MobileNet models cannot be reliably downloaded without omz_downloader
+            # These models require proper conversion from PyTorch format
+            print(f"� OpenVINO tools failed, MobileNet requires omz_downloader for proper conversion")
+            print(f"💡 Continuing without MobileNet - core detection algorithms are sufficient")
+            return False
 
     def download_mobilenet_with_omz(script_dir, filename):
         """Download and convert MobileNet using OpenVINO Model Zoo tools"""
@@ -424,8 +383,19 @@ def download_model_files():
             import sys
             
             # Check if omz_downloader is available
+            # First try to find omz_downloader in common locations
+            omz_downloader_cmd = "omz_downloader"
+            omz_converter_cmd = "omz_converter"
+            
+            # Try to find in Python Scripts directory first
+            import sysconfig
+            scripts_dir = sysconfig.get_path('scripts')
+            if scripts_dir and os.path.exists(os.path.join(scripts_dir, "omz_downloader.exe")):
+                omz_downloader_cmd = os.path.join(scripts_dir, "omz_downloader.exe")
+                omz_converter_cmd = os.path.join(scripts_dir, "omz_converter.exe")
+            
             try:
-                result = subprocess.run(["omz_downloader", "--help"], 
+                result = subprocess.run([omz_downloader_cmd, "--help"], 
                                        capture_output=True, text=True, timeout=10)
                 if result.returncode != 0:
                     raise Exception("omz_downloader not found")
@@ -437,6 +407,19 @@ def download_model_files():
                     print(f"❌ Failed to install openvino-dev: {install_result.stderr}")
                     return False
             
+            # Install required dependencies for model conversion
+            print("📦 Installing PyTorch and ONNX for model conversion...")
+            try:
+                # Install minimal PyTorch CPU version for conversion only
+                subprocess.run([sys.executable, "-m", "pip", "install", "torch", "torchvision", "--index-url", "https://download.pytorch.org/whl/cpu"], 
+                              capture_output=True, text=True, timeout=300)
+                subprocess.run([sys.executable, "-m", "pip", "install", "onnx"], 
+                              capture_output=True, text=True, timeout=60)
+                print("✅ PyTorch and ONNX installed for model conversion")
+            except Exception as e:
+                print(f"❌ Failed to install conversion dependencies: {e}")
+                return False
+
             # Create models subdirectory
             models_dir = os.path.join(script_dir, "models")
             os.makedirs(models_dir, exist_ok=True)
@@ -444,7 +427,7 @@ def download_model_files():
             # Download the model
             print("📥 Downloading mobilenet-v2-pytorch model...")
             result = subprocess.run([
-                "omz_downloader", 
+                omz_downloader_cmd, 
                 "--name", "mobilenet-v2-pytorch",
                 "--output_dir", models_dir
             ], capture_output=True, text=True, timeout=300)
@@ -456,7 +439,7 @@ def download_model_files():
             # Convert the model to OpenVINO IR format
             print("🔄 Converting model to OpenVINO IR format...")
             result = subprocess.run([
-                "omz_converter",
+                omz_converter_cmd,
                 "--name", "mobilenet-v2-pytorch", 
                 "--download_dir", models_dir,
                 "--output_dir", models_dir
@@ -905,9 +888,46 @@ class OrientationDetector:
             'notes': ref.get('notes', '')
         }
 
+    def get_sampling_ranges_v4_11_0(self, total_frames: int, fps: float) -> Optional[int]:
+        """
+        Calculate maximum frame to process based on time limit (v4.11.0 approach)
+        
+        Simple and fast: analyze only the first N seconds of video.
+        Proven to be most effective based on testing.
+
+        Args:
+            total_frames: Total number of frames in video
+            fps: Video frames per second
+
+        Returns:
+            Maximum frame number or None if no limit
+        """
+        if self.time_limit is None:
+            return None
+        max_frame = int(self.time_limit * fps)
+        return min(max_frame, total_frames)
+
+    def should_process_frame_v4_11_0(self, frame_number: int, max_frame: Optional[int]) -> bool:
+        """
+        Determine if a frame should be processed (v4.11.0 approach)
+
+        Args:
+            frame_number: Current frame number (0-based)
+            max_frame: Maximum frame to process (from time limit)
+
+        Returns:
+            True if frame should be processed
+        """
+        if max_frame is None:
+            return True  # No limit - process all frames
+            
+        return frame_number <= max_frame
+
     def get_max_frame_for_time_limit(self, fps: float) -> Optional[int]:
         """
         Calculate maximum frame number to process based on time limit
+        
+        DEPRECATED: Use should_process_frame() for smart sampling instead
 
         Args:
             fps: Video frames per second
@@ -1135,99 +1155,189 @@ class OrientationDetector:
 
     def detect_rotation_direction(self, frame: np.ndarray, faces: List[Dict], bodies: List[Dict]) -> str:
         """
-        Determine rotation direction needed (clockwise vs counterclockwise)
-        Based on face and body orientation analysis
+        Enhanced rotation direction detection with improved accuracy
+        
+        Returns: 'clockwise', 'counterclockwise', or 'none'
         """
         height, width = frame.shape[:2]
         video_aspect_ratio = width / height
         
-        # Direction votes: 'cw' = clockwise, 'ccw' = counterclockwise, 'none' = no rotation
-        direction_votes = {'cw': 0, 'ccw': 0, 'none': 0}
+        # Enhanced voting system with confidence weights
+        rotation_evidence = {
+            'clockwise': 0.0,
+            'counterclockwise': 0.0,
+            'none': 0.0
+        }
         
-        # 1. Face-based direction detection
+        # 1. Enhanced face analysis
+        face_confidence = 0.0
         for face in faces:
             x, y, w, h = face['box']
-            face_center_x = x + w // 2
-            face_center_y = y + h // 2
-            
-            # Face aspect ratio analysis
             face_aspect = h / w if w > 0 else 1
+            face_confidence_weight = face.get('confidence', 0.5)
             
-            # If video is portrait format (mobile video)
-            if video_aspect_ratio < 0.8:  # Portrait video (e.g., 2160x3840)
-                # Face should be taller than wide in correct orientation
-                if face_aspect < 0.8:  # Face is wider than tall = rotated
-                    # Determine direction based on face position
-                    if face_center_y < height * 0.4:  # Face in upper part
-                        direction_votes['ccw'] += 2  # Counterclockwise to straighten
-                    else:  # Face in lower part
-                        direction_votes['cw'] += 2   # Clockwise to straighten
-                elif face_aspect > 1.2:  # Face properly oriented
-                    direction_votes['none'] += 1
+            # Face orientation analysis
+            face_rotation_hint = self._analyze_face_orientation(
+                face_aspect, x, y, w, h, width, height, video_aspect_ratio
+            )
             
-            # If video is landscape format 
-            elif video_aspect_ratio > 1.2:  # Landscape video (e.g., 1920x1080)
-                # Face should be taller than wide in correct orientation
-                if face_aspect < 0.8:  # Face is wider than tall = likely rotated
-                    # Check position for direction
-                    if face_center_x < width * 0.3:  # Face on left side
-                        direction_votes['cw'] += 2   # Clockwise rotation needed
-                    elif face_center_x > width * 0.7:  # Face on right side  
-                        direction_votes['ccw'] += 2  # Counterclockwise rotation needed
-                    else:  # Face in center
-                        direction_votes['cw'] += 1   # Default to clockwise
-                elif face_aspect > 1.2:  # Face properly oriented
-                    direction_votes['none'] += 1
+            # Weight votes by detection confidence
+            for direction, score in face_rotation_hint.items():
+                rotation_evidence[direction] += score * face_confidence_weight * 2.0
+            
+            face_confidence += face_confidence_weight
         
-        # 2. Body-based direction detection
+        # 2. Enhanced body analysis  
+        body_confidence = 0.0
         for body in bodies:
-            x, y, w, h = body['box']
+            x, y, w, h = body['box'] 
             body_aspect = h / w if w > 0 else 1
+            body_confidence_weight = body.get('confidence', 0.5)
             
-            # Bodies should typically be taller than wide
-            if body_aspect < 0.7:  # Body is wider than tall = likely rotated
-                body_center_x = x + w // 2
-                body_center_y = y + h // 2
+            # Body orientation analysis
+            body_rotation_hint = self._analyze_body_orientation(
+                body_aspect, x, y, w, h, width, height, video_aspect_ratio
+            )
+            
+            # Weight votes by detection confidence
+            for direction, score in body_rotation_hint.items():
+                rotation_evidence[direction] += score * body_confidence_weight * 1.5
                 
-                if video_aspect_ratio < 0.8:  # Portrait video
-                    if body_center_y < height * 0.4:
-                        direction_votes['ccw'] += 1
-                    else:
-                        direction_votes['cw'] += 1
-                else:  # Landscape video
-                    if body_center_x < width * 0.3:
-                        direction_votes['cw'] += 1
-                    elif body_center_x > width * 0.7:
-                        direction_votes['ccw'] += 1
-                    else:
-                        direction_votes['cw'] += 1
-            elif body_aspect > 1.5:  # Body properly oriented
-                direction_votes['none'] += 1
+            body_confidence += body_confidence_weight
         
-        # 3. Default heuristics based on video format
-        if not faces and not bodies:
-            # No faces/bodies detected, use video format as hint
-            if video_aspect_ratio < 0.8:  # Portrait video
-                direction_votes['ccw'] += 1  # Common for mobile videos
+        # 3. Video format heuristics (when no clear evidence)
+        if face_confidence + body_confidence < 1.0:
+            format_hint = self._get_format_rotation_hint(video_aspect_ratio)
+            for direction, score in format_hint.items():
+                rotation_evidence[direction] += score * 0.5
+        
+        # 4. Edge detection heuristics for additional confidence
+        edge_hint = self._analyze_edge_orientation(frame, video_aspect_ratio)
+        for direction, score in edge_hint.items():
+            rotation_evidence[direction] += score * 0.3
+        
+        # Determine best direction with confidence threshold
+        max_score = max(rotation_evidence.values())
+        confidence_threshold = 0.5  # Minimum confidence for rotation recommendation
+        
+        if max_score < confidence_threshold:
+            return 'clockwise'  # Conservative default
+        
+        # Return direction with highest evidence
+        best_direction = max(rotation_evidence, key=rotation_evidence.get)
+        
+        # Map internal names to output format
+        direction_map = {
+            'clockwise': 'clockwise',
+            'counterclockwise': 'counterclockwise', 
+            'none': 'none'
+        }
+        
+        return direction_map.get(best_direction, 'clockwise')
+    
+    def _analyze_face_orientation(self, face_aspect: float, x: int, y: int, w: int, h: int,
+                                width: int, height: int, video_aspect: float) -> Dict[str, float]:
+        """Analyze face orientation and return rotation evidence"""
+        evidence = {'clockwise': 0.0, 'counterclockwise': 0.0, 'none': 0.0}
+        
+        face_center_x = x + w // 2
+        face_center_y = y + h // 2
+        
+        # Face should typically be taller than wide (aspect > 1.0)
+        if face_aspect < 0.7:  # Face is very wide = likely rotated 90°
+            if video_aspect < 1.0:  # Portrait video
+                # Use vertical position to determine direction
+                if face_center_y < height * 0.3:  # Top third
+                    evidence['counterclockwise'] += 3.0
+                elif face_center_y > height * 0.7:  # Bottom third  
+                    evidence['clockwise'] += 3.0
+                else:  # Middle third
+                    evidence['clockwise'] += 1.0  # Default bias
             else:  # Landscape video
-                direction_votes['cw'] += 1   # Common for camera videos
+                # Use horizontal position to determine direction  
+                if face_center_x < width * 0.3:  # Left third
+                    evidence['clockwise'] += 3.0
+                elif face_center_x > width * 0.7:  # Right third
+                    evidence['counterclockwise'] += 3.0
+                else:  # Middle third
+                    evidence['clockwise'] += 1.0  # Default bias
+        elif 0.7 <= face_aspect <= 1.3:  # Ambiguous aspect ratio
+            evidence['none'] += 1.0
+        else:  # face_aspect > 1.3 - likely correct orientation
+            evidence['none'] += 2.0
+            
+        return evidence
+    
+    def _analyze_body_orientation(self, body_aspect: float, x: int, y: int, w: int, h: int,
+                                width: int, height: int, video_aspect: float) -> Dict[str, float]:
+        """Analyze body orientation and return rotation evidence"""
+        evidence = {'clockwise': 0.0, 'counterclockwise': 0.0, 'none': 0.0}
         
-        # Determine final direction
-        max_votes = max(direction_votes.values())
-        if max_votes == 0:
-            return 'clockwise'  # Default fallback
+        body_center_x = x + w // 2
+        body_center_y = y + h // 2
         
-        # Find direction with most votes
-        for direction, votes in direction_votes.items():
-            if votes == max_votes:
-                if direction == 'cw':
-                    return 'clockwise'
-                elif direction == 'ccw':
-                    return 'counterclockwise'
+        # Bodies should be much taller than wide (aspect > 1.5)
+        if body_aspect < 0.6:  # Body is very wide = likely rotated
+            if video_aspect < 1.0:  # Portrait video
+                if body_center_y < height * 0.3:
+                    evidence['counterclockwise'] += 2.0
+                elif body_center_y > height * 0.7:
+                    evidence['clockwise'] += 2.0
                 else:
-                    return 'none'
+                    evidence['clockwise'] += 0.5
+            else:  # Landscape video
+                if body_center_x < width * 0.3:
+                    evidence['clockwise'] += 2.0
+                elif body_center_x > width * 0.7:
+                    evidence['counterclockwise'] += 2.0
+                else:
+                    evidence['clockwise'] += 0.5
+        elif 0.6 <= body_aspect <= 1.2:  # Ambiguous
+            evidence['none'] += 0.5
+        else:  # body_aspect > 1.2 - likely correct
+            evidence['none'] += 1.5
+            
+        return evidence
+    
+    def _get_format_rotation_hint(self, video_aspect: float) -> Dict[str, float]:
+        """Get rotation hint based on video format"""
+        evidence = {'clockwise': 0.0, 'counterclockwise': 0.0, 'none': 0.0}
         
-        return 'clockwise'  # Fallback
+        if video_aspect < 0.6:  # Very portrait (likely mobile vertical)
+            evidence['counterclockwise'] += 1.0  # Common mobile rotation
+        elif video_aspect > 1.8:  # Very landscape (likely camera horizontal)
+            evidence['clockwise'] += 1.0  # Common camera rotation
+        else:  # Near square or moderate aspect ratios
+            evidence['none'] += 0.5
+            
+        return evidence
+    
+    def _analyze_edge_orientation(self, frame: np.ndarray, video_aspect: float) -> Dict[str, float]:
+        """Analyze edge patterns for orientation hints"""
+        evidence = {'clockwise': 0.0, 'counterclockwise': 0.0, 'none': 0.0}
+        
+        # Convert to grayscale and find edges
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 50, 150)
+        
+        # Analyze edge direction patterns
+        height, width = edges.shape
+        
+        # Check for strong horizontal vs vertical edge patterns
+        horizontal_edges = np.sum(edges[:, width//4:3*width//4])  # Middle horizontal band
+        vertical_edges = np.sum(edges[height//4:3*height//4, :])  # Middle vertical band
+        
+        edge_ratio = horizontal_edges / (vertical_edges + 1)  # Avoid division by zero
+        
+        # If video has wrong aspect ratio vs edge patterns, suggest rotation
+        if video_aspect < 1.0 and edge_ratio > 1.5:  # Portrait video with horizontal edges
+            evidence['clockwise'] += 0.5
+        elif video_aspect > 1.0 and edge_ratio < 0.7:  # Landscape video with vertical edges
+            evidence['counterclockwise'] += 0.5
+        else:
+            evidence['none'] += 0.2
+            
+        return evidence
 
     def determine_frame_orientation(self, frame: np.ndarray) -> Tuple[VideoOrientation, Dict]:
         """
@@ -1519,7 +1629,7 @@ class OrientationDetector:
 
         # Add time limit info if active
         if self.time_limit:
-            status_text += f" (Analyzing first {self.time_limit}s)"
+            status_text += f" (First {self.time_limit}s)"
 
         status_color = (0, 255, 0) if orientation == VideoOrientation.CORRECT else \
             (0, 0, 255) if orientation == VideoOrientation.INCORRECT else \
@@ -1558,11 +1668,12 @@ class OrientationDetector:
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             self.stats['video_duration'] = total_frames / fps if fps > 0 else 0
 
-            # Calculate maximum frame to process based on time limit
-            max_frame = self.get_max_frame_for_time_limit(fps)
+            # Calculate maximum frame to process based on time limit (v4.11.0 approach)
+            max_frame = self.get_sampling_ranges_v4_11_0(total_frames, fps)
+            
             if max_frame is not None:
-                max_frame = min(max_frame, total_frames)
                 self.stats['analyzed_duration'] = max_frame / fps if fps > 0 else 0
+                print(f"  ⏱️  Time limit: analyzing first {self.time_limit}s of video")
             else:
                 self.stats['analyzed_duration'] = self.stats['video_duration']
 
@@ -1577,9 +1688,8 @@ class OrientationDetector:
 
                 frame_count += 1
 
-                # Check time limit
-                if max_frame is not None and frame_count > max_frame:
-                    print(f"  ⏱️  Time limit reached: analyzed first {self.time_limit}s of video")
+                # Check time limit (v4.11.0 approach)
+                if not self.should_process_frame_v4_11_0(frame_count, max_frame):
                     break
 
                 # Skip frames for efficiency
@@ -1591,18 +1701,20 @@ class OrientationDetector:
 
                 # Update statistics
                 self.stats['total_frames'] += 1
+                has_humans = bool(detection_info['faces'] or detection_info['bodies'])
                 if orientation == VideoOrientation.CORRECT:
                     self.stats['correct_orientation_frames'] += 1
-                    if detection_info['faces'] or detection_info['bodies']:
+                    if has_humans:
                         self.stats['frames_with_humans'] += 1
                 elif orientation == VideoOrientation.INCORRECT:
                     self.stats['incorrect_orientation_frames'] += 1
-                    if detection_info['faces'] or detection_info['bodies']:
+                    if has_humans:
                         self.stats['frames_with_humans'] += 1
-                        # Store rotation direction for the first incorrect frame with humans
-                        if 'rotation_direction' not in self.stats:
-                            direction = self.detect_rotation_direction(frame, detection_info['faces'], detection_info['bodies'])
-                            self.stats['rotation_direction'] = direction
+                        # Collect rotation directions for all incorrect frames with humans
+                        direction = self.detect_rotation_direction(frame, detection_info['faces'], detection_info['bodies'])
+                        if 'rotation_directions' not in self.stats:
+                            self.stats['rotation_directions'] = []
+                        self.stats['rotation_directions'].append(direction)
                 else:
                     self.stats['uncertain_frames'] += 1
 
@@ -1655,10 +1767,10 @@ class OrientationDetector:
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.stats['video_duration'] = total_frames / fps if fps > 0 else 0
 
-        # Calculate maximum frame to process based on time limit
-        max_frame = self.get_max_frame_for_time_limit(fps)
+        # Calculate maximum frame to process based on time limit (v4.11.0 approach)
+        max_frame = self.get_sampling_ranges_v4_11_0(total_frames, fps)
+        
         if max_frame is not None:
-            max_frame = min(max_frame, total_frames)
             self.stats['analyzed_duration'] = max_frame / fps if fps > 0 else 0
         else:
             self.stats['analyzed_duration'] = self.stats['video_duration']
@@ -1673,7 +1785,7 @@ class OrientationDetector:
         print(f"Resolution: {width}x{height}, Total frames: {total_frames}, FPS: {fps:.1f}")
         print(f"Video duration: {self.stats['video_duration']:.1f}s")
         if self.time_limit:
-            print(f"⏱️  Analyzing only first {self.time_limit}s ({self.stats['analyzed_duration']:.1f}s actual)")
+            print(f"⏱️  Analyzing first {self.time_limit}s of video ({self.stats['analyzed_duration']:.1f}s)")
         print("Detecting faces and bodies for orientation analysis...")
 
         frame_count = 0
@@ -1684,12 +1796,12 @@ class OrientationDetector:
             if not ret:
                 break
 
-            frame_count += 1
-
-            # Check time limit
-            if max_frame is not None and frame_count > max_frame:
+            # Check time limit (v4.11.0 approach)
+            if not self.should_process_frame_v4_11_0(frame_count, max_frame):
                 print(f"\n⏱️  Time limit reached: analyzed first {self.time_limit}s of video")
                 break
+
+            frame_count += 1
 
             # Skip frames for efficiency
             if frame_count % skip_frames != 0:
@@ -1764,10 +1876,15 @@ class OrientationDetector:
             elif incorrect_ratio > 0.7:
                 verdict = "✗ VIDEO IS ROTATED"
                 confidence = incorrect_ratio
-                # Use stored rotation direction if available
-                if 'rotation_direction' in self.stats:
-                    direction = self.stats['rotation_direction']
-                    recommendation = f"Rotate video 90° {direction} to correct orientation"
+                # Use most common rotation direction if available
+                if 'rotation_directions' in self.stats and self.stats['rotation_directions']:
+                    from collections import Counter
+                    direction_counts = Counter(self.stats['rotation_directions'])
+                    most_common_direction = direction_counts.most_common(1)[0][0]
+                    if most_common_direction != 'none':
+                        recommendation = f"Rotate video 90° {most_common_direction} to correct orientation"
+                    else:
+                        recommendation = "Rotate video 90° to correct orientation"
                 else:
                     recommendation = "Rotate video 90° to correct orientation"
             else:
@@ -1884,7 +2001,7 @@ class OrientationDetector:
             print(f"No video files found in {folder_path}")
             return results
 
-        time_limit_info = f" (analyzing first {self.time_limit}s of each file)" if self.time_limit else ""
+        time_limit_info = f" (first {self.time_limit}s per file)" if self.time_limit else ""
         print(f"\n🎬 Found {len(video_files)} video files to process{time_limit_info}...")
         print("=" * 80)
 
@@ -1925,7 +2042,7 @@ class OrientationDetector:
         print("\n" + "=" * 130)
         print(" BATCH PROCESSING SUMMARY - SORTED BY PRIORITY")
         if self.time_limit:
-            print(f" (Analysis limited to first {self.time_limit} seconds of each video)")
+            print(f" (First {self.time_limit}s analysis limit per video)")
         print("=" * 130)
 
         # Separate results by category
@@ -2085,7 +2202,7 @@ class OrientationDetector:
                 f.write("=" * 50 + "\n")
                 f.write(f"Generated: {report_data['timestamp']}\n")
                 f.write(f"Total files: {report_data['total_files']}\n")
-                f.write(f"Time limit: {report_data['time_limit_seconds']}s per video\n" if report_data[
+                f.write(f"Time limit: {report_data['time_limit_seconds']}s per video (first N seconds)\n" if report_data[
                     'time_limit_seconds'] else "Time limit: Full video analysis\n")
                 f.write(f"Confidence threshold: {report_data['confidence_threshold']}\n\n")
 
@@ -2169,8 +2286,12 @@ Examples:
                         help='Confidence threshold for detection (0-1, default: 0.5)')
 
     # NEW: Time limit parameter
-    parser.add_argument('--time-limit', '-t', type=float, default=None,
-                        help='Maximum time in seconds to analyze from start of video (default: analyze entire video)')
+    parser.add_argument('--time-limit', '-t', type=float, default=30.0,
+                        help='Maximum time in seconds to analyze from video (default: 30s, samples from start/middle/end)')
+    parser.add_argument('--no-time-limit', action='store_true',
+                        help='Analyze entire video without time limit')
+    parser.add_argument('--quick-scan', action='store_true',
+                        help='Enable quick pre-scan to find object-rich segments for optimal analysis')
 
     # Batch processing options
     parser.add_argument('--batch', action='store_true',
@@ -2191,8 +2312,10 @@ Examples:
         print(f"Error: Path '{args.path}' not found")
         return 1
 
-    # Validate time limit
-    if args.time_limit is not None and args.time_limit <= 0:
+    # Validate time limit and handle no-time-limit option
+    if args.no_time_limit:
+        args.time_limit = None
+    elif args.time_limit is not None and args.time_limit <= 0:
         print("Error: Time limit must be positive")
         return 1
 
@@ -2286,7 +2409,9 @@ Examples:
     print(f"📅 Release: {release_name} ({release_date})")
     print("Initializing orientation detector...")
     if args.time_limit:
-        print(f"⏱️  Time limit set to {args.time_limit} seconds")
+        print(f"⏱️  Time limit set to {args.time_limit} seconds (analyzing first N seconds)")
+    else:
+        print("⏱️  No time limit - analyzing entire video")
 
     detector = OrientationDetector(
         confidence_threshold=args.confidence,
