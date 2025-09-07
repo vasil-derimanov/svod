@@ -1,6 +1,6 @@
-# Smart Video Orientation Detector (SVOD) v4.9.1
+# Smart Video Orientation Detector (SVOD) v4.9.2
 
-🎥 **Intelligent video orientation detection with adaptive MobileNet requirement and automated cleanup**
+🎥 **Intelligent video orientation detection with Apple Silicon M3 compatibility and adaptive model handling**
 
 ## 📋 Overview
 
@@ -15,7 +15,7 @@ SVOD automatically detects and analyzes video orientation using multiple detecti
 - ✅ **Single Video Analysis** - Process individual videos with detailed orientation reports
 - ✅ **Batch Processing** - Process entire folders recursively with comprehensive reports
 - ✅ **Cross-Platform** - Works on Windows, macOS, and Linux
-- ✅ **Adaptive Model Requirements** - Robust cross-platform compatibility (v4.9.1)
+- ✅ **Apple Silicon Compatibility** - Enhanced support for Mac M1/M2/M3 chips (v4.9.2)
 - ✅ **Automated Cleanup** - Built-in scripts for clean testing environments (v4.8.0)
 - ✅ **Real-time Display** - Optional live preview during analysis
 - ✅ **Flexible Output** - Save annotated videos and detailed CSV/JSON reports
@@ -102,6 +102,20 @@ python3 video_orientation_detector.py --version
 ```
 
 **Note**: OpenVINO provides enhanced MobileNet detection capabilities but is optional. The script works without it using core computer vision methods.
+
+## 🍎 Apple Silicon (M1/M2/M3) Support
+
+SVOD v4.9.2+ includes enhanced compatibility for Apple Silicon Macs:
+
+- **Automatic Detection**: Script detects Apple Silicon chips and adjusts behavior accordingly
+- **Graceful Fallback**: If OpenVINO/MobileNet fails, core algorithms provide excellent accuracy
+- **Multiple Download Sources**: Improved fallback URLs for model downloads
+- **Clear Messaging**: Informative messages about Apple Silicon compatibility
+
+**Known Limitations**:
+- OpenVINO has limited ARM64 support on macOS
+- MobileNet models may not download automatically
+- Core detection algorithms work perfectly without MobileNet
 
 ## 💻 Usage Examples
 
@@ -233,6 +247,7 @@ python video_orientation_detector.py /videos --batch -r --time-limit 30 --report
 
 ## 📝 Version History
 
+- **v4.9.2** (2025-09-07): Apple Silicon M3 compatibility - improved OpenVINO handling and fallback URLs
 - **v4.9.1** (2025-09-07): Adaptive MobileNet requirement - graceful handling of WSL/Linux environments
 - **v4.9.0** (2025-09-07): Made MobileNet models mandatory for enhanced detection accuracy  
 - **v4.8.0** (2025-09-07): Enhanced DNN validation + Automated cleanup scripts for vanilla testing

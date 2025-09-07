@@ -34,9 +34,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.9.1"
+__version__ = "4.9.2"
 __release_date__ = "2025-09-07"
-__release_name__ = "Adaptive MobileNet Requirement"
+__release_name__ = "Apple Silicon M3 Compatibility"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -125,6 +125,15 @@ except ImportError:
     else:
         print("❌ Failed to install required packages!")
         sys.exit(1)
+
+
+def is_apple_silicon():
+    """Check if running on Apple Silicon (M1/M2/M3) Mac"""
+    try:
+        import platform
+        return platform.system() == "Darwin" and platform.machine() == "arm64"
+    except:
+        return False
 
 
 def check_required_model_files():
@@ -319,35 +328,51 @@ def download_model_files():
         if omz_success:
             return True
         
-        # Fallback: Download pre-converted models from Intel Open Model Zoo
+        # Fallback: Download pre-converted models with improved URLs
         print(f"🔄 OpenVINO tools failed, trying fallback download...")
         
+        # Check if this is Apple Silicon - known compatibility issues
+        if is_apple_silicon():
+            print("💡 Detected Apple Silicon (M1/M2/M3) - OpenVINO may have compatibility issues")
+        
         fallback_urls = {
-            "mobilenet-v2.xml": "https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/models/public/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.xml",
-            "mobilenet-v2.bin": "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.bin"
+            "mobilenet-v2.xml": [
+                "https://raw.githubusercontent.com/openvinotoolkit/open_model_zoo/master/models/public/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.xml",
+                "https://github.com/openvinotoolkit/open_model_zoo/raw/master/models/public/mobilenet-v2-pytorch/mobilenet-v2-pytorch.xml"
+            ],
+            "mobilenet-v2.bin": [
+                "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2022.3/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.bin",
+                "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2-pytorch.bin"
+            ]
         }
         
         if filename in fallback_urls:
-            try:
-                print(f"📥 Downloading {filename} from fallback source...")
-                import urllib.request
-                urllib.request.urlretrieve(fallback_urls[filename], dest_path)
-                
-                # Validate downloaded file
-                if validate_model_file(dest_path, filename):
-                    print(f"✅ {filename} downloaded successfully via fallback")
-                    return True
-                else:
-                    print(f"❌ Downloaded {filename} is invalid")
+            # Try multiple URLs for better reliability
+            for i, url in enumerate(fallback_urls[filename]):
+                try:
+                    print(f"📥 Downloading {filename} from fallback source {i+1}/{len(fallback_urls[filename])}...")
+                    import urllib.request
+                    urllib.request.urlretrieve(url, dest_path)
+                    
+                    # Validate downloaded file
+                    if validate_model_file(dest_path, filename):
+                        print(f"✅ {filename} downloaded successfully via fallback")
+                        return True
+                    else:
+                        print(f"❌ Downloaded {filename} from source {i+1} is invalid, trying next...")
+                        try:
+                            os.remove(dest_path)
+                        except:
+                            pass
+                        continue
+                            
+                except Exception as e:
+                    print(f"❌ Fallback download {i+1} failed for {filename}: {e}")
                     try:
                         os.remove(dest_path)
                     except:
                         pass
-                    return False
-                    
-            except Exception as e:
-                print(f"❌ Fallback download failed for {filename}: {e}")
-                return False
+                    continue
         
         print(f"❌ No fallback available for {filename}")
         return False
@@ -2088,8 +2113,15 @@ Examples:
             for missing_file in mobilenet_missing:
                 print(f"   • {missing_file}")
             print("\n🔄 Script will continue without enhanced MobileNet detection")
-            print("💡 This typically happens in some Linux/WSL environments")
-            print("📋 Core detection algorithms will still provide accurate results")
+            
+            # Provide Apple Silicon specific guidance
+            if is_apple_silicon():
+                print("💡 Apple Silicon (M1/M2/M3) detected - this is a known compatibility issue")
+                print("📋 OpenVINO has limited support for Apple Silicon architecture")
+                print("✅ Core detection algorithms provide excellent accuracy without MobileNet")
+            else:
+                print("💡 This typically happens in some Linux/WSL environments")
+                print("📋 Core detection algorithms will still provide accurate results")
             
             # Temporarily disable MobileNet requirement for this run
             global mobilenet_required_override
