@@ -36,9 +36,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.12.3"
+__version__ = "4.12.4"
 __release_date__ = "2025-09-07"
-__release_name__ = "Performance Optimized + Rotation Direction Focus"
+__release_name__ = "Accuracy Improved + Dynamic Thresholds"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -1205,20 +1205,33 @@ class OrientationDetector:
                 
             body_confidence += body_confidence_weight
         
-        # 3. Video format heuristics (when no clear evidence)
-        if face_confidence + body_confidence < 1.0:
+        # 3. Video format heuristics (enhanced confidence)
+        format_bonus = 1.0
+        if face_confidence + body_confidence < 0.8:  # Low detection confidence
             format_hint = self._get_format_rotation_hint(video_aspect_ratio)
-            for direction, score in format_hint.items():
-                rotation_evidence[direction] += score * 0.5
+            format_bonus = 1.5  # Boost format hints when detections are weak
+        else:
+            format_hint = self._get_format_rotation_hint(video_aspect_ratio)
+            format_bonus = 0.8  # Reduce format influence when detections are strong
+            
+        for direction, score in format_hint.items():
+            rotation_evidence[direction] += score * format_bonus * 0.5
         
         # 4. Edge detection heuristics for additional confidence
         edge_hint = self._analyze_edge_orientation(frame, video_aspect_ratio)
         for direction, score in edge_hint.items():
             rotation_evidence[direction] += score * 0.3
         
-        # Determine best direction with confidence threshold
+        # Determine best direction with improved confidence threshold
         max_score = max(rotation_evidence.values())
-        confidence_threshold = 0.5  # Minimum confidence for rotation recommendation
+        confidence_threshold = 0.35  # Reduced from 0.5 - more permissive for rotation detection
+        
+        # Check if we have a clear winner
+        sorted_scores = sorted(rotation_evidence.values(), reverse=True)
+        if len(sorted_scores) >= 2:
+            score_difference = sorted_scores[0] - sorted_scores[1]
+            if score_difference < 0.08:  # Scores are too close
+                return 'clockwise'  # Conservative default
         
         if max_score < confidence_threshold:
             return 'clockwise'  # Conservative default
@@ -1677,8 +1690,8 @@ class OrientationDetector:
             else:
                 self.stats['analyzed_duration'] = self.stats['video_duration']
 
-            # Sample fewer frames for batch processing
-            skip_frames = 12
+            # More conservative frame skipping for better accuracy  
+            skip_frames = 6  # Reduced from 12 - analyze more frames for better accuracy
             frame_count = 0
 
             while True:
@@ -1869,28 +1882,62 @@ class OrientationDetector:
             correct_ratio = self.stats['correct_orientation_frames'] / self.stats['frames_with_humans']
             incorrect_ratio = self.stats['incorrect_orientation_frames'] / self.stats['frames_with_humans']
 
-            if correct_ratio > 0.7:
-                verdict = "✓ VIDEO ORIENTATION IS CORRECT"
-                confidence = correct_ratio
-                recommendation = "No rotation needed"
-            elif incorrect_ratio > 0.7:
-                verdict = "✗ VIDEO IS ROTATED"
-                confidence = incorrect_ratio
-                # Use most common rotation direction if available
+            # Dynamic thresholds based on detection quality and ratio difference
+            base_threshold = 0.65
+            ratio_difference = abs(correct_ratio - incorrect_ratio)
+            
+            # Require higher confidence when ratios are close (mixed orientations)
+            if ratio_difference < 0.2:  # Very mixed orientations
+                confidence_threshold = 0.75
+            elif ratio_difference < 0.3:  # Somewhat mixed
+                confidence_threshold = 0.7
+            else:  # Clear difference
+                confidence_threshold = base_threshold
+            
+            # Weight adjustments based on detection quality  
+            face_weight = 1.15 if self.stats['face_detections'] > self.stats['body_detections'] / 3 else 1.0
+            
+            # Apply minimal weights to preserve original detection balance
+            weighted_correct = correct_ratio * face_weight
+            weighted_incorrect = incorrect_ratio * face_weight
+
+            if weighted_correct >= confidence_threshold and weighted_correct > weighted_incorrect + 0.15:
+                verdict = "✅ CORRECT"
+                confidence = min(weighted_correct, 1.0)
+                recommendation = "No action needed"
+            elif weighted_incorrect >= confidence_threshold and weighted_incorrect > weighted_correct + 0.15:
+                verdict = "❌ INCORRECT" 
+                confidence = min(weighted_incorrect, 1.0)
+                # Enhanced rotation direction logic
                 if 'rotation_directions' in self.stats and self.stats['rotation_directions']:
                     from collections import Counter
                     direction_counts = Counter(self.stats['rotation_directions'])
                     most_common_direction = direction_counts.most_common(1)[0][0]
+                    
+                    # Boost confidence if direction is unanimous
+                    if len(direction_counts) == 1 and most_common_direction != 'none':
+                        confidence = min(confidence + 0.05, 1.0)
+                    
                     if most_common_direction != 'none':
-                        recommendation = f"Rotate video 90° {most_common_direction} to correct orientation"
+                        recommendation = f"Rotate 90° {most_common_direction}"
                     else:
-                        recommendation = "Rotate video 90° to correct orientation"
+                        recommendation = "Rotate 90° clockwise"
                 else:
-                    recommendation = "Rotate video 90° to correct orientation"
+                    recommendation = "Rotate 90° clockwise"
             else:
-                verdict = "⚠ MIXED ORIENTATION DETECTED"
-                confidence = max(correct_ratio, incorrect_ratio)
-                recommendation = "Manual review recommended - inconsistent orientations"
+                # More intelligent handling of edge cases
+                if ratio_difference < 0.1:  # Very close scores
+                    verdict = "⚠️ UNCERTAIN"
+                    confidence = max(weighted_correct, weighted_incorrect)
+                    recommendation = "Manual inspection recommended"
+                else:
+                    # For close cases, lean conservative towards manual review
+                    verdict = "⚠️ UNCERTAIN"
+                    confidence = max(weighted_correct, weighted_incorrect)
+                    if weighted_correct > weighted_incorrect:
+                        recommendation = "Likely correct - manual review recommended"
+                    else:
+                        recommendation = "Likely needs rotation - manual review recommended"
 
         close_up_ratio = self.stats['close_up_frames'] / max(self.stats['total_frames'], 1)
 
