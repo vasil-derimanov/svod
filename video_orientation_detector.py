@@ -36,9 +36,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.13.0"
-__release_date__ = "2025-09-08"
-__release_name__ = "Critical Batch-Individual Consistency Fix"
+__version__ = "4.14.0"
+__release_date__ = "2025-01-20"
+__release_name__ = "Enhanced Rotation Direction Detection"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -1169,7 +1169,7 @@ class OrientationDetector:
             'none': 0.0
         }
         
-        # 1. Enhanced face analysis
+        # 1. Enhanced face analysis with improved counterclockwise detection
         face_confidence = 0.0
         for face in faces:
             x, y, w, h = face['box']
@@ -1187,7 +1187,7 @@ class OrientationDetector:
             
             face_confidence += face_confidence_weight
         
-        # 2. Enhanced body analysis  
+        # 2. Enhanced body analysis with improved counterclockwise detection
         body_confidence = 0.0
         for body in bodies:
             x, y, w, h = body['box'] 
@@ -1205,48 +1205,56 @@ class OrientationDetector:
                 
             body_confidence += body_confidence_weight
         
-        # 3. Video format heuristics (enhanced confidence)
+        # 3. Video format heuristics with balanced weighting
         format_bonus = 1.0
         if face_confidence + body_confidence < 0.8:  # Low detection confidence
             format_hint = self._get_format_rotation_hint(video_aspect_ratio)
-            format_bonus = 1.5  # Boost format hints when detections are weak
+            format_bonus = 1.0  # Moderate boost when detections are weak
         else:
             format_hint = self._get_format_rotation_hint(video_aspect_ratio)
-            format_bonus = 0.8  # Reduce format influence when detections are strong
+            format_bonus = 0.3  # Reduce format influence when detections are strong
             
         for direction, score in format_hint.items():
-            rotation_evidence[direction] += score * format_bonus * 0.5
+            rotation_evidence[direction] += score * format_bonus * 0.4
         
         # 4. Edge detection heuristics for additional confidence
         edge_hint = self._analyze_edge_orientation(frame, video_aspect_ratio)
         for direction, score in edge_hint.items():
-            rotation_evidence[direction] += score * 0.3
+            rotation_evidence[direction] += score * 0.5
         
-        # Determine best direction with improved confidence threshold
+        # 5. Enhanced aspect ratio analysis for specific rotation patterns
+        aspect_hint = self._analyze_aspect_rotation_patterns(video_aspect_ratio, height, width)
+        for direction, score in aspect_hint.items():
+            rotation_evidence[direction] += score * 0.6  # Reduced weight
+        
+        # Determine best direction with improved logic
         max_score = max(rotation_evidence.values())
-        confidence_threshold = 0.35  # Reduced from 0.5 - more permissive for rotation detection
+        confidence_threshold = 0.25  # More permissive threshold
         
-        # Check if we have a clear winner
-        sorted_scores = sorted(rotation_evidence.values(), reverse=True)
-        if len(sorted_scores) >= 2:
-            score_difference = sorted_scores[0] - sorted_scores[1]
-            if score_difference < 0.08:  # Scores are too close
-                return 'clockwise'  # Conservative default
+        # Check if we have a clear winner with better decision making
+        sorted_evidence = sorted(rotation_evidence.items(), key=lambda x: x[1], reverse=True)
+        best_direction, best_score = sorted_evidence[0]
+        second_direction, second_score = sorted_evidence[1] if len(sorted_evidence) > 1 else ('none', 0)
         
-        if max_score < confidence_threshold:
-            return 'clockwise'  # Conservative default
+        score_difference = best_score - second_score
+        
+        # More nuanced decision making - remove clockwise bias
+        if best_score < confidence_threshold:
+            # When confidence is low, use aspect ratio as tie breaker
+            if video_aspect_ratio < 0.8:  # Portrait-like
+                return 'counterclockwise'  # Common mobile vertical rotation
+            else:  # Landscape-like
+                return 'clockwise'  # Common camera horizontal rotation
+        
+        # If scores are very close, use aspect ratio to decide
+        if score_difference < 0.1:
+            if video_aspect_ratio < 0.8:
+                return 'counterclockwise'
+            else:
+                return 'clockwise'
         
         # Return direction with highest evidence
-        best_direction = max(rotation_evidence, key=rotation_evidence.get)
-        
-        # Map internal names to output format
-        direction_map = {
-            'clockwise': 'clockwise',
-            'counterclockwise': 'counterclockwise', 
-            'none': 'none'
-        }
-        
-        return direction_map.get(best_direction, 'clockwise')
+        return best_direction
     
     def _analyze_face_orientation(self, face_aspect: float, x: int, y: int, w: int, h: int,
                                 width: int, height: int, video_aspect: float) -> Dict[str, float]:
@@ -1257,26 +1265,46 @@ class OrientationDetector:
         face_center_y = y + h // 2
         
         # Face should typically be taller than wide (aspect > 1.0)
-        if face_aspect < 0.7:  # Face is very wide = likely rotated 90°
+        if face_aspect < 0.8:  # Face is wide = likely rotated 90° (relaxed threshold)
             if video_aspect < 1.0:  # Portrait video
-                # Use vertical position to determine direction
-                if face_center_y < height * 0.3:  # Top third
-                    evidence['counterclockwise'] += 3.0
-                elif face_center_y > height * 0.7:  # Bottom third  
-                    evidence['clockwise'] += 3.0
-                else:  # Middle third
-                    evidence['clockwise'] += 1.0  # Default bias
+                # Enhanced position analysis for counterclockwise detection
+                if face_center_y < height * 0.25:  # Top quarter - strong indicator
+                    evidence['counterclockwise'] += 4.0
+                elif face_center_y < height * 0.4:  # Upper region
+                    evidence['counterclockwise'] += 2.5
+                elif face_center_y > height * 0.75:  # Bottom quarter - strong indicator
+                    evidence['clockwise'] += 4.0
+                elif face_center_y > height * 0.6:  # Lower region
+                    evidence['clockwise'] += 2.5
+                else:  # Middle region - use horizontal position as secondary indicator
+                    if face_center_x < width * 0.3:  # Left side in portrait → clockwise
+                        evidence['clockwise'] += 2.0  # Fixed: left side should be clockwise
+                    elif face_center_x > width * 0.7:  # Right side in portrait → counterclockwise
+                        evidence['counterclockwise'] += 2.0  # Fixed: right side should be counterclockwise
+                    else:  # Center - balanced approach
+                        evidence['clockwise'] += 0.3
+                        evidence['counterclockwise'] += 0.2
             else:  # Landscape video
-                # Use horizontal position to determine direction  
-                if face_center_x < width * 0.3:  # Left third
-                    evidence['clockwise'] += 3.0
-                elif face_center_x > width * 0.7:  # Right third
-                    evidence['counterclockwise'] += 3.0
-                else:  # Middle third
-                    evidence['clockwise'] += 1.0  # Default bias
-        elif 0.7 <= face_aspect <= 1.3:  # Ambiguous aspect ratio
+                # Enhanced horizontal position analysis
+                if face_center_x < width * 0.25:  # Left quarter
+                    evidence['clockwise'] += 4.0
+                elif face_center_x < width * 0.4:  # Left region
+                    evidence['clockwise'] += 2.5
+                elif face_center_x > width * 0.75:  # Right quarter
+                    evidence['counterclockwise'] += 4.0
+                elif face_center_x > width * 0.6:  # Right region
+                    evidence['counterclockwise'] += 2.5
+                else:  # Center - use vertical position as secondary
+                    if face_center_y < height * 0.3:  # Top
+                        evidence['counterclockwise'] += 1.5
+                    elif face_center_y > height * 0.7:  # Bottom
+                        evidence['clockwise'] += 1.5
+                    else:  # Middle - balanced
+                        evidence['clockwise'] += 0.3
+                        evidence['counterclockwise'] += 0.2
+        elif 0.8 <= face_aspect <= 1.4:  # Ambiguous aspect ratio (relaxed range)
             evidence['none'] += 1.0
-        else:  # face_aspect > 1.3 - likely correct orientation
+        else:  # face_aspect > 1.4 - likely correct orientation
             evidence['none'] += 2.0
             
         return evidence
@@ -1290,38 +1318,64 @@ class OrientationDetector:
         body_center_y = y + h // 2
         
         # Bodies should be much taller than wide (aspect > 1.5)
-        if body_aspect < 0.6:  # Body is very wide = likely rotated
+        if body_aspect < 0.8:  # Body is wide = likely rotated (relaxed threshold)
             if video_aspect < 1.0:  # Portrait video
-                if body_center_y < height * 0.3:
+                # Enhanced vertical position analysis
+                if body_center_y < height * 0.25:  # Top quarter
+                    evidence['counterclockwise'] += 3.5
+                elif body_center_y < height * 0.4:  # Upper region
                     evidence['counterclockwise'] += 2.0
-                elif body_center_y > height * 0.7:
+                elif body_center_y > height * 0.75:  # Bottom quarter
+                    evidence['clockwise'] += 3.5
+                elif body_center_y > height * 0.6:  # Lower region
                     evidence['clockwise'] += 2.0
-                else:
-                    evidence['clockwise'] += 0.5
+                else:  # Middle - use horizontal position
+                    if body_center_x < width * 0.3:  # Left → clockwise
+                        evidence['clockwise'] += 1.5  # Fixed: left side should be clockwise
+                    elif body_center_x > width * 0.7:  # Right → counterclockwise
+                        evidence['counterclockwise'] += 1.5  # Fixed: right side should be counterclockwise
+                    else:  # Center - balanced approach
+                        evidence['clockwise'] += 0.2
+                        evidence['counterclockwise'] += 0.1
             else:  # Landscape video
-                if body_center_x < width * 0.3:
+                # Enhanced horizontal position analysis
+                if body_center_x < width * 0.25:  # Left quarter
+                    evidence['clockwise'] += 3.5
+                elif body_center_x < width * 0.4:  # Left region
                     evidence['clockwise'] += 2.0
-                elif body_center_x > width * 0.7:
-                    evidence['counterclockwise'] += 2.0
-                else:
-                    evidence['clockwise'] += 0.5
-        elif 0.6 <= body_aspect <= 1.2:  # Ambiguous
+                elif body_center_x > width * 0.75:  # Right quarter
+                    evidence['counterclockwise'] += 3.5
+                elif body_center_x > width * 0.6:  # Right region
+                    evidence['counterclockwise'] += 2.5  # Boost right side evidence
+                else:  # Center - use vertical position
+                    if body_center_y < height * 0.3:  # Top
+                        evidence['counterclockwise'] += 1.0
+                    elif body_center_y > height * 0.7:  # Bottom
+                        evidence['clockwise'] += 1.0
+                    else:  # Middle - balanced
+                        evidence['clockwise'] += 0.2
+                        evidence['counterclockwise'] += 0.1
+        elif 0.8 <= body_aspect <= 1.4:  # Ambiguous (relaxed range)
             evidence['none'] += 0.5
-        else:  # body_aspect > 1.2 - likely correct
+        else:  # body_aspect > 1.4 - likely correct
             evidence['none'] += 1.5
             
         return evidence
     
     def _get_format_rotation_hint(self, video_aspect: float) -> Dict[str, float]:
-        """Get rotation hint based on video format"""
+        """Get rotation hint based on video format with enhanced counterclockwise detection"""
         evidence = {'clockwise': 0.0, 'counterclockwise': 0.0, 'none': 0.0}
         
-        if video_aspect < 0.6:  # Very portrait (likely mobile vertical)
-            evidence['counterclockwise'] += 1.0  # Common mobile rotation
-        elif video_aspect > 1.8:  # Very landscape (likely camera horizontal)
-            evidence['clockwise'] += 1.0  # Common camera rotation
-        else:  # Near square or moderate aspect ratios
-            evidence['none'] += 0.5
+        if video_aspect < 0.4:  # Extremely portrait (likely mobile vertical rotated)
+            evidence['counterclockwise'] += 1.5  # Moderate indicator
+        elif video_aspect < 0.6:  # Very portrait (common mobile rotation)
+            evidence['counterclockwise'] += 0.8  # Reduced weight
+        elif video_aspect > 2.2:  # Very landscape (likely camera horizontal rotated)
+            evidence['clockwise'] += 1.2  # Moderate indicator
+        elif video_aspect > 1.8:  # Landscape-ish (common camera rotation)
+            evidence['clockwise'] += 0.6  # Reduced weight
+        else:  # Near square or moderate aspect ratios (0.6 to 1.8)
+            evidence['none'] += 0.5  # Neutral for common ratios
             
         return evidence
     
@@ -1350,6 +1404,49 @@ class OrientationDetector:
         else:
             evidence['none'] += 0.2
             
+        return evidence
+
+    def _analyze_aspect_rotation_patterns(self, video_aspect: float, height: int, width: int) -> Dict[str, float]:
+        """Analyze specific aspect ratio patterns that indicate rotation direction"""
+        evidence = {'clockwise': 0.0, 'counterclockwise': 0.0, 'none': 0.0}
+        
+        # Common mobile phone aspect ratios when rotated
+        # Portrait phones (9:16, 9:19.5, 9:20) when rotated become landscape
+        portrait_phone_aspects = [0.5625, 0.4615, 0.45]  # 9:16, 9:19.5, 9:20
+        landscape_phone_aspects = [1.778, 2.167, 2.222]  # 16:9, 19.5:9, 20:9
+        
+        # Check if video matches rotated mobile phone dimensions
+        for aspect in portrait_phone_aspects:
+            if abs(video_aspect - aspect) < 0.05:  # Close match
+                evidence['counterclockwise'] += 1.0  # Moderate mobile vertical rotation indicator
+                break
+        
+        for aspect in landscape_phone_aspects:
+            if abs(video_aspect - aspect) < 0.05:  # Close match
+                evidence['clockwise'] += 0.5  # Mild mobile horizontal rotation indicator
+                break
+        
+        # Camera common aspect ratios
+        # 4:3 cameras rotated become 3:4
+        if abs(video_aspect - 0.75) < 0.02:  # 3:4 (rotated 4:3)
+            evidence['counterclockwise'] += 1.0
+        elif abs(video_aspect - 1.333) < 0.02:  # 4:3 
+            evidence['clockwise'] += 0.5
+        
+        # Extreme aspect ratios suggest specific rotations
+        if video_aspect < 0.3:  # Very tall/narrow
+            evidence['counterclockwise'] += 1.5
+        elif video_aspect > 3.0:  # Very wide
+            evidence['clockwise'] += 1.0
+        
+        # Resolution-based patterns (reduced impact)
+        if height > width:  # Portrait orientation
+            if height / width > 2.2:  # Very tall
+                evidence['counterclockwise'] += 0.5
+        else:  # Landscape orientation
+            if width / height > 2.2:  # Very wide
+                evidence['clockwise'] += 0.3
+        
         return evidence
 
     def determine_frame_orientation(self, frame: np.ndarray) -> Tuple[VideoOrientation, Dict]:

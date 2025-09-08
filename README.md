@@ -1,4 +1,4 @@
-# Smart Video Orientation Detector (SVOD) v4.13.0
+# Smart Video Orientation Detector (SVOD) v4.14.0
 
 🎥 **Intelligent video orientation detection with cross-platform compatibility**
 
@@ -285,6 +285,7 @@ python video_orientation_detector.py video.mp4 --quick  # Quick mode (fast with 
 
 ## 📝 Version History
 
+- **v4.14.0** (2025-01-20): Enhanced Rotation Direction Detection - improved accuracy for counterclockwise rotations with balanced detection logic and position-based heuristics
 - **v4.13.0** (2025-09-08): Code Unification & Simplification - merged process_video() methods into unified system
 - **v4.12.5** (2025-09-08): Critical Batch-Individual Consistency Fix - improved accuracy from 42.9% to 71.4%
 - **v4.12.4** (2025-09-08): Accuracy improvements with dynamic thresholds
