@@ -36,9 +36,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.12.4"
-__release_date__ = "2025-09-07"
-__release_name__ = "Accuracy Improved + Dynamic Thresholds"
+__version__ = "4.12.5"
+__release_date__ = "2025-09-08"
+__release_name__ = "Critical Batch-Individual Consistency Fix"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -1750,11 +1750,16 @@ class OrientationDetector:
                                time.time() - start_time, str(e))
 
     def _get_orientation_from_verdict(self, verdict: str) -> VideoOrientation:
-        """Extract VideoOrientation from verdict string"""
-        if "CORRECT" in verdict:
-            return VideoOrientation.CORRECT
-        elif "ROTATED" in verdict:
+        """Extract VideoOrientation from verdict string"""        
+        # Normalize verdict by removing emoji and checking key words
+        verdict_clean = verdict.replace('✅', '').replace('❌', '').replace('⚠️', '').strip()
+        
+        # CRITICAL: Check INCORRECT first, then CORRECT 
+        # because "LIKELY CORRECT" contains both words!
+        if "INCORRECT" in verdict_clean or "ROTATED" in verdict_clean:
             return VideoOrientation.INCORRECT
+        elif "CORRECT" in verdict_clean:
+            return VideoOrientation.CORRECT
         else:
             return VideoOrientation.UNCERTAIN
 
@@ -1802,7 +1807,7 @@ class OrientationDetector:
         print("Detecting faces and bodies for orientation analysis...")
 
         frame_count = 0
-        skip_frames = 12  # Process every 12th frame
+        skip_frames = 6  # Synchronized with batch mode for consistency
 
         while True:
             ret, frame = cap.read()
@@ -1833,6 +1838,11 @@ class OrientationDetector:
                 self.stats['incorrect_orientation_frames'] += 1
                 if detection_info['faces'] or detection_info['bodies']:
                     self.stats['frames_with_humans'] += 1
+                    # CRITICAL FIX: Collect rotation directions in individual mode too!
+                    direction = self.detect_rotation_direction(frame, detection_info['faces'], detection_info['bodies'])
+                    if 'rotation_directions' not in self.stats:
+                        self.stats['rotation_directions'] = []
+                    self.stats['rotation_directions'].append(direction)
             else:
                 self.stats['uncertain_frames'] += 1
 
