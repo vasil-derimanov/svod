@@ -65,6 +65,13 @@ demo_*.py
 !reference_orientations.csv
 *.log
 
+# Version comparison and statistics files
+svod_version_comparison_*.json
+svod_benchmark_*.json
+svod_evolution_report_*.json
+svod_statistics.db
+svod_statistics.db-*
+
 # Temporary files
 *.tmp
 *.temp

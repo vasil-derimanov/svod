@@ -350,7 +350,114 @@ python video_orientation_detector.py video.mp4 --quick  # Quick mode (fast with 
 - **Exit 2**: Invalid input parameters
 - **Exit 3**: Video processing error
 
-## 📝 Version History
+## � Version Comparison and Statistics
+
+SVOD includes comprehensive tools for tracking version evolution, performance analysis, and regression detection:
+
+### Version Comparison Tool
+
+Compare accuracy, speed, and detection methods between SVOD versions:
+
+```bash
+# Basic version comparison
+python svod_version_comparison.py
+
+# Save detailed comparison report
+python svod_version_comparison.py --save-report
+
+# Specify custom output file
+python svod_version_comparison.py --save-report --output comparison_report.json
+```
+
+**Features:**
+- Accuracy trend analysis between versions
+- Processing speed comparison
+- Detection method usage evolution
+- YOLOv8 vs YOLOv4 adoption tracking
+- Automatic file discovery and analysis
+
+### Statistics Collector
+
+Collect and store historical SVOD performance data:
+
+```bash
+# Collect current statistics
+python svod_statistics_collector.py --collect
+
+# View evolution summary
+python svod_statistics_collector.py --summary
+
+# Generate full evolution report
+python svod_statistics_collector.py --report
+```
+
+**Features:**
+- SQLite database for historical tracking
+- Model usage statistics (YOLOv8/YOLOv4, detection methods)
+- Video-level accuracy tracking
+- Performance trend analysis
+- Cross-platform compatibility metrics
+
+### Automated Benchmark Suite
+
+Comprehensive benchmarking system for version validation:
+
+```bash
+# Basic benchmark with test videos
+python svod_benchmark_suite.py --save-results
+
+# Clean environment benchmark (vanilla testing)
+python svod_benchmark_suite.py --clean --save-results --compare
+
+# Custom test video directory
+python svod_benchmark_suite.py --test-videos /path/to/videos --max-videos 10
+```
+
+**Features:**
+- Cross-platform testing (Windows, WSL, macOS)
+- Automatic model download and cleanup
+- Performance regression detection
+- YOLOv8/YOLOv4 comparison benchmarks
+- Standardized test video processing
+
+### Evolution Reporter
+
+Generate comprehensive evolution analysis reports:
+
+```bash
+# View evolution summary
+python svod_evolution_reporter.py --summary
+
+# Save full evolution report
+python svod_evolution_reporter.py --save
+
+# Custom output file
+python svod_evolution_reporter.py --save --output evolution_analysis.json
+```
+
+**Features:**
+- Historical accuracy and performance trends
+- YOLO version adoption analysis
+- Detection method evolution tracking
+- Executive summary with key findings
+- Regression detection and recommendations
+
+### Usage Workflow
+
+1. **After making changes**: Run benchmark to collect new data
+2. **Compare versions**: Use comparison tool to analyze improvements
+3. **Track evolution**: Use statistics collector to store historical data
+4. **Generate reports**: Use evolution reporter for comprehensive analysis
+
+```bash
+# Complete workflow example
+python svod_benchmark_suite.py --clean --save-results
+python svod_statistics_collector.py --collect
+python svod_version_comparison.py --save-report
+python svod_evolution_reporter.py --summary
+```
+
+## �📝 Version History
 
 - **v4.16.0** (2025-01-20): YOLOv8 Hybrid Detection - added optional YOLOv8 support with automatic fallback to YOLOv4, enhanced body detection precision while maintaining 85.7% accuracy, robust dependency management with OpenCV conflict resolution
 - **v4.15.0** (2025-01-20): Balanced Face/Body Weighting - implemented 50/50 balanced weighting system where faces and bodies contribute equally regardless of detection counts, increased face confidence threshold to 0.8, significantly improved counterclockwise detection accuracy
