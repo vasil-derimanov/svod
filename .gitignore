@@ -58,6 +58,9 @@ batch_report*.json
 annotated_*.mp4
 test_*.py
 demo_*.py
+*_backup.py
+*_v*.py
+!video_orientation_detector.py
 !reference_orientations.csv
 *.log
 
