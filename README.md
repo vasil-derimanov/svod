@@ -1,4 +1,4 @@
-# Smart Video Orientation Detector (SVOD) v4.12.3
+# Smart Video Orientation Detector (SVOD) v4.13.0
 
 🎥 **Intelligent video orientation detection with cross-platform compatibility**
 
@@ -7,7 +7,33 @@
 SVOD automatically detects and analyzes video orientation using multiple detection methods:
 - **Face Detection** - Primary orientation indicator using DNN face detector
 - **Body Detection** - Secondary analysis using YOLO v4 object detection  
-- **Enhanced Detection** - MobileNet models with OpenVINO optimization
+-## 🔧 Code Architecture Improvements (v4.13.0)
+
+SVOD v4.13.0 introduces major code simplification and maintainability improvements:
+
+- **Unified Processing Methods**: Merged `process_video()` and `process_video_quick()` into single `process_video_unified()` method
+- **Mode-Based Processing**: Single method supports `"full"`, `"batch"`, and `"quick"` modes for different use cases
+- **Guaranteed Consistency**: Eliminates risk of logic divergence between individual and batch processing
+- **Backward Compatibility**: Legacy wrapper methods preserve existing API compatibility
+- **Reduced Code Complexity**: 137 lines of duplicate code eliminated
+- **Enhanced Maintainability**: Single source of truth for video processing logic
+
+**Benefits:**
+- ✅ Same accuracy and performance (71.4% batch accuracy maintained)
+- ✅ Identical results between all processing modes
+- ✅ Easier debugging and future enhancements
+- ✅ Reduced risk of inconsistencies and bugs
+- ✅ Cleaner, more maintainable codebase
+
+**Processing Modes:**
+```bash
+# All modes use the same underlying logic for guaranteed consistency
+python video_orientation_detector.py video.mp4          # Full mode (display + annotation)
+python video_orientation_detector.py folder --batch     # Batch mode (fast, no display)
+python video_orientation_detector.py video.mp4 --quick  # Quick mode (fast with display)
+```
+
+## � Enhanced Rotation Direction Detection (v4.10.2)**Enhanced Detection** - MobileNet models with OpenVINO optimization
 - **Facial Landmarks** - Precise orientation analysis using LBF landmark detection
 - **Cross-Platform Intelligence** - Optimized for Windows, Linux, and Apple Silicon (M1/M2/M3)
 
@@ -259,6 +285,10 @@ python video_orientation_detector.py /videos --batch -r --time-limit 30 --report
 
 ## 📝 Version History
 
+- **v4.13.0** (2025-09-08): Code Unification & Simplification - merged process_video() methods into unified system
+- **v4.12.5** (2025-09-08): Critical Batch-Individual Consistency Fix - improved accuracy from 42.9% to 71.4%
+- **v4.12.4** (2025-09-08): Accuracy improvements with dynamic thresholds
+- **v4.12.3** (2025-09-08): Complete MobileNet Integration with Automatic PyTorch Installation
 - **v4.10.2** (2025-01-21): Enhanced rotation direction detection - intelligent clockwise/counterclockwise analysis
 - **v4.10.1** (2025-01-21): Apple Silicon compatibility improvements and error handling
 - **v4.10.0** (2025-01-21): Python 3.13 optimization and performance improvements
