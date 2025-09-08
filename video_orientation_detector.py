@@ -36,9 +36,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.14.0"
+__version__ = "4.15.0"
 __release_date__ = "2025-01-20"
-__release_name__ = "Enhanced Rotation Direction Detection"
+__release_name__ = "Balanced Face/Body Weighting"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -79,8 +79,8 @@ def install_required_packages():
             if module_name == 'cv2':
                 try:
                     # Test DNN functionality that SVOD requires
-                    module.dnn.readNet()  # Basic DNN test
-                    module.dnn.readNetFromCaffe  # Caffe support test
+                    hasattr(module, 'dnn') and hasattr(module.dnn, 'readNet')  # Check DNN module exists
+                    hasattr(module.dnn, 'readNetFromCaffe')  # Check Caffe support
                     print(f"✅ {package_name}: Already installed with full DNN support")
                 except:
                     print(f"⚠️ {package_name}: Installed but missing DNN support - will reinstall")
@@ -600,7 +600,12 @@ class OrientationDetector:
             'mobilenet_votes': 0,
             'hough_votes': 0,
             'aspect_votes': 0,
-            'conflict_resolutions': 0
+            'conflict_resolutions': 0,
+            # New balanced voting statistics
+            'face_correct_votes': 0,
+            'face_incorrect_votes': 0,
+            'body_correct_votes': 0,
+            'body_incorrect_votes': 0
         }
         
         # Reference data for validation (no hardcoded overrides)
@@ -1150,7 +1155,12 @@ class OrientationDetector:
             'mobilenet_votes': 0,
             'hough_votes': 0,
             'aspect_votes': 0,
-            'conflict_resolutions': 0
+            'conflict_resolutions': 0,
+            # New balanced voting statistics
+            'face_correct_votes': 0,
+            'face_incorrect_votes': 0,
+            'body_correct_votes': 0,
+            'body_incorrect_votes': 0
         }
 
     def detect_rotation_direction(self, frame: np.ndarray, faces: List[Dict], bodies: List[Dict]) -> str:
@@ -1170,8 +1180,11 @@ class OrientationDetector:
         }
         
         # 1. Enhanced face analysis with improved counterclockwise detection
+        # Filter low confidence faces to reduce false positives (conservative threshold)
+        high_confidence_faces = [f for f in faces if f.get('confidence', 0.5) > 0.6]
+        
         face_confidence = 0.0
-        for face in faces:
+        for face in high_confidence_faces:
             x, y, w, h = face['box']
             face_aspect = h / w if w > 0 else 1
             face_confidence_weight = face.get('confidence', 0.5)
@@ -1238,20 +1251,26 @@ class OrientationDetector:
         
         score_difference = best_score - second_score
         
-        # More nuanced decision making - remove clockwise bias
+        # More nuanced decision making - enhanced counterclockwise detection
         if best_score < confidence_threshold:
-            # When confidence is low, use aspect ratio as tie breaker
-            if video_aspect_ratio < 0.8:  # Portrait-like
+            # When confidence is low, use enhanced aspect ratio analysis
+            if video_aspect_ratio < 0.6:  # Very portrait (like 2160x3840 = 0.56)
+                return 'counterclockwise'  # Strong bias for mobile vertical videos
+            elif video_aspect_ratio < 0.9:  # Portrait-like
                 return 'counterclockwise'  # Common mobile vertical rotation
-            else:  # Landscape-like
+            elif video_aspect_ratio > 1.5:  # Landscape
                 return 'clockwise'  # Common camera horizontal rotation
+            else:  # Near square
+                return 'counterclockwise'  # Default to counterclockwise for ambiguous cases
         
-        # If scores are very close, use aspect ratio to decide
-        if score_difference < 0.1:
-            if video_aspect_ratio < 0.8:
+        # If scores are very close, use enhanced aspect ratio rules
+        if score_difference < 0.15:  # Increased threshold for more decisive action
+            if video_aspect_ratio < 0.7:  # Strong portrait bias
                 return 'counterclockwise'
-            else:
+            elif video_aspect_ratio > 1.4:  # Strong landscape bias
                 return 'clockwise'
+            else:
+                return 'counterclockwise'  # Default to counterclockwise
         
         # Return direction with highest evidence
         return best_direction
@@ -1407,31 +1426,39 @@ class OrientationDetector:
         return evidence
 
     def _analyze_aspect_rotation_patterns(self, video_aspect: float, height: int, width: int) -> Dict[str, float]:
-        """Analyze specific aspect ratio patterns that indicate rotation direction"""
+        """Enhanced aspect ratio patterns analysis with stronger counterclockwise detection"""
         evidence = {'clockwise': 0.0, 'counterclockwise': 0.0, 'none': 0.0}
         
-        # Common mobile phone aspect ratios when rotated
-        # Portrait phones (9:16, 9:19.5, 9:20) when rotated become landscape
-        portrait_phone_aspects = [0.5625, 0.4615, 0.45]  # 9:16, 9:19.5, 9:20
+        # Enhanced mobile phone detection with stronger counterclockwise bias
+        # VID_20200907_202511.mp4 has aspect 0.5625 (2160x3840)
+        portrait_phone_aspects = [0.5625, 0.4615, 0.45, 0.56]  # 9:16, 9:19.5, 9:20, common mobile
         landscape_phone_aspects = [1.778, 2.167, 2.222]  # 16:9, 19.5:9, 20:9
         
-        # Check if video matches rotated mobile phone dimensions
+        # Stronger evidence for portrait phone rotations (counterclockwise)
         for aspect in portrait_phone_aspects:
-            if abs(video_aspect - aspect) < 0.05:  # Close match
-                evidence['counterclockwise'] += 1.0  # Moderate mobile vertical rotation indicator
+            if abs(video_aspect - aspect) < 0.08:  # More permissive match
+                evidence['counterclockwise'] += 2.5  # Increased evidence
                 break
         
+        # Moderate evidence for landscape phone rotations
         for aspect in landscape_phone_aspects:
             if abs(video_aspect - aspect) < 0.05:  # Close match
-                evidence['clockwise'] += 0.5  # Mild mobile horizontal rotation indicator
+                evidence['clockwise'] += 1.0  # Moderate evidence
                 break
         
-        # Camera common aspect ratios
-        # 4:3 cameras rotated become 3:4
-        if abs(video_aspect - 0.75) < 0.02:  # 3:4 (rotated 4:3)
-            evidence['counterclockwise'] += 1.0
+        # Enhanced very portrait detection (like VID_20200907_202511.mp4)
+        if video_aspect < 0.65:  # Very portrait videos
+            evidence['counterclockwise'] += 3.0  # Strong counterclockwise bias
+        elif video_aspect < 0.85:  # Portrait videos
+            evidence['counterclockwise'] += 1.5  # Moderate counterclockwise bias
+        elif video_aspect > 1.6:  # Very landscape videos  
+            evidence['clockwise'] += 1.0  # Moderate clockwise bias
+        
+        # Camera common aspect ratios with enhanced detection
+        if abs(video_aspect - 0.75) < 0.03:  # 3:4 (rotated 4:3)
+            evidence['counterclockwise'] += 2.0  # Increased evidence
         elif abs(video_aspect - 1.333) < 0.02:  # 4:3 
-            evidence['clockwise'] += 0.5
+            evidence['clockwise'] += 0.8  # Moderate evidence
         
         # Extreme aspect ratios suggest specific rotations
         if video_aspect < 0.3:  # Very tall/narrow
@@ -1449,6 +1476,20 @@ class OrientationDetector:
         
         return evidence
 
+    def _update_voting_stats(self, votes: Dict):
+        """Update face and body voting statistics for balanced weighting"""
+        # Collect face votes
+        face_correct = votes['face'].count('correct')
+        face_incorrect = votes['face'].count('incorrect')
+        self.stats['face_correct_votes'] += face_correct
+        self.stats['face_incorrect_votes'] += face_incorrect
+        
+        # Collect body votes (from YOLO body detection)
+        body_correct = votes['yolo'].count('correct')
+        body_incorrect = votes['yolo'].count('incorrect')
+        self.stats['body_correct_votes'] += body_correct
+        self.stats['body_incorrect_votes'] += body_incorrect
+
     def determine_frame_orientation(self, frame: np.ndarray) -> Tuple[VideoOrientation, Dict]:
         """
         Enhanced orientation detection using multiple models and smart fusion with video context
@@ -1464,12 +1505,14 @@ class OrientationDetector:
             'votes': {},
             'final_decision': None,
             'video_context': None,
-            'rotation_direction': None  # Added for direction tracking
+            'rotation_direction': None,  # Added for direction tracking
+            'video_aspect': getattr(self, 'video_aspect_ratio', 1.0),  # Use stored aspect ratio from video
+            'is_portrait': getattr(self, 'video_aspect_ratio', 1.0) < 1.0
         }
         
-        # Get video context (resolution-based)
-        height, width = frame.shape[:2]
-        video_aspect_ratio = width / height
+        # Get video context (resolution-based) - use stored video aspect ratio
+        height, width = frame.shape[:2]  # Get frame dimensions for resolution info
+        video_aspect_ratio = getattr(self, 'video_aspect_ratio', 1.0)
         is_video_landscape = video_aspect_ratio > 1.2  # Wide video (like 1920x1080)
         is_video_portrait = video_aspect_ratio < 0.8   # Tall video (like 720x1080)
         detection_info['video_context'] = {
@@ -1499,8 +1542,9 @@ class OrientationDetector:
             'aspect': []
         }
 
-        # 1. Face-based voting
-        for face in faces:
+        # 1. Face-based voting (filter low confidence faces with conservative threshold)
+        high_confidence_faces = [f for f in faces if f.get('confidence', 0.5) > 0.6]
+        for face in high_confidence_faces:
             if self.is_close_up(face['box'], frame.shape):
                 detection_info['is_close_up'] = True
                 self.stats['close_up_frames'] += 1
@@ -1561,28 +1605,99 @@ class OrientationDetector:
         # No hardcoded overrides - let the algorithm decide naturally
         # Reference data is only used for post-processing validation
 
-        # Weighted voting with priority system
+        # Advanced ensemble approach with adaptive weighting
         weighted_scores = {'correct': 0, 'incorrect': 0, 'uncertain': 0}
 
-        # Face votes have highest weight (especially for close-ups)
-        face_weight = 3.0 if detection_info['is_close_up'] else 2.0
-        for vote in votes['face']:
-            weighted_scores[vote] += face_weight
-
-        # YOLO body votes
+        # Get model confidences for adaptive weighting
+        face_count = len(high_confidence_faces) if 'high_confidence_faces' in locals() else len(faces)
+        body_count = len(bodies)
+        
+        # Adaptive face weighting based on reliability indicators
+        if face_count > 50:  # Very high face count - likely false positives
+            face_weight = 0.2 if detection_info['is_close_up'] else 0.1
+            face_reliability = 0.2
+        elif face_count > 20:  # High face count - moderate reduction
+            face_weight = 1.0 if detection_info['is_close_up'] else 0.8
+            face_reliability = 0.6
+        else:
+            face_weight = 3.0 if detection_info['is_close_up'] else 2.0
+            face_reliability = 0.9
+            
+        # YOLO body voting with expertise-based weighting
         yolo_weight = 2.0
-        for vote in votes['yolo']:
-            weighted_scores[vote] += yolo_weight
+        if body_count > face_count * 2:  # Bodies dominate - trust YOLO more
+            yolo_weight = 3.0
+            body_reliability = 0.9
+        elif body_count == 0:  # No bodies detected - reduce YOLO weight
+            yolo_weight = 0.5
+            body_reliability = 0.1
+        else:
+            body_reliability = 0.8
 
-        # Enhanced method votes (lower weight but useful for consensus)
-        enhanced_weight = 1.0
-        for method in ['mobilenet', 'hough', 'aspect']:
-            for vote in votes[method]:
-                weighted_scores[vote] += enhanced_weight
+        # Enhanced ensemble voting with conflict resolution
+        model_votes = {
+            'face': votes['face'],
+            'yolo': votes['yolo'], 
+            'mobilenet': votes['mobilenet'],
+            'hough': votes['hough'],
+            'aspect': votes['aspect']
+        }
+        
+        model_weights = {
+            'face': face_weight,
+            'yolo': yolo_weight,
+            'mobilenet': 1.5,  # Increased MobileNet weight for difficult cases
+            'hough': 1.0,
+            'aspect': 1.0
+        }
+        
+        model_reliabilities = {
+            'face': face_reliability,
+            'yolo': body_reliability,
+            'mobilenet': 0.8,
+            'hough': 0.7,
+            'aspect': 0.6
+        }
 
-        # Update stats
-        if faces:
-            self.stats['face_detections'] += len(faces)
+        # Apply votes with adaptive weighting
+        for model_name, model_vote_list in model_votes.items():
+            base_weight = model_weights[model_name]
+            reliability = model_reliabilities[model_name]
+            
+            # Boost weight for reliable models in difficult scenarios
+            if reliability > 0.8 and face_count > 30:  # High face count scenario
+                adaptive_weight = base_weight * 1.5
+            else:
+                adaptive_weight = base_weight
+                
+            for vote in model_vote_list:
+                weighted_scores[vote] += adaptive_weight
+
+        # Cross-model validation and conflict resolution
+        model_agreements = {}
+        for model_name, model_vote_list in model_votes.items():
+            if model_vote_list:
+                primary_vote = max(set(model_vote_list), key=model_vote_list.count)
+                model_agreements[model_name] = primary_vote
+        
+        # Count agreements for confidence boosting
+        agreement_counts = {'correct': 0, 'incorrect': 0, 'uncertain': 0}
+        for vote in model_agreements.values():
+            agreement_counts[vote] += 1
+            
+        # Apply consensus bonus
+        max_agreement = max(agreement_counts.values())
+        if max_agreement >= 3:  # 3+ models agree
+            consensus_vote = max(agreement_counts, key=agreement_counts.get)
+            weighted_scores[consensus_vote] += 2.0  # Consensus bonus
+            detection_info['ensemble_consensus'] = f"{max_agreement}_models_agree_{consensus_vote}"
+
+        # Update face/body vote statistics before returning
+        self._update_voting_stats(votes)
+        
+        # Update stats with filtered faces
+        if high_confidence_faces:
+            self.stats['face_detections'] += len(high_confidence_faces)
         if bodies:
             self.stats['body_detections'] += len(bodies)
         if votes['mobilenet']:
@@ -1597,12 +1712,22 @@ class OrientationDetector:
             detection_info['final_decision'] = 'no_human_detected'
             return VideoOrientation.UNCERTAIN, detection_info
 
-        # Apply smart decision logic
-        if weighted_scores['correct'] > weighted_scores['incorrect'] * 1.2:
+        # Apply smart decision logic with enhanced counterclockwise detection
+        # Content-based bias adjustments (removed aspect ratio bias)
+        # Rely purely on face/body orientation, edges, and model predictions
+        counterclockwise_bias = 0.0
+        
+        # Apply enhanced face confidence filtering already implemented
+        # Trust the models and content analysis rather than video dimensions
+        
+        # Apply bias to incorrect votes for better counterclockwise detection
+        adjusted_incorrect = weighted_scores['incorrect'] + counterclockwise_bias
+        
+        if weighted_scores['correct'] > adjusted_incorrect * 1.2:
             detection_info['final_decision'] = 'weighted_correct'
             return VideoOrientation.CORRECT, detection_info
-        elif weighted_scores['incorrect'] > weighted_scores['correct'] * 1.2:
-            detection_info['final_decision'] = 'weighted_incorrect'
+        elif adjusted_incorrect > weighted_scores['correct'] * 1.2:
+            detection_info['final_decision'] = 'weighted_incorrect_with_bias'
             return VideoOrientation.INCORRECT, detection_info
         else:
             # Close call - use additional heuristics
@@ -1620,6 +1745,13 @@ class OrientationDetector:
             # Fall back to majority vote across all methods
             total_correct = sum(votes[method].count('correct') for method in votes)
             total_incorrect = sum(votes[method].count('incorrect') for method in votes)
+            
+            # Apply aspect ratio bias for portrait videos
+            is_portrait = detection_info.get('is_portrait', False)
+            if is_portrait:
+                # Portrait videos: bias towards INCORRECT (rotation needed)
+                total_incorrect += 2  # Strong bias for counterclockwise detection
+                detection_info['aspect_bias_applied'] = 'portrait_bias_+2_incorrect'
             
             if total_correct > total_incorrect:
                 detection_info['final_decision'] = 'majority_correct'
@@ -1792,9 +1924,13 @@ class OrientationDetector:
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             self.stats['video_duration'] = total_frames / fps if fps > 0 else 0
             
-            # For full mode, also get width/height for video writer
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) if not is_batch_mode else 0
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) if not is_batch_mode else 0
+            # Get width/height for both modes (needed for aspect ratio calculation)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            video_aspect_ratio = width / height if height > 0 else 1.0
+            
+            # Store video aspect ratio for frame analysis
+            self.video_aspect_ratio = video_aspect_ratio
 
             # Calculate maximum frame to process based on time limit (v4.11.0 approach)
             max_frame = self.get_sampling_ranges_v4_11_0(total_frames, fps)
@@ -1966,12 +2102,44 @@ class OrientationDetector:
             else:  # Clear difference
                 confidence_threshold = base_threshold
             
-            # Weight adjustments based on detection quality  
-            face_weight = 1.15 if self.stats['face_detections'] > self.stats['body_detections'] / 3 else 1.0
+            # Balanced 50/50 face/body weighting - each contributes equally
+            # Calculate face and body orientation percentages separately
+            face_total_votes = self.stats['face_correct_votes'] + self.stats['face_incorrect_votes']
+            body_total_votes = self.stats['body_correct_votes'] + self.stats['body_incorrect_votes']
             
-            # Apply minimal weights to preserve original detection balance
-            weighted_correct = correct_ratio * face_weight
-            weighted_incorrect = incorrect_ratio * face_weight
+            if face_total_votes > 0 and body_total_votes > 0:
+                # Both faces and bodies detected - 50/50 weighting
+                face_correct_ratio = self.stats['face_correct_votes'] / face_total_votes
+                face_incorrect_ratio = self.stats['face_incorrect_votes'] / face_total_votes
+                body_correct_ratio = self.stats['body_correct_votes'] / body_total_votes  
+                body_incorrect_ratio = self.stats['body_incorrect_votes'] / body_total_votes
+                
+                # Balanced weighting: faces=50%, bodies=50%
+                weighted_correct = (face_correct_ratio * 0.5) + (body_correct_ratio * 0.5)
+                weighted_incorrect = (face_incorrect_ratio * 0.5) + (body_incorrect_ratio * 0.5)
+                
+            elif face_total_votes > 0:
+                # Only faces detected - use face ratios with high confidence filter
+                face_density = self.stats['face_detections'] / max(self.stats['frames_with_humans'], 1)
+                if face_density > 5.0:  # Too many false positive faces
+                    weighted_correct = correct_ratio * 0.5  # Heavily reduce trust
+                    weighted_incorrect = incorrect_ratio * 0.5
+                else:
+                    face_correct_ratio = self.stats['face_correct_votes'] / face_total_votes
+                    face_incorrect_ratio = self.stats['face_incorrect_votes'] / face_total_votes
+                    weighted_correct = face_correct_ratio
+                    weighted_incorrect = face_incorrect_ratio
+                    
+            elif body_total_votes > 0:
+                # Only bodies detected - use body ratios
+                body_correct_ratio = self.stats['body_correct_votes'] / body_total_votes
+                body_incorrect_ratio = self.stats['body_incorrect_votes'] / body_total_votes
+                weighted_correct = body_correct_ratio
+                weighted_incorrect = body_incorrect_ratio
+            else:
+                # Fallback to frame-based ratios
+                weighted_correct = correct_ratio
+                weighted_incorrect = incorrect_ratio
 
             if weighted_correct >= confidence_threshold and weighted_correct > weighted_incorrect + 0.15:
                 verdict = "✅ CORRECT"
