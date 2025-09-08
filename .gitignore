@@ -41,6 +41,7 @@ wheels/
 coco.names
 yolov4.cfg
 yolov4.weights
+yolov8n.pt
 deploy.prototxt
 res10_300x300_ssd_iter_140000.caffemodel
 lbfmodel.yaml

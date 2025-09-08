@@ -36,9 +36,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.15.0"
+__version__ = "4.16.0"
 __release_date__ = "2025-01-20"
-__release_name__ = "Balanced Face/Body Weighting"
+__release_name__ = "YOLOv8 Hybrid Detection"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -59,6 +59,11 @@ def install_required_packages():
         ('cv2', 'opencv-contrib-python'),  # Changed to contrib version for face landmarks
         ('numpy', 'numpy'),
         ('openvino', 'openvino'),  # Moved from optional to required
+    ]
+    
+    # Optional YOLOv8 package for enhanced detection
+    optional_yolo_packages = [
+        ('ultralytics', 'ultralytics')  # YOLOv8 support
     ]
     
     # Platform-specific packages for omz_downloader functionality
@@ -116,6 +121,20 @@ def install_required_packages():
                     
             print("✅ All required packages installed successfully!")
             
+            # Try to install YOLOv8 for enhanced detection (optional)
+            print("\n🚀 Attempting to install YOLOv8 for enhanced body detection...")
+            for module_name, package_name in optional_yolo_packages:
+                try:
+                    print(f"⬇️ Installing {package_name} (optional YOLOv8 support)...")
+                    result = subprocess.run([sys.executable, '-m', 'pip', 'install', package_name], 
+                                          capture_output=True, text=True, timeout=300)
+                    if result.returncode == 0:
+                        print(f"✅ {package_name} installed successfully - YOLOv8 enabled!")
+                    else:
+                        print(f"⚠️ Failed to install {package_name} (will use YOLOv4 fallback): {result.stderr}")
+                except Exception as e:
+                    print(f"⚠️ {package_name} installation failed (will use YOLOv4 fallback): {e}")
+            
             # Try to install development tools for omz_downloader (not critical if fails)
             if optional_dev_packages:
                 print("\n🔧 Installing optional development tools for enhanced functionality...")
@@ -159,6 +178,23 @@ except ImportError:
     else:
         print("❌ Failed to install required packages!")
         sys.exit(1)
+
+# Optional YOLOv8 import for enhanced detection with robust error handling
+try:
+    # Try importing YOLOv8 after OpenCV to avoid conflicts
+    import importlib
+    ultralytics_spec = importlib.util.find_spec("ultralytics")
+    if ultralytics_spec is not None:
+        from ultralytics import YOLO
+        YOLOV8_AVAILABLE = True
+        print("🚀 YOLOv8 (ultralytics) detected - enhanced body detection enabled!")
+    else:
+        YOLOV8_AVAILABLE = False
+        print("⚠️ YOLOv8 not available - using YOLOv4 fallback")
+except (ImportError, AttributeError, ModuleNotFoundError) as e:
+    YOLOV8_AVAILABLE = False
+    print(f"⚠️ YOLOv8 initialization failed: {e}")
+    print("🔄 Using YOLOv4 fallback for stable detection")
 
 
 def check_required_model_files():
@@ -634,19 +670,37 @@ class OrientationDetector:
             self.use_dnn_face = False
 
     def setup_person_detection(self):
-        """Setup person/body detection"""
-        # YOLO for full person detection
+        """Setup hybrid YOLOv8/YOLOv4 person/body detection with automatic fallback"""
+        # Try YOLOv8 first if available
+        self.use_yolov8 = False
+        self.use_yolo = False
+        
+        if YOLOV8_AVAILABLE:
+            try:
+                print("🚀 Initializing YOLOv8 for enhanced body detection...")
+                # Try to load YOLOv8 nano model (fastest, good for body detection)
+                self.yolov8_model = YOLO('yolov8n.pt')  # Auto-downloads if needed
+                self.use_yolov8 = True
+                print("✅ YOLOv8 initialized successfully - using enhanced detection!")
+                return
+            except Exception as e:
+                print(f"⚠️ YOLOv8 initialization failed: {e}")
+                print("🔄 Falling back to YOLOv4...")
+        
+        # Fallback to YOLOv4 (existing logic)
         script_dir = os.path.dirname(os.path.abspath(__file__))
         weights_path = os.path.join(script_dir, "yolov4.weights")
         config_path = os.path.join(script_dir, "yolov4.cfg")
 
         if os.path.exists(weights_path) and os.path.exists(config_path):
+            print("🔧 Initializing YOLOv4 for body detection...")
             self.net = cv2.dnn.readNet(weights_path, config_path)
             self.use_yolo = True
             layer_names = self.net.getLayerNames()
             self.output_layers = [layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()]
+            print("✅ YOLOv4 initialized successfully")
         else:
-            print("YOLO not found. Using Haar Cascades for body detection.")
+            print("⚠️ YOLO models not found. Using Haar Cascades for body detection.")
             self.use_yolo = False
             self.body_cascade = cv2.CascadeClassifier(
                 cv2.data.haarcascades + 'haarcascade_fullbody.xml'
@@ -1073,57 +1127,96 @@ class OrientationDetector:
 
     def detect_persons(self, frame: np.ndarray) -> List[Dict]:
         """
-        Detect full person bodies in frame
+        Detect full person bodies in frame using hybrid YOLOv8/YOLOv4 approach
         """
         persons = []
 
-        if self.use_yolo:
-            height, width = frame.shape[:2]
-            blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
-            self.net.setInput(blob)
-            outputs = self.net.forward(self.output_layers)
-
-            for output in outputs:
-                for detection in output:
-                    scores = detection[5:]
-                    class_id = np.argmax(scores)
-                    confidence = scores[class_id]
-
-                    if class_id == 0 and confidence > self.confidence_threshold:
-                        center_x = int(detection[0] * width)
-                        center_y = int(detection[1] * height)
-                        w = int(detection[2] * width)
-                        h = int(detection[3] * height)
-
-                        x = int(center_x - w / 2)
-                        y = int(center_y - h / 2)
-
-                        persons.append({
-                            'box': (x, y, w, h),
-                            'confidence': confidence,
-                            'type': 'yolo_person'
-                        })
+        if self.use_yolov8:
+            # YOLOv8 detection (enhanced)
+            try:
+                results = self.yolov8_model(frame, verbose=False)
+                for result in results:
+                    boxes = result.boxes
+                    if boxes is not None:
+                        for box in boxes:
+                            # Filter for person class (class 0 in COCO)
+                            if int(box.cls[0]) == 0 and float(box.conf[0]) > self.confidence_threshold:
+                                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                                x, y, w, h = int(x1), int(y1), int(x2-x1), int(y2-y1)
+                                
+                                persons.append({
+                                    'box': (x, y, w, h),
+                                    'confidence': float(box.conf[0]),
+                                    'type': 'yolov8_person'
+                                })
+            except Exception as e:
+                print(f"⚠️ YOLOv8 detection failed: {e}")
+                print("🔄 Falling back to YOLOv4...")
+                # Temporary fallback to YOLOv4 for this frame
+                return self._detect_persons_yolov4(frame)
+                
+        elif self.use_yolo:
+            # YOLOv4 detection (existing)
+            return self._detect_persons_yolov4(frame)
         else:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # Haar Cascade fallback
+            return self._detect_persons_cascade(frame)
 
-            # Full body detection
-            bodies = self.body_cascade.detectMultiScale(gray, 1.1, 3)
-            for (x, y, w, h) in bodies:
-                persons.append({
-                    'box': (x, y, w, h),
-                    'confidence': 0.6,
-                    'type': 'cascade_body'
-                })
+        return persons
 
-            # Upper body detection
-            upper_bodies = self.upper_body_cascade.detectMultiScale(gray, 1.1, 3)
-            for (x, y, w, h) in upper_bodies:
-                persons.append({
-                    'box': (x, y, w, h),
-                    'confidence': 0.5,
-                    'type': 'cascade_upper'
-                })
+    def _detect_persons_yolov4(self, frame: np.ndarray) -> List[Dict]:
+        """YOLOv4 detection method (extracted from original logic)"""
+        persons = []
+        height, width = frame.shape[:2]
+        blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
+        self.net.setInput(blob)
+        outputs = self.net.forward(self.output_layers)
 
+        for output in outputs:
+            for detection in output:
+                scores = detection[5:]
+                class_id = np.argmax(scores)
+                confidence = scores[class_id]
+
+                if class_id == 0 and confidence > self.confidence_threshold:
+                    center_x = int(detection[0] * width)
+                    center_y = int(detection[1] * height)
+                    w = int(detection[2] * width)
+                    h = int(detection[3] * height)
+
+                    x = int(center_x - w / 2)
+                    y = int(center_y - h / 2)
+
+                    persons.append({
+                        'box': (x, y, w, h),
+                        'confidence': confidence,
+                        'type': 'yolov4_person'
+                    })
+        return persons
+
+    def _detect_persons_cascade(self, frame: np.ndarray) -> List[Dict]:
+        """Haar Cascade detection method (extracted from original logic)"""
+        persons = []
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Full body detection
+        bodies = self.body_cascade.detectMultiScale(gray, 1.1, 3)
+        for (x, y, w, h) in bodies:
+            persons.append({
+                'box': (x, y, w, h),
+                'confidence': 0.6,
+                'type': 'cascade_body'
+            })
+
+        # Upper body detection
+        upper_bodies = self.upper_body_cascade.detectMultiScale(gray, 1.1, 3)
+        for (x, y, w, h) in upper_bodies:
+            persons.append({
+                'box': (x, y, w, h),
+                'confidence': 0.5,
+                'type': 'cascade_upper'
+            })
+        
         return persons
 
     def is_close_up(self, face_box: Tuple[int, int, int, int], frame_shape: Tuple) -> bool:
