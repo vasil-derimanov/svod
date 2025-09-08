@@ -36,7 +36,7 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.13.0"
+__version__ = "4.12.5"
 __release_date__ = "2025-09-08"
 __release_name__ = "Critical Batch-Individual Consistency Fix"
 
@@ -1659,23 +1659,12 @@ class OrientationDetector:
 
         return annotated
 
-    def process_video_unified(self, video_path: str, mode: str = "full", 
-                              display: bool = True, output_path: str = None):
+    def process_video_quick(self, video_path: str) -> BatchResult:
         """
-        Unified video processing method supporting multiple modes
-        
-        Args:
-            video_path: Path to video file
-            mode: Processing mode - "full", "batch", "quick"
-            display: Show video display (ignored in batch mode)
-            output_path: Save annotated video (ignored in batch mode)
-            
-        Returns:
-            Dict for full/quick modes, BatchResult for batch mode
+        Quick video processing for batch analysis (no display, fast sampling)
         """
         start_time = time.time()
-        is_batch_mode = (mode == "batch")
-        
+
         try:
             self.reset_stats()
             
@@ -1684,48 +1673,25 @@ class OrientationDetector:
 
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
-                if is_batch_mode:
-                    return BatchResult(video_path, VideoOrientation.UNCERTAIN, 0.0, {},
-                                       time.time() - start_time, "Cannot open video")
-                else:
-                    raise ValueError(f"Cannot open video: {video_path}")
+                return BatchResult(video_path, VideoOrientation.UNCERTAIN, 0.0, {},
+                                   time.time() - start_time, "Cannot open video")
 
             # Get video properties
             fps = cap.get(cv2.CAP_PROP_FPS)
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             self.stats['video_duration'] = total_frames / fps if fps > 0 else 0
-            
-            # For full mode, also get width/height for video writer
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) if not is_batch_mode else 0
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) if not is_batch_mode else 0
 
             # Calculate maximum frame to process based on time limit (v4.11.0 approach)
             max_frame = self.get_sampling_ranges_v4_11_0(total_frames, fps)
             
             if max_frame is not None:
                 self.stats['analyzed_duration'] = max_frame / fps if fps > 0 else 0
-                if is_batch_mode:
-                    print(f"  ⏱️  Time limit: analyzing first {self.time_limit}s of video")
+                print(f"  ⏱️  Time limit: analyzing first {self.time_limit}s of video")
             else:
                 self.stats['analyzed_duration'] = self.stats['video_duration']
 
-            # Setup video writer (only for full mode with output)
-            writer = None
-            if not is_batch_mode and output_path:
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
-            # Print info for full mode
-            if not is_batch_mode:
-                print(f"Processing video: {video_path}")
-                print(f"Resolution: {width}x{height}, Total frames: {total_frames}, FPS: {fps:.1f}")
-                print(f"Video duration: {self.stats['video_duration']:.1f}s")
-                if self.time_limit:
-                    print(f"⏱️  Analyzing first {self.time_limit}s of video ({self.stats['analyzed_duration']:.1f}s)")
-                print("Detecting faces and bodies for orientation analysis...")
-
-            # Unified frame processing logic
-            skip_frames = 6  # Consistent frame skipping for all modes
+            # More conservative frame skipping for better accuracy  
+            skip_frames = 6  # Reduced from 12 - analyze more frames for better accuracy
             frame_count = 0
 
             while True:
@@ -1737,8 +1703,6 @@ class OrientationDetector:
 
                 # Check time limit (v4.11.0 approach)
                 if not self.should_process_frame_v4_11_0(frame_count, max_frame):
-                    if not is_batch_mode:
-                        print(f"\n⏱️  Time limit reached: analyzed first {self.time_limit}s of video")
                     break
 
                 # Skip frames for efficiency
@@ -1748,7 +1712,7 @@ class OrientationDetector:
                 # Analyze frame
                 orientation, detection_info = self.determine_frame_orientation(frame)
 
-                # Update statistics (unified logic for all modes)
+                # Update statistics
                 self.stats['total_frames'] += 1
                 has_humans = bool(detection_info['faces'] or detection_info['bodies'])
                 if orientation == VideoOrientation.CORRECT:
@@ -1759,7 +1723,7 @@ class OrientationDetector:
                     self.stats['incorrect_orientation_frames'] += 1
                     if has_humans:
                         self.stats['frames_with_humans'] += 1
-                        # Collect rotation directions for all modes
+                        # Collect rotation directions for all incorrect frames with humans
                         direction = self.detect_rotation_direction(frame, detection_info['faces'], detection_info['bodies'])
                         if 'rotation_directions' not in self.stats:
                             self.stats['rotation_directions'] = []
@@ -1767,60 +1731,23 @@ class OrientationDetector:
                 else:
                     self.stats['uncertain_frames'] += 1
 
-                # Mode-specific processing (display, annotation, output)
-                if not is_batch_mode:
-                    # Annotate frame for full/quick modes
-                    annotated_frame = self.annotate_frame(frame, orientation, detection_info)
-
-                    # Display for full/quick modes if requested
-                    if display:
-                        cv2.imshow('Video Orientation Analysis', annotated_frame)
-                        if cv2.waitKey(1) & 0xFF == ord('q'):
-                            print("\nProcessing interrupted by user")
-                            break
-
-                    # Write to output for full/quick modes
-                    if writer:
-                        writer.write(annotated_frame)
-
-                    # Progress update for full/quick modes
-                    if frame_count % 90 == 0:
-                        if max_frame:
-                            progress = (frame_count / max_frame) * 100
-                        else:
-                            progress = (frame_count / total_frames) * 100
-                        print(f"Progress: {progress:.1f}% | Faces detected: {self.stats['face_detections']} | "
-                              f"Bodies detected: {self.stats['body_detections']}")
-
-            # Cleanup
             cap.release()
-            if writer:
-                writer.release()
-            if not is_batch_mode:
-                cv2.destroyAllWindows()
 
-            # Calculate final verdict
+            # Calculate results
             results = self.calculate_final_verdict()
             processing_time = time.time() - start_time
 
-            # Return appropriate result type based on mode
-            if is_batch_mode:
-                return BatchResult(
-                    video_path,
-                    self._get_orientation_from_verdict(results['verdict']),
-                    results['confidence'],
-                    results,
-                    processing_time
-                )
-            else:
-                return results
+            return BatchResult(
+                video_path,
+                self._get_orientation_from_verdict(results['verdict']),
+                results['confidence'],
+                results,
+                processing_time
+            )
 
         except Exception as e:
-            if is_batch_mode:
-                return BatchResult(video_path, VideoOrientation.UNCERTAIN, 0.0, {},
-                                   time.time() - start_time, str(e))
-            else:
-                raise
+            return BatchResult(video_path, VideoOrientation.UNCERTAIN, 0.0, {},
+                               time.time() - start_time, str(e))
 
     def _get_orientation_from_verdict(self, verdict: str) -> VideoOrientation:
         """Extract VideoOrientation from verdict string"""        
@@ -1836,14 +1763,122 @@ class OrientationDetector:
         else:
             return VideoOrientation.UNCERTAIN
 
-    # Legacy wrapper methods for backward compatibility
-    def process_video_quick(self, video_path: str) -> BatchResult:
-        """Legacy wrapper for batch processing"""
-        return self.process_video_unified(video_path, mode="batch")
-    
-    def process_video(self, video_path: str, display: bool = True, output_path: str = None) -> Dict:
-        """Legacy wrapper for full processing"""
-        return self.process_video_unified(video_path, mode="full", display=display, output_path=output_path)
+    def process_video(self, video_path: str, display: bool = True,
+                      output_path: str = None) -> Dict:
+        """
+        Process entire video (or time-limited portion) with enhanced detection
+        """
+        self.reset_stats()
+        
+        # Store current filename for smart override patterns
+        self.current_filename = os.path.basename(video_path)
+        
+        cap = cv2.VideoCapture(video_path)
+
+        if not cap.isOpened():
+            raise ValueError(f"Cannot open video: {video_path}")
+
+        # Get video properties
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.stats['video_duration'] = total_frames / fps if fps > 0 else 0
+
+        # Calculate maximum frame to process based on time limit (v4.11.0 approach)
+        max_frame = self.get_sampling_ranges_v4_11_0(total_frames, fps)
+        
+        if max_frame is not None:
+            self.stats['analyzed_duration'] = max_frame / fps if fps > 0 else 0
+        else:
+            self.stats['analyzed_duration'] = self.stats['video_duration']
+
+        # Setup video writer
+        writer = None
+        if output_path:
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+        print(f"Processing video: {video_path}")
+        print(f"Resolution: {width}x{height}, Total frames: {total_frames}, FPS: {fps:.1f}")
+        print(f"Video duration: {self.stats['video_duration']:.1f}s")
+        if self.time_limit:
+            print(f"⏱️  Analyzing first {self.time_limit}s of video ({self.stats['analyzed_duration']:.1f}s)")
+        print("Detecting faces and bodies for orientation analysis...")
+
+        frame_count = 0
+        skip_frames = 6  # Synchronized with batch mode for consistency
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Check time limit (v4.11.0 approach)
+            if not self.should_process_frame_v4_11_0(frame_count, max_frame):
+                print(f"\n⏱️  Time limit reached: analyzed first {self.time_limit}s of video")
+                break
+
+            frame_count += 1
+
+            # Skip frames for efficiency
+            if frame_count % skip_frames != 0:
+                continue
+
+            # Analyze frame
+            orientation, detection_info = self.determine_frame_orientation(frame)
+
+            # Update statistics
+            self.stats['total_frames'] += 1
+            if orientation == VideoOrientation.CORRECT:
+                self.stats['correct_orientation_frames'] += 1
+                if detection_info['faces'] or detection_info['bodies']:
+                    self.stats['frames_with_humans'] += 1
+            elif orientation == VideoOrientation.INCORRECT:
+                self.stats['incorrect_orientation_frames'] += 1
+                if detection_info['faces'] or detection_info['bodies']:
+                    self.stats['frames_with_humans'] += 1
+                    # CRITICAL FIX: Collect rotation directions in individual mode too!
+                    direction = self.detect_rotation_direction(frame, detection_info['faces'], detection_info['bodies'])
+                    if 'rotation_directions' not in self.stats:
+                        self.stats['rotation_directions'] = []
+                    self.stats['rotation_directions'].append(direction)
+            else:
+                self.stats['uncertain_frames'] += 1
+
+            # Annotate frame
+            annotated_frame = self.annotate_frame(frame, orientation, detection_info)
+
+            # Display
+            if display:
+                cv2.imshow('Video Orientation Analysis', annotated_frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    print("\nProcessing interrupted by user")
+                    break
+
+            # Write to output
+            if writer:
+                writer.write(annotated_frame)
+
+            # Progress update
+            if frame_count % 90 == 0:
+                if max_frame:
+                    progress = (frame_count / max_frame) * 100
+                else:
+                    progress = (frame_count / total_frames) * 100
+                print(f"Progress: {progress:.1f}% | Faces detected: {self.stats['face_detections']} | "
+                      f"Bodies detected: {self.stats['body_detections']}")
+
+        # Cleanup
+        cap.release()
+        if writer:
+            writer.release()
+        cv2.destroyAllWindows()
+
+        # Calculate final verdict
+        results = self.calculate_final_verdict()
+
+        return results
 
     def calculate_final_verdict(self) -> Dict:
         """
