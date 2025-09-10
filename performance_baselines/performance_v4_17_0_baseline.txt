@@ -1,0 +1,64 @@
+VIDEO ORIENTATION ANALYSIS REPORT
+==================================================
+Generated: 2025-09-10T12:06:48.256212
+Total files: 7
+Time limit: 8.0s per video (first N seconds)
+Confidence threshold: 0.5
+
+SUMMARY:
+  Need rotation: 3
+  Manual review: 1
+  Correct orientation: 3
+  Errors: 0
+
+DETAILED RESULTS:
+--------------------------------------------------
+File: P2170127.mp4
+  Path: C:\Users\boris\Videos\P2170127.mp4
+  Size: 13.3 MB
+  Orientation: UNCERTAIN - Cannot determine orientation
+  Confidence: 50.0%
+  Processing time: 97.1s
+
+File: P5051162.mp4
+  Path: C:\Users\boris\Videos\P5051162.mp4
+  Size: 7.7 MB
+  Orientation: CORRECT - Humans are upright
+  Confidence: 83.1%
+  Processing time: 70.8s
+
+File: P6160117.mp4
+  Path: C:\Users\boris\Videos\P6160117.mp4
+  Size: 22.5 MB
+  Orientation: INCORRECT - Humans are sideways/rotated
+  Confidence: 94.6%
+  Processing time: 171.0s
+
+File: P8150092.mp4
+  Path: C:\Users\boris\Videos\P8150092.mp4
+  Size: 43.5 MB
+  Orientation: CORRECT - Humans are upright
+  Confidence: 69.8%
+  Processing time: 299.2s
+
+File: P8170377.mp4
+  Path: C:\Users\boris\Videos\P8170377.mp4
+  Size: 69.9 MB
+  Orientation: CORRECT - Humans are upright
+  Confidence: 73.1%
+  Processing time: 371.5s
+
+File: P9080828.mp4
+  Path: C:\Users\boris\Videos\P9080828.mp4
+  Size: 9.2 MB
+  Orientation: INCORRECT - Humans are sideways/rotated
+  Confidence: 71.7%
+  Processing time: 72.3s
+
+File: VID_20200907_202511.mp4
+  Path: C:\Users\boris\Videos\VID_20200907_202511.mp4
+  Size: 73.9 MB
+  Orientation: INCORRECT - Humans are sideways/rotated
+  Confidence: 95.0%
+  Processing time: 530.5s
+

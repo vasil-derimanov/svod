@@ -65,6 +65,24 @@ demo_*.py
 !reference_orientations.csv
 *.log
 
+# Performance baselines (keep for version comparison)
+!performance_baselines/
+
+# Development and testing files
+*benchmark*.py
+*debug*.py  
+*test*.py
+!video_orientation_detector.py
+*time_distribution*.py
+*time_distribution*.json
+*time_distribution*.csv
+comprehensive_*.py
+simple_*.py
+quick_*.py
+svod_time_v*.py
+final_benchmark*.json
+create_test_video.py
+
 # Version comparison and statistics files
 svod_version_comparison_*.json
 svod_benchmark_*.json

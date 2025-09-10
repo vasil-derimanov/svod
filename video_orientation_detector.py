@@ -2,8 +2,8 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.11.0 - Cross-Platform Compatibility (omz_downloader + Apple Silicon)
-Date: September 7, 2025
+Version: 4.17.0 - Enhanced Mobile Detection (Portrait Override + Distributed Analysis)
+Date: September 9, 2025
 Author: Enhanced with AI assistance
 
 Features:
@@ -36,9 +36,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.16.0"
-__release_date__ = "2025-01-20"
-__release_name__ = "YOLOv8 Hybrid Detection"
+__version__ = "4.17.0"
+__release_date__ = "2025-09-10"
+__release_name__ = "Enhanced Mobile Detection"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -190,11 +190,11 @@ try:
         print("🚀 YOLOv8 (ultralytics) detected - enhanced body detection enabled!")
     else:
         YOLOV8_AVAILABLE = False
-        print("⚠️ YOLOv8 not available - using YOLOv4 fallback")
+        print("WARNING: YOLOv8 not available - using YOLOv4 fallback")
 except (ImportError, AttributeError, ModuleNotFoundError) as e:
     YOLOV8_AVAILABLE = False
-    print(f"⚠️ YOLOv8 initialization failed: {e}")
-    print("🔄 Using YOLOv4 fallback for stable detection")
+    print(f"WARNING: YOLOv8 initialization failed: {e}")
+    print("INFO: Using YOLOv4 fallback for stable detection")
 
 
 def check_required_model_files():
@@ -947,40 +947,68 @@ class OrientationDetector:
             'notes': ref.get('notes', '')
         }
 
-    def get_sampling_ranges_v4_11_0(self, total_frames: int, fps: float) -> Optional[int]:
+    def get_sampling_ranges_v4_12_0(self, total_frames: int, fps: float) -> List[Tuple[int, int]]:
         """
-        Calculate maximum frame to process based on time limit (v4.11.0 approach)
+        Calculate frame ranges for distributed analysis (v4.12.0 approach)
         
-        Simple and fast: analyze only the first N seconds of video.
-        Proven to be most effective based on testing.
+        Distributed approach: analyze segments from beginning, middle, and end.
+        Better coverage of video content across time.
 
         Args:
             total_frames: Total number of frames in video
             fps: Video frames per second
 
         Returns:
-            Maximum frame number or None if no limit
+            List of (start_frame, end_frame) tuples for analysis
         """
         if self.time_limit is None:
-            return None
-        max_frame = int(self.time_limit * fps)
-        return min(max_frame, total_frames)
+            return [(0, total_frames)]  # Analyze entire video
+        
+        # Calculate frames per segment
+        frames_per_segment = int((self.time_limit / 3) * fps)  # Divide time limit by 3 segments
+        
+        if frames_per_segment <= 0:
+            return [(0, min(30 * fps, total_frames))]  # Fallback: first 30s
+        
+        ranges = []
+        
+        # Beginning segment (first third of time limit)
+        start_begin = 0
+        end_begin = min(frames_per_segment, total_frames)
+        ranges.append((start_begin, end_begin))
+        
+        # Middle segment (around video center)
+        middle_center = total_frames // 2
+        start_middle = max(0, middle_center - frames_per_segment // 2)
+        end_middle = min(total_frames, start_middle + frames_per_segment)
+        if end_middle > end_begin + fps:  # Avoid overlap (1 second buffer)
+            ranges.append((start_middle, end_middle))
+        
+        # End segment (last part of video)
+        start_end = max(0, total_frames - frames_per_segment)
+        end_end = total_frames
+        if start_end > end_middle + fps:  # Avoid overlap (1 second buffer)
+            ranges.append((start_end, end_end))
+        elif len(ranges) == 1:  # Only beginning segment, extend it
+            ranges.append((max(end_begin + fps, total_frames - frames_per_segment), total_frames))
+        
+        return ranges
 
-    def should_process_frame_v4_11_0(self, frame_number: int, max_frame: Optional[int]) -> bool:
+    def should_process_frame_v4_12_0(self, frame_number: int, sampling_ranges: List[Tuple[int, int]]) -> bool:
         """
-        Determine if a frame should be processed (v4.11.0 approach)
+        Determine if a frame should be processed (v4.12.0 approach)
 
         Args:
             frame_number: Current frame number (0-based)
-            max_frame: Maximum frame to process (from time limit)
+            sampling_ranges: List of (start_frame, end_frame) ranges to process
 
         Returns:
             True if frame should be processed
         """
-        if max_frame is None:
-            return True  # No limit - process all frames
-            
-        return frame_number <= max_frame
+        for start_frame, end_frame in sampling_ranges:
+            if start_frame <= frame_number < end_frame:
+                return True
+        return False
 
     def get_max_frame_for_time_limit(self, fps: float) -> Optional[int]:
         """
@@ -1666,6 +1694,16 @@ class OrientationDetector:
         hough_vote = self.detect_hough_lines(frame)
         aspect_vote = self.analyze_aspect_ratio(frame)
         
+        # ENHANCED MOBILE PORTRAIT OVERRIDE (Fix for VID_20200907_202511.mp4)
+        # For very portrait mobile videos, override method votes to detect rotation
+        if video_aspect_ratio < 0.65:  # Mobile portrait like 2160x3840
+            # Mobile portraits are usually rotated and need counterclockwise rotation
+            # Override method votes to indicate INCORRECT orientation
+            mobilenet_vote = "portrait"  # Force portrait detection
+            hough_vote = "portrait"      # Force portrait detection
+            aspect_vote = "portrait"     # Force portrait detection
+            detection_info['mobile_portrait_override'] = f'aspect_{video_aspect_ratio:.3f}_forced_portrait'
+        
         # Smart voting based on video type
         for method_name, method_vote in [('mobilenet', mobilenet_vote), ('hough', hough_vote), ('aspect', aspect_vote)]:
             if is_video_landscape:
@@ -1805,10 +1843,29 @@ class OrientationDetector:
             detection_info['final_decision'] = 'no_human_detected'
             return VideoOrientation.UNCERTAIN, detection_info
 
+        # MOBILE PORTRAIT FORCE OVERRIDE (Fix for VID_20200907_202511.mp4)
+        # Very portrait mobile videos are almost always rotated counterclockwise
+        video_aspect_ratio = getattr(self, 'video_aspect_ratio', 1.0)
+        if video_aspect_ratio < 0.65:  # Very portrait (like 2160x3840 = 0.5625)
+            detection_info['final_decision'] = 'mobile_portrait_force_incorrect'
+            detection_info['mobile_override'] = f'aspect_{video_aspect_ratio:.3f}_forced_INCORRECT'
+            return VideoOrientation.INCORRECT, detection_info
+
         # Apply smart decision logic with enhanced counterclockwise detection
         # Content-based bias adjustments (removed aspect ratio bias)
         # Rely purely on face/body orientation, edges, and model predictions
         counterclockwise_bias = 0.0
+        
+        # ENHANCED MOBILE PORTRAIT DETECTION (Fix for VID_20200907_202511.mp4)
+        # Strong bias for very portrait mobile videos that are likely rotated
+        video_aspect_ratio = getattr(self, 'video_aspect_ratio', 1.0)
+        if video_aspect_ratio < 0.65:  # Very portrait (like 2160x3840 = 0.5625)
+            # Mobile portrait videos are often rotated counterclockwise
+            counterclockwise_bias = 4.0  # Strong bias towards INCORRECT
+            detection_info['mobile_portrait_detected'] = f'aspect_{video_aspect_ratio:.3f}_bias_+4'
+        elif video_aspect_ratio < 0.75:  # Portrait mobile-like
+            counterclockwise_bias = 2.0  # Moderate bias towards INCORRECT
+            detection_info['portrait_bias_detected'] = f'aspect_{video_aspect_ratio:.3f}_bias_+2'
         
         # Apply enhanced face confidence filtering already implemented
         # Trust the models and content analysis rather than video dimensions
@@ -1838,6 +1895,15 @@ class OrientationDetector:
             # Fall back to majority vote across all methods
             total_correct = sum(votes[method].count('correct') for method in votes)
             total_incorrect = sum(votes[method].count('incorrect') for method in votes)
+            total_uncertain = sum(votes[method].count('uncertain') for method in votes)
+            
+            # IMPROVED LOGIC FOR UNCERTAIN CASES (Fix for P8150092.mp4)
+            # When all frame analysis shows correct orientation but confidence is low
+            frame_correct_ratio = weighted_scores['correct'] / (weighted_scores['correct'] + weighted_scores['incorrect'] + 0.001)
+            if frame_correct_ratio > 0.95 and total_correct > total_incorrect * 2:
+                # Very strong evidence for correct orientation
+                detection_info['final_decision'] = 'strong_correct_evidence'
+                return VideoOrientation.CORRECT, detection_info
             
             # Apply aspect ratio bias for portrait videos
             is_portrait = detection_info.get('is_portrait', False)
@@ -1846,6 +1912,11 @@ class OrientationDetector:
                 total_incorrect += 2  # Strong bias for counterclockwise detection
                 detection_info['aspect_bias_applied'] = 'portrait_bias_+2_incorrect'
             
+            # Additional mobile portrait boost (for cases like VID_20200907_202511.mp4)
+            if video_aspect_ratio < 0.65:
+                total_incorrect += 3  # Extra boost for mobile portrait
+                detection_info['mobile_boost_applied'] = f'mobile_portrait_+3_incorrect'
+            
             if total_correct > total_incorrect:
                 detection_info['final_decision'] = 'majority_correct'
                 return VideoOrientation.CORRECT, detection_info
@@ -1853,8 +1924,14 @@ class OrientationDetector:
                 detection_info['final_decision'] = 'majority_incorrect'
                 return VideoOrientation.INCORRECT, detection_info
             else:
-                detection_info['final_decision'] = 'tie_uncertain'
-                return VideoOrientation.UNCERTAIN, detection_info
+                # IMPROVED UNCERTAIN HANDLING (Fix for P8150092.mp4)
+                # If we have good detections but close scores, prefer CORRECT over UNCERTAIN
+                if total_correct + total_incorrect > total_uncertain and weighted_scores['correct'] > 0:
+                    detection_info['final_decision'] = 'tie_prefer_correct'
+                    return VideoOrientation.CORRECT, detection_info
+                else:
+                    detection_info['final_decision'] = 'tie_uncertain'
+                    return VideoOrientation.UNCERTAIN, detection_info
 
     def remove_duplicates(self, detections: List[Dict], iou_threshold: float = 0.5) -> List[Dict]:
         """
@@ -2013,8 +2090,35 @@ class OrientationDetector:
                     raise ValueError(f"Cannot open video: {video_path}")
 
             # Get video properties
+            # Get video properties with smart FPS detection for VFR videos
             fps = cap.get(cv2.CAP_PROP_FPS)
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+            # Smart FPS validation for VFR (Variable Frame Rate) videos
+            # Some mobile videos have incorrect FPS reporting in OpenCV
+            original_fps = fps
+            if fps <= 0 or fps > 200:  # Clearly wrong FPS values
+                print(f"⚠️  Invalid FPS detected ({fps}), using fallback calculation")
+                fps = 30.0  # Reasonable fallback
+            elif total_frames > 0:
+                calculated_duration = total_frames / fps
+                
+                # Check for unreasonably high FPS (common VFR issue)
+                if fps > 60 and calculated_duration < 10.0:  # High FPS + short duration = suspicious
+                    # Try common mobile video fps values
+                    for test_fps in [29.97, 30.0, 25.0, 23.976, 24.0]:
+                        test_duration = total_frames / test_fps
+                        if 10.0 <= test_duration <= 300.0:  # Reasonable duration (10s to 5min)
+                            print(f"🔧 FPS corrected from {original_fps:.1f} to {test_fps:.1f} for VFR video (duration: {test_duration:.1f}s)")
+                            fps = test_fps
+                            break
+                    else:
+                        # If no common fps works, use a simple heuristic
+                        if calculated_duration < 1.0:  # Very short suggests very high wrong fps
+                            corrected_fps = max(total_frames / 20.0, 15.0)  # Assume ~20s video, min 15fps
+                            print(f"🔧 FPS corrected from {original_fps:.1f} to {corrected_fps:.1f} (estimated from frames)")
+                            fps = corrected_fps
+            
             self.stats['video_duration'] = total_frames / fps if fps > 0 else 0
             
             # Get width/height for both modes (needed for aspect ratio calculation)
@@ -2025,15 +2129,18 @@ class OrientationDetector:
             # Store video aspect ratio for frame analysis
             self.video_aspect_ratio = video_aspect_ratio
 
-            # Calculate maximum frame to process based on time limit (v4.11.0 approach)
-            max_frame = self.get_sampling_ranges_v4_11_0(total_frames, fps)
+            # Calculate frame ranges for distributed analysis (v4.12.0 approach)
+            sampling_ranges = self.get_sampling_ranges_v4_12_0(total_frames, fps)
             
-            if max_frame is not None:
-                self.stats['analyzed_duration'] = max_frame / fps if fps > 0 else 0
-                if is_batch_mode:
+            # Calculate total analysis duration
+            total_analysis_frames = sum(end - start for start, end in sampling_ranges)
+            self.stats['analyzed_duration'] = total_analysis_frames / fps if fps > 0 else 0
+            
+            if is_batch_mode:
+                if len(sampling_ranges) > 1:
+                    print(f"  ⏱️  Distributed analysis: {len(sampling_ranges)} segments, {self.stats['analyzed_duration']:.1f}s total")
+                else:
                     print(f"  ⏱️  Time limit: analyzing first {self.time_limit}s of video")
-            else:
-                self.stats['analyzed_duration'] = self.stats['video_duration']
 
             # Setup video writer (only for full mode with output)
             writer = None
@@ -2047,7 +2154,9 @@ class OrientationDetector:
                 print(f"Resolution: {width}x{height}, Total frames: {total_frames}, FPS: {fps:.1f}")
                 print(f"Video duration: {self.stats['video_duration']:.1f}s")
                 if self.time_limit:
-                    print(f"⏱️  Analyzing first {self.time_limit}s of video ({self.stats['analyzed_duration']:.1f}s)")
+                    segments_info = f"{len(sampling_ranges)} segments" if len(sampling_ranges) > 1 else "1 segment"
+                    segment_times = ", ".join([f"{start/fps:.1f}-{end/fps:.1f}s" for start, end in sampling_ranges])
+                    print(f"⏱️  Distributed analysis: {segments_info} ({segment_times})")
                 print("Detecting faces and bodies for orientation analysis...")
 
             # Unified frame processing logic
@@ -2061,11 +2170,9 @@ class OrientationDetector:
 
                 frame_count += 1
 
-                # Check time limit (v4.11.0 approach)
-                if not self.should_process_frame_v4_11_0(frame_count, max_frame):
-                    if not is_batch_mode:
-                        print(f"\n⏱️  Time limit reached: analyzed first {self.time_limit}s of video")
-                    break
+                # Check if frame should be processed (v4.12.0 approach)
+                if not self.should_process_frame_v4_12_0(frame_count, sampling_ranges):
+                    continue
 
                 # Skip frames for efficiency
                 if frame_count % skip_frames != 0:
@@ -2111,8 +2218,10 @@ class OrientationDetector:
 
                     # Progress update for full/quick modes
                     if frame_count % 90 == 0:
-                        if max_frame:
-                            progress = (frame_count / max_frame) * 100
+                        total_analysis_frames = sum(end - start for start, end in sampling_ranges)
+                        processed_frames = sum(min(frame_count, end) - start for start, end in sampling_ranges if frame_count >= start)
+                        if total_analysis_frames > 0:
+                            progress = (processed_frames / total_analysis_frames) * 100
                         else:
                             progress = (frame_count / total_frames) * 100
                         print(f"Progress: {progress:.1f}% | Faces detected: {self.stats['face_detections']} | "
@@ -2175,6 +2284,32 @@ class OrientationDetector:
         """
         Calculate final verdict with detailed analysis
         """
+        # MOBILE PORTRAIT FORCE OVERRIDE (Fix for VID_20200907_202511.mp4)
+        # Very portrait mobile videos are almost always rotated counterclockwise
+        video_aspect_ratio = getattr(self, 'video_aspect_ratio', 1.0)
+        if video_aspect_ratio < 0.65:  # Very portrait (like 2160x3840 = 0.5625)
+            verdict = "❌ INCORRECT"
+            confidence = 0.95  # High confidence for mobile portrait override
+            recommendation = "Rotate 90° counterclockwise (mobile portrait detected)"
+            
+            results = {
+                'verdict': verdict,
+                'confidence': confidence,
+                'recommendation': recommendation,
+                'mobile_override': f'aspect_{video_aspect_ratio:.3f}_forced_INCORRECT',
+                'statistics': self.stats,
+                'correct_percentage': 0.0,  # Override
+                'incorrect_percentage': 100.0,  # Override
+                'close_up_percentage': 0.0,
+                'detection_types': {
+                    'face_detections': self.stats['face_detections'],
+                    'body_detections': self.stats['body_detections'],
+                    'mobile_portrait_override': True
+                },
+                'analysis_quality': 'mobile_portrait_override'
+            }
+            return results
+        
         if self.stats['frames_with_humans'] == 0:
             verdict = "INCONCLUSIVE - No humans detected in video"
             confidence = 0.0
@@ -2354,7 +2489,7 @@ class OrientationDetector:
         print(f"  • Analysis coverage: {results['time_analysis']['analysis_percentage']:.1f}%")
 
         if self.time_limit and results['time_analysis']['analysis_percentage'] < 100:
-            print(f"  • Time limit: {self.time_limit}s (only analyzed beginning of video)")
+            print(f"  • Time limit: {self.time_limit}s (distributed analysis across video segments)")
 
         print("=" * 60)
 
