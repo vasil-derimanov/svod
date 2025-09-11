@@ -2459,8 +2459,8 @@ class OrientationDetector:
             print(f"No video files found in {folder_path}")
             return results
 
-        time_limit_info = f" (first {self.time_limit}s per file)" if self.time_limit else ""
-        print(f"\n🎬 Found {len(video_files)} video files to process{time_limit_info}...")
+        segment_info = f" (distributed analysis: 3 segments, ~{self.time_limit}s total per file)" if self.time_limit else ""
+        print(f"\n🎬 Found {len(video_files)} video files to process{segment_info}...")
         print("=" * 80)
 
         # Process each video
