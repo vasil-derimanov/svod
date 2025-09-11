@@ -31,9 +31,7 @@ def main():
         "lbfmodel.yaml",
         "mobilenet-v2.bin",
         "mobilenet-v2.xml",
-        "res10_300x300_ssd_iter_140000.caffemodel",
-        "yolov4.cfg",
-        "yolov4.weights"
+        "res10_300x300_ssd_iter_140000.caffemodel"
     ]
     
     print_colored("\n📂 Removing model files...", "yellow")

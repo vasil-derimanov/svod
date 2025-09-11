@@ -4,6 +4,23 @@
 *.swp
 *.swo
 
+# Model files (large binary files)
+*.pt
+*.bin
+*.xml
+*.caffemodel
+*.cfg
+*.weights
+coco.names
+yolov8n.pt
+mobilenet-v2.bin
+mobilenet-v2.xml
+res10_300x300_ssd_iter_140000.caffemodel
+yolov4.cfg
+yolov4.weights
+lbfmodel.yaml
+deploy.prototxt
+
 # Python cache and virtual environments  
 __pycache__/
 *.pyc
@@ -37,18 +54,12 @@ wheels/
 .installed.cfg
 *.egg
 
-# Large model files (auto-downloaded)
-coco.names
-yolov4.cfg
-yolov4.weights
-yolov8n.pt
-deploy.prototxt
-res10_300x300_ssd_iter_140000.caffemodel
-lbfmodel.yaml
-mobilenet-v2.xml
-mobilenet-v2.bin
-public/
-models/
+# Test reports and temporary files
+*_test_report.txt
+*_report.txt
+test_*.txt
+temp_*.txt
+*.log
 
 # Test results and logs (exclude reference files)
 orientation_results*.csv

@@ -2,8 +2,8 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.17.0 - Enhanced Mobile Detection (Portrait Override + Distributed Analysis)
-Date: September 9, 2025
+Version: 4.18.0 - YOLOv8 Only Detection (No Fallback)
+Date: September 10, 2025
 Author: Enhanced with AI assistance
 
 Features:
@@ -36,9 +36,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.17.0"
+__version__ = "4.18.0"
 __release_date__ = "2025-09-10"
-__release_name__ = "Enhanced Mobile Detection"
+__release_name__ = "YOLOv8 Only Detection"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -207,8 +207,6 @@ def check_required_model_files():
     
     # Critical files required for basic functionality
     critical_files = {
-        "yolov4.cfg": "YOLO configuration file",
-        "yolov4.weights": "YOLO weights file", 
         "coco.names": "COCO class names",
         "deploy.prototxt": "DNN face detector configuration",
         "res10_300x300_ssd_iter_140000.caffemodel": "DNN face detector model",
@@ -312,8 +310,6 @@ def download_model_files():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
     files_to_download = {
-        "yolov4.cfg": "https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg",
-        "yolov4.weights": "https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights",
         "coco.names": "https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names",
         "deploy.prototxt": "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt",
         "res10_300x300_ssd_iter_140000.caffemodel": "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel",
@@ -670,44 +666,19 @@ class OrientationDetector:
             self.use_dnn_face = False
 
     def setup_person_detection(self):
-        """Setup hybrid YOLOv8/YOLOv4 person/body detection with automatic fallback"""
-        # Try YOLOv8 first if available
+        """Setup YOLOv8 person/body detection only"""
         self.use_yolov8 = False
-        self.use_yolo = False
-        
         if YOLOV8_AVAILABLE:
             try:
                 print("🚀 Initializing YOLOv8 for enhanced body detection...")
-                # Try to load YOLOv8 nano model (fastest, good for body detection)
                 self.yolov8_model = YOLO('yolov8n.pt')  # Auto-downloads if needed
                 self.use_yolov8 = True
                 print("✅ YOLOv8 initialized successfully - using enhanced detection!")
-                return
             except Exception as e:
-                print(f"⚠️ YOLOv8 initialization failed: {e}")
-                print("🔄 Falling back to YOLOv4...")
-        
-        # Fallback to YOLOv4 (existing logic)
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        weights_path = os.path.join(script_dir, "yolov4.weights")
-        config_path = os.path.join(script_dir, "yolov4.cfg")
-
-        if os.path.exists(weights_path) and os.path.exists(config_path):
-            print("🔧 Initializing YOLOv4 for body detection...")
-            self.net = cv2.dnn.readNet(weights_path, config_path)
-            self.use_yolo = True
-            layer_names = self.net.getLayerNames()
-            self.output_layers = [layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()]
-            print("✅ YOLOv4 initialized successfully")
+                print(f"❌ YOLOv8 initialization failed: {e}")
+                raise
         else:
-            print("⚠️ YOLO models not found. Using Haar Cascades for body detection.")
-            self.use_yolo = False
-            self.body_cascade = cv2.CascadeClassifier(
-                cv2.data.haarcascades + 'haarcascade_fullbody.xml'
-            )
-            self.upper_body_cascade = cv2.CascadeClassifier(
-                cv2.data.haarcascades + 'haarcascade_upperbody.xml'
-            )
+            raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics.")
 
     def setup_feature_detection(self):
         """Setup facial landmark detection for precise orientation"""
@@ -1192,35 +1163,7 @@ class OrientationDetector:
 
         return persons
 
-    def _detect_persons_yolov4(self, frame: np.ndarray) -> List[Dict]:
-        """YOLOv4 detection method (extracted from original logic)"""
-        persons = []
-        height, width = frame.shape[:2]
-        blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
-        self.net.setInput(blob)
-        outputs = self.net.forward(self.output_layers)
-
-        for output in outputs:
-            for detection in output:
-                scores = detection[5:]
-                class_id = np.argmax(scores)
-                confidence = scores[class_id]
-
-                if class_id == 0 and confidence > self.confidence_threshold:
-                    center_x = int(detection[0] * width)
-                    center_y = int(detection[1] * height)
-                    w = int(detection[2] * width)
-                    h = int(detection[3] * height)
-
-                    x = int(center_x - w / 2)
-                    y = int(center_y - h / 2)
-
-                    persons.append({
-                        'box': (x, y, w, h),
-                        'confidence': confidence,
-                        'type': 'yolov4_person'
-                    })
-        return persons
+    # ...existing code...
 
     def _detect_persons_cascade(self, frame: np.ndarray) -> List[Dict]:
         """Haar Cascade detection method (extracted from original logic)"""
@@ -2816,6 +2759,9 @@ Examples:
     parser.add_argument('--report', help='Save detailed batch report to file (batch mode only)')
     parser.add_argument('--reference', help='Reference file (CSV/JSON) for validation against known orientations')
 
+
+    parser.add_argument('--force-yolov4', action='store_true',
+                        help='Force using YOLOv4 only (disable YOLOv8 even if available)')
     args = parser.parse_args()
 
     # Validate input path
@@ -2927,6 +2873,13 @@ Examples:
         print(f"⏱️  Time limit set to {args.time_limit} seconds (analyzing first N seconds)")
     else:
         print("⏱️  No time limit - analyzing entire video")
+
+
+    # Patch: force YOLOv4 if requested
+    global YOLOV8_AVAILABLE
+    if hasattr(args, 'force_yolov4') and args.force_yolov4:
+        YOLOV8_AVAILABLE = False
+        print("⚡ YOLOv8 forcibly disabled, using YOLOv4 only!")
 
     detector = OrientationDetector(
         confidence_threshold=args.confidence,

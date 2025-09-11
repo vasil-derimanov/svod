@@ -1,12 +1,12 @@
-# Smart Video Orientation Detector (SVOD) v4.17.0
+# Smart Video Orientation Detector (SVOD) v4.18.0
 
-🎥 **Enhanced Mobile Detection with Portrait Override & Distributed Analysis**
+🎥 **YOLOv8 Only Detection (No Fallback)**
 
 ## 📋 Overview
 
 SVOD automatically detects and analyzes video orientation using multiple detection methods:
 - **Face Detection** - Primary orientation indicator using DNN face detector
-- **Body Detection** - Hybrid YOLOv8/YOLOv4 analysis with automatic fallback
+- **Body Detection** - YOLOv8 analysis only
 - **Enhanced Detection** - MobileNet models with OpenVINO optimization  
 - **Facial Landmarks** - Precise orientation analysis using LBF landmark detection
 - **Cross-Platform Intelligence** - Optimized for Windows, Linux, and Apple Silicon (M1/M2/M3)
@@ -78,32 +78,25 @@ SVOD automatically detects and analyzes video orientation using multiple detecti
 - **Facial Landmarks** - Precise orientation analysis using LBF landmark detection
 - **Cross-Platform Intelligence** - Optimized for Windows, Linux, and Apple Silicon (M1/M2/M3)
 
-## 🚀 YOLOv8 Hybrid Detection System (v4.16.0)
+## 🚀 YOLOv8 Detection System (v4.18.0)
 
-SVOD v4.16.0 introduces an intelligent hybrid YOLOv8/YOLOv4 system that automatically provides the best available body detection:
+SVOD now uses only YOLOv8 for body detection:
 
-**Enhanced Detection Features:**
-- **YOLOv8 First**: Automatically uses YOLOv8 nano model if ultralytics is available
-- **Seamless Fallback**: Gracefully falls back to proven YOLOv4 if YOLOv8 fails
-- **Precision Improvement**: YOLOv8 provides more accurate body detections with fewer false positives
+**Detection Features:**
+- **YOLOv8 Only**: Uses YOLOv8 nano model for fast and accurate body detection
 - **Automatic Installation**: Script attempts to install ultralytics automatically during setup
+- **Precision Improvement**: YOLOv8 provides more accurate body detections with fewer false positives
 - **Conflict Resolution**: Robust OpenCV version management to prevent import conflicts
 
 **Technical Implementation:**
 ```python
-# Hybrid detection logic
-if YOLOV8_AVAILABLE:
-    results = self.yolov8_model(frame, verbose=False)
-    # Process YOLOv8 results with enhanced precision
-else:
-    # Fallback to YOLOv4 with OpenCV DNN
-    outputs = self.net.forward(self.output_layers)
+results = self.yolov8_model(frame, verbose=False)
+# Process YOLOv8 results with enhanced precision
 ```
 
 **Detection Comparison:**
 - **YOLOv8**: More precise, fewer false positives (e.g., P8150092.mp4: 31 detections)
-- **YOLOv4**: Robust fallback, proven stability (e.g., P8150092.mp4: 306 detections)
-- **Accuracy**: Maintains 85.7% batch accuracy with both systems
+- **Accuracy**: Maintains 85.7% batch accuracy
 - **Performance**: YOLOv8 provides cleaner detection data for balanced weighting
 
 ## 🚀 Key Features
@@ -371,6 +364,41 @@ python video_orientation_detector.py video.mp4 --quick  # Quick mode (fast with 
 - MobileNet models are optional on macOS
 - Script will run with core models if enhanced detection fails
 - Check Python and OpenCV versions
+
+### Manual Installation (if automatic fails)
+
+If automatic installation fails, you can install dependencies manually:
+
+**Core Dependencies:**
+```bash
+pip install opencv-contrib-python numpy openvino ultralytics
+```
+
+**Platform-specific packages:**
+```bash
+# Windows/Linux
+pip install openvino-dev
+
+# Apple Silicon (M1/M2/M3) - skip openvino-dev
+# Use direct downloads for MobileNet models
+```
+
+**Model files (if automatic download fails):**
+```bash
+# YOLOv8 model (auto-downloaded)
+# Will be downloaded automatically on first run
+
+# Face detection models
+curl -O https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt
+curl -O https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
+
+# Facial landmarks
+curl -O https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml
+
+# MobileNet models (optional)
+curl -O https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2.xml
+curl -O https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/mobilenet-v2-pytorch/FP32/mobilenet-v2.bin
+```
 
 ### Error Codes
 
