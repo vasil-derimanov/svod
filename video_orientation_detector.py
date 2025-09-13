@@ -115,7 +115,7 @@ def install_required_packages():
             for package in missing_packages:
                 print(f"⬇️ Installing {package}...")
                 result = subprocess.run([sys.executable, '-m', 'pip', 'install', package], 
-                                      capture_output=True, text=True, timeout=300)
+                                      capture_output=True, text=True, timeout=600)
                 if result.returncode == 0:
                     print(f"✅ {package} installed successfully")
                 else:
@@ -130,7 +130,7 @@ def install_required_packages():
                 try:
                     print(f"⬇️ Installing {package_name} (optional YOLOv8 support)...")
                     result = subprocess.run([sys.executable, '-m', 'pip', 'install', package_name], 
-                                          capture_output=True, text=True, timeout=300)
+                                          capture_output=True, text=True, timeout=600)
                     if result.returncode == 0:
                         print(f"✅ {package_name} installed successfully - YOLOv8 enabled!")
                     else:
@@ -145,7 +145,7 @@ def install_required_packages():
                     try:
                         print(f"⬇️ Installing {package_name} (for omz_downloader support)...")
                         result = subprocess.run([sys.executable, '-m', 'pip', 'install', package_name], 
-                                              capture_output=True, text=True, timeout=300)
+                                              capture_output=True, text=True, timeout=600)
                         if result.returncode == 0:
                             print(f"✅ {package_name} installed successfully")
                         else:
@@ -434,9 +434,9 @@ def download_model_files():
             try:
                 # Install minimal PyTorch CPU version for conversion only
                 subprocess.run([sys.executable, "-m", "pip", "install", "torch", "torchvision", "--index-url", "https://download.pytorch.org/whl/cpu"], 
-                              capture_output=True, text=True, timeout=300)
+                              capture_output=True, text=True, timeout=600)
                 subprocess.run([sys.executable, "-m", "pip", "install", "onnx"], 
-                              capture_output=True, text=True, timeout=60)
+                              capture_output=True, text=True, timeout=600)
                 print("✅ PyTorch and ONNX installed for model conversion")
             except Exception as e:
                 print(f"❌ Failed to install conversion dependencies: {e}")
@@ -452,7 +452,7 @@ def download_model_files():
                 omz_downloader_cmd, 
                 "--name", "mobilenet-v2-pytorch",
                 "--output_dir", models_dir
-            ], capture_output=True, text=True, timeout=300)
+            ], capture_output=True, text=True, timeout=600)
             
             if result.returncode != 0:
                 print(f"❌ Download failed: {result.stderr}")
@@ -465,7 +465,7 @@ def download_model_files():
                 "--name", "mobilenet-v2-pytorch", 
                 "--download_dir", models_dir,
                 "--output_dir", models_dir
-            ], capture_output=True, text=True, timeout=300)
+            ], capture_output=True, text=True, timeout=600)
             
             if result.returncode != 0:
                 print(f"❌ Conversion failed: {result.stderr}")
