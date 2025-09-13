@@ -183,24 +183,8 @@ except ImportError:
         sys.exit(1)
 
 # Optional YOLOv8 import for enhanced detection with robust error handling
-try:
-    # Try importing YOLOv8 after OpenCV to avoid conflicts
-    import importlib
-    ultralytics_spec = importlib.util.find_spec("ultralytics")
-    if ultralytics_spec is not None:
-        from ultralytics import YOLO
-        YOLOV8_AVAILABLE = True
-        print("🚀 YOLOv8 (ultralytics) detected - enhanced body detection enabled!")
-    else:
-        YOLOV8_AVAILABLE = False
-        print("ERROR: YOLOv8 not available - YOLOv8 is required for operation")
-        print("ERROR: Please install ultralytics: pip install ultralytics")
-        raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics")
-except (ImportError, AttributeError, ModuleNotFoundError) as e:
-    YOLOV8_AVAILABLE = False
-    print(f"ERROR: YOLOv8 initialization failed: {e}")
-    print("ERROR: YOLOv8 is required for operation. Please install ultralytics: pip install ultralytics")
-    raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
+# Moved to main() function to allow --version to work without YOLOv8
+YOLOV8_AVAILABLE = False
 
 
 def check_required_model_files():
@@ -3129,6 +3113,27 @@ Examples:
     parser.add_argument('--report', help='Save detailed batch report to file (batch mode only)')
     parser.add_argument('--reference', help='Reference file (CSV/JSON) for validation against known orientations')
     args = parser.parse_args()
+
+    # Check YOLOv8 availability (moved here so --version works without it)
+    global YOLOV8_AVAILABLE
+    try:
+        # Try importing YOLOv8 after OpenCV to avoid conflicts
+        import importlib
+        ultralytics_spec = importlib.util.find_spec("ultralytics")
+        if ultralytics_spec is not None:
+            from ultralytics import YOLO
+            YOLOV8_AVAILABLE = True
+            print("🚀 YOLOv8 (ultralytics) detected - enhanced body detection enabled!")
+        else:
+            YOLOV8_AVAILABLE = False
+            print("ERROR: YOLOv8 not available - YOLOv8 is required for operation")
+            print("ERROR: Please install ultralytics: pip install ultralytics")
+            raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics")
+    except (ImportError, AttributeError, ModuleNotFoundError) as e:
+        YOLOV8_AVAILABLE = False
+        print(f"ERROR: YOLOv8 initialization failed: {e}")
+        print("ERROR: YOLOv8 is required for operation. Please install ultralytics: pip install ultralytics")
+        raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
 
     # Validate input path
     if not args.path:
