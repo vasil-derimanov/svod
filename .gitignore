@@ -28,10 +28,14 @@ __pycache__/
 *.pyd
 .env
 .venv/
+.venv-*/
 .venv-linux/
 .venv-test*/
 .venv-wsl*/
 .venv-*-py*/
+.venv-*-clean/
+.venv-*-test/
+test_env/
 env/
 venv/
 ENV/

@@ -55,7 +55,7 @@ def is_apple_silicon():
 # Third-party imports with auto-installation
 def install_required_packages():
     """Install required packages if not available with enhanced error handling"""
-    print("📦 Checking and installing required packages...")
+    print("[PACKAGE] Checking and installing required packages...")
     
     required_packages = [
         ('cv2', 'opencv-contrib-python'),  # Changed to contrib version for face landmarks
@@ -89,15 +89,15 @@ def install_required_packages():
                     # Test DNN functionality that SVOD requires
                     hasattr(module, 'dnn') and hasattr(module.dnn, 'readNet')  # Check DNN module exists
                     hasattr(module.dnn, 'readNetFromCaffe')  # Check Caffe support
-                    print(f"✅ {package_name}: Already installed with full DNN support")
+                    print(f"[OK] {package_name}: Already installed with full DNN support")
                 except:
-                    print(f"⚠️ {package_name}: Installed but missing DNN support - will reinstall")
+                    print(f"[WARNING] {package_name}: Installed but missing DNN support - will reinstall")
                     missing_packages.append(package_name)
             else:
-                print(f"✅ {package_name}: Already installed")
+                print(f"[OK] {package_name}: Already installed")
         except ImportError:
             missing_packages.append(package_name)
-            print(f"❌ {package_name}: Missing")
+            print(f"[ERROR] {package_name}: Missing")
     
     if missing_packages:
         print(f"\n� Installing required packages: {', '.join(missing_packages)}")
@@ -107,64 +107,64 @@ def install_required_packages():
             subprocess.check_call([sys.executable, '-m', 'pip', '--version'], 
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError:
-            print("❌ pip is not available. Please install pip first.")
+            print("[ERROR] pip is not available. Please install pip first.")
             return False
         
         try:
             # Install missing packages
             for package in missing_packages:
-                print(f"⬇️ Installing {package}...")
+                print(f"[DOWNLOAD] Installing {package}...")
                 result = subprocess.run([sys.executable, '-m', 'pip', 'install', package], 
                                       capture_output=True, text=True, timeout=600)
                 if result.returncode == 0:
-                    print(f"✅ {package} installed successfully")
+                    print(f"[OK] {package} installed successfully")
                 else:
-                    print(f"❌ Failed to install {package}: {result.stderr}")
+                    print(f"[ERROR] Failed to install {package}: {result.stderr}")
                     return False
                     
-            print("✅ All required packages installed successfully!")
+            print("[OK] All required packages installed successfully!")
             
             # Try to install YOLOv8 for enhanced detection (optional)
-            print("\n🚀 Attempting to install YOLOv8 for enhanced body detection...")
+            print("\nAttempting to install YOLOv8 for enhanced body detection...")
             for module_name, package_name in optional_yolo_packages:
                 try:
-                    print(f"⬇️ Installing {package_name} (optional YOLOv8 support)...")
+                    print(f"[DOWNLOAD] Installing {package_name} (optional YOLOv8 support)...")
                     result = subprocess.run([sys.executable, '-m', 'pip', 'install', package_name], 
                                           capture_output=True, text=True, timeout=600)
                     if result.returncode == 0:
-                        print(f"✅ {package_name} installed successfully - YOLOv8 enabled!")
+                        print(f"[OK] {package_name} installed successfully - YOLOv8 enabled!")
                     else:
-                        print(f"⚠️ Failed to install {package_name} (YOLOv8 is required for operation): {result.stderr}")
+                        print(f"[WARNING] Failed to install {package_name} (YOLOv8 is required for operation): {result.stderr}")
                 except Exception as e:
-                    print(f"⚠️ {package_name} installation failed (YOLOv8 is required for operation): {e}")
+                    print(f"[WARNING] {package_name} installation failed (YOLOv8 is required for operation): {e}")
             
             # Try to install development tools for omz_downloader (not critical if fails)
             if optional_dev_packages:
-                print("\n🔧 Installing optional development tools for enhanced functionality...")
+                print("\n[TOOL] Installing optional development tools for enhanced functionality...")
                 for module_name, package_name in optional_dev_packages:
                     try:
-                        print(f"⬇️ Installing {package_name} (for omz_downloader support)...")
+                        print(f"[DOWNLOAD] Installing {package_name} (for omz_downloader support)...")
                         result = subprocess.run([sys.executable, '-m', 'pip', 'install', package_name], 
                                               capture_output=True, text=True, timeout=600)
                         if result.returncode == 0:
-                            print(f"✅ {package_name} installed successfully")
+                            print(f"[OK] {package_name} installed successfully")
                         else:
-                            print(f"⚠️ Failed to install {package_name} (not critical): {result.stderr}")
-                            print(f"💡 Direct download fallbacks will be used instead")
+                            print(f"[WARNING] Failed to install {package_name} (not critical): {result.stderr}")
+                            print(f"[TIP] Direct download fallbacks will be used instead")
                     except Exception as e:
-                        print(f"⚠️ {package_name} installation failed (not critical): {e}")
-                        print(f"💡 Direct download fallbacks will be used instead")
+                        print(f"[WARNING] {package_name} installation failed (not critical): {e}")
+                        print(f"[TIP] Direct download fallbacks will be used instead")
             
             return True
             
         except subprocess.TimeoutExpired:
-            print("❌ Package installation timed out")
+            print("[ERROR] Package installation timed out")
             return False
         except Exception as e:
-            print(f"❌ Installation failed: {e}")
+            print(f"[ERROR] Installation failed: {e}")
             return False
     else:
-        print("✅ All required packages are already available!")
+        print("[OK] All required packages are already available!")
         return True
 
 try:
@@ -172,14 +172,14 @@ try:
     import numpy as np
     import openvino
 except ImportError:
-    print("🔧 Installing required packages automatically...")
+    print("[TOOL] Installing required packages automatically...")
     if install_required_packages():
-        print("🔄 Restarting import after installation...")
+        print("[RETRY] Restarting import after installation...")
         import cv2
         import numpy as np
         import openvino
     else:
-        print("❌ Failed to install required packages!")
+        print("[ERROR] Failed to install required packages!")
         sys.exit(1)
 
 # Optional YOLOv8 import for enhanced detection with robust error handling
@@ -258,7 +258,7 @@ def check_system_requirements():
     # Check OpenCV capabilities - DNN support is now verified during installation
     try:
         import cv2
-        print("✅ OpenCV DNN support verified during installation")
+        print("[OK] OpenCV DNN support verified during installation")
     except Exception as e:
         issues.append(f"OpenCV check failed: {str(e)}")
     
@@ -312,7 +312,7 @@ def download_model_files():
         "mobilenet-v2.xml": "MobileNet model configuration (will be generated)",
         "mobilenet-v2.bin": "MobileNet model weights (will be generated)"
     }
-    print("📝 MobileNet will be downloaded using OpenVINO Model Zoo tools")
+    print("[NOTE] MobileNet will be downloaded using OpenVINO Model Zoo tools")
     
     # Combine all files
     files_to_download.update(mobilenet_files)
@@ -363,11 +363,11 @@ def download_model_files():
         dest_path = os.path.join(script_dir, filename)
         
         if os.path.exists(dest_path):
-            print(f"✔️ {filename} already available")
+            print(f"[OK] {filename} already available")
             if validate_model_file(dest_path, filename):
                 return True
             else:
-                print(f"❌ Existing {filename} is invalid - will re-download")
+                print(f"[ERROR] Existing {filename} is invalid - will re-download")
                 try:
                     os.remove(dest_path)
                 except:
@@ -375,13 +375,13 @@ def download_model_files():
         
         # Check platform-specific compatibility first
         if is_apple_silicon():
-            print("💡 Detected Apple Silicon (M1/M2/M3) - Using optimized fallback approach")
-            print("💡 omz_downloader may have limited support on Apple Silicon, trying direct downloads first")
+            print("[TIP] Detected Apple Silicon (M1/M2/M3) - Using optimized fallback approach")
+            print("[TIP] omz_downloader may have limited support on Apple Silicon, trying direct downloads first")
             # On Apple Silicon, skip omz_downloader and go directly to fallbacks
-            print(f"🔄 Skipping omz_downloader on Apple Silicon, using direct download...")
+            print(f"[RETRY] Skipping omz_downloader on Apple Silicon, using direct download...")
         else:
             # Try OpenVINO Model Zoo tools first on non-Apple Silicon platforms
-            print(f"⬇️ Attempting MobileNet download using OpenVINO Model Zoo tools...")
+            print(f"[DOWNLOAD] Attempting MobileNet download using OpenVINO Model Zoo tools...")
             omz_success = download_mobilenet_with_omz(script_dir, filename)
             
             if omz_success:
@@ -390,14 +390,14 @@ def download_model_files():
             # Fallback: MobileNet models cannot be reliably downloaded without omz_downloader
             # These models require proper conversion from PyTorch format
             print(f"� OpenVINO tools failed, MobileNet requires omz_downloader for proper conversion")
-            print(f"💡 Continuing without MobileNet - core detection algorithms are sufficient")
+            print(f"[TIP] Continuing without MobileNet - core detection algorithms are sufficient")
             return False
 
     def download_mobilenet_with_omz(script_dir, filename):
         """Download and convert MobileNet using OpenVINO Model Zoo tools"""
         dest_path = os.path.join(script_dir, filename)
         
-        print(f"🔧 Trying OpenVINO Model Zoo approach...")
+        print(f"[TOOL] Trying OpenVINO Model Zoo approach...")
         
         try:
             # Install OpenVINO dev tools if not available
@@ -422,24 +422,24 @@ def download_model_files():
                 if result.returncode != 0:
                     raise Exception("omz_downloader not found")
             except:
-                print("📦 Installing OpenVINO development tools...")
+                print("[PACKAGE] Installing OpenVINO development tools...")
                 install_result = subprocess.run([sys.executable, "-m", "pip", "install", "openvino-dev"], 
                                               capture_output=True, text=True)
                 if install_result.returncode != 0:
-                    print(f"❌ Failed to install openvino-dev: {install_result.stderr}")
+                    print(f"[ERROR] Failed to install openvino-dev: {install_result.stderr}")
                     return False
             
             # Install required dependencies for model conversion
-            print("📦 Installing PyTorch and ONNX for model conversion...")
+            print("[PACKAGE] Installing PyTorch and ONNX for model conversion...")
             try:
                 # Install minimal PyTorch CPU version for conversion only
                 subprocess.run([sys.executable, "-m", "pip", "install", "torch", "torchvision", "--index-url", "https://download.pytorch.org/whl/cpu"], 
                               capture_output=True, text=True, timeout=600)
                 subprocess.run([sys.executable, "-m", "pip", "install", "onnx"], 
                               capture_output=True, text=True, timeout=600)
-                print("✅ PyTorch and ONNX installed for model conversion")
+                print("[OK] PyTorch and ONNX installed for model conversion")
             except Exception as e:
-                print(f"❌ Failed to install conversion dependencies: {e}")
+                print(f"[ERROR] Failed to install conversion dependencies: {e}")
                 return False
 
             # Create models subdirectory
@@ -447,7 +447,7 @@ def download_model_files():
             os.makedirs(models_dir, exist_ok=True)
             
             # Download the model
-            print("📥 Downloading mobilenet-v2-pytorch model...")
+            print("[DOWNLOAD] Downloading mobilenet-v2-pytorch model...")
             result = subprocess.run([
                 omz_downloader_cmd, 
                 "--name", "mobilenet-v2-pytorch",
@@ -455,11 +455,11 @@ def download_model_files():
             ], capture_output=True, text=True, timeout=600)
             
             if result.returncode != 0:
-                print(f"❌ Download failed: {result.stderr}")
+                print(f"[ERROR] Download failed: {result.stderr}")
                 return False
             
             # Convert the model to OpenVINO IR format
-            print("🔄 Converting model to OpenVINO IR format...")
+            print("[RETRY] Converting model to OpenVINO IR format...")
             result = subprocess.run([
                 omz_converter_cmd,
                 "--name", "mobilenet-v2-pytorch", 
@@ -468,7 +468,7 @@ def download_model_files():
             ], capture_output=True, text=True, timeout=600)
             
             if result.returncode != 0:
-                print(f"❌ Conversion failed: {result.stderr}")
+                print(f"[ERROR] Conversion failed: {result.stderr}")
                 return False
             
             # Move the converted files to script directory
@@ -480,12 +480,12 @@ def download_model_files():
                 if os.path.exists(xml_file):
                     import shutil
                     shutil.copy2(xml_file, os.path.join(script_dir, "mobilenet-v2.xml"))
-                    print("✅ mobilenet-v2.xml copied successfully")
+                    print("[OK] mobilenet-v2.xml copied successfully")
                 
                 if os.path.exists(bin_file):
                     import shutil
                     shutil.copy2(bin_file, os.path.join(script_dir, "mobilenet-v2.bin"))
-                    print("✅ mobilenet-v2.bin copied successfully")
+                    print("[OK] mobilenet-v2.bin copied successfully")
                     
                 # Clean up models directory
                 import shutil
@@ -493,14 +493,14 @@ def download_model_files():
                 
                 return os.path.exists(os.path.join(script_dir, filename))
             else:
-                print(f"❌ Converted model not found in expected location: {model_path}")
+                print(f"[ERROR] Converted model not found in expected location: {model_path}")
                 return False
                 
         except subprocess.TimeoutExpired:
-            print("❌ Download/conversion timed out")
+            print("[ERROR] Download/conversion timed out")
             return False
         except Exception as e:
-            print(f"❌ OpenVINO Model Zoo tools failed: {e}")
+            print(f"[ERROR] OpenVINO Model Zoo tools failed: {e}")
             return False
     
     def download_file(filename, url):
@@ -511,14 +511,14 @@ def download_model_files():
             return download_mobilenet_with_fallback(script_dir, filename)
         
         if not os.path.exists(dest_path):
-            print(f"⬇️ Downloading {filename}...")
+            print(f"[DOWNLOAD] Downloading {filename}...")
             try:
                 urllib.request.urlretrieve(url, dest_path)
-                print(f"✅ {filename} downloaded successfully")
+                print(f"[OK] {filename} downloaded successfully")
                 
                 # Validate the downloaded file
                 if not validate_model_file(dest_path, filename):
-                    print(f"❌ Downloaded file {filename} is invalid - removing")
+                    print(f"[ERROR] Downloaded file {filename} is invalid - removing")
                     try:
                         os.remove(dest_path)
                     except:
@@ -526,13 +526,13 @@ def download_model_files():
                     return False
                 
             except Exception as e:
-                print(f"❌ Failed to download {filename}: {e}")
+                print(f"[ERROR] Failed to download {filename}: {e}")
                 return False
         else:
-            print(f"✔️ {filename} already available")
+            print(f"[OK] {filename} already available")
             # Validate existing file too
             if not validate_model_file(dest_path, filename):
-                print(f"❌ Existing file {filename} is invalid - removing and re-downloading")
+                print(f"[ERROR] Existing file {filename} is invalid - removing and re-downloading")
                 try:
                     os.remove(dest_path)
                     return download_file(filename, url)  # Retry download
@@ -657,15 +657,28 @@ class OrientationDetector:
 
     def setup_person_detection(self):
         """Setup YOLOv8 person/body detection (required)"""
+        global YOLOV8_AVAILABLE
         self.use_yolov8 = False
+        
+        # Import YOLOv8 here to ensure it's available when needed
+        if not YOLOV8_AVAILABLE:
+            try:
+                from ultralytics import YOLO
+                YOLOV8_AVAILABLE = True
+                print("YOLOv8 imported successfully for person detection")
+            except ImportError as e:
+                YOLOV8_AVAILABLE = False
+                raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
+        
         if YOLOV8_AVAILABLE:
             try:
-                print("🚀 Initializing YOLOv8 for enhanced body detection...")
+                print("Initializing YOLOv8 for enhanced body detection...")
+                from ultralytics import YOLO
                 self.yolov8_model = YOLO('yolov8n.pt')  # Auto-downloads if needed
                 self.use_yolov8 = True
-                print("✅ YOLOv8 initialized successfully - using enhanced detection!")
+                print("[OK] YOLOv8 initialized successfully - using enhanced detection!")
             except Exception as e:
-                print(f"❌ YOLOv8 initialization failed: {e}")
+                print(f"[ERROR] YOLOv8 initialization failed: {e}")
                 raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
         else:
             raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics")
@@ -687,10 +700,10 @@ class OrientationDetector:
             self.landmark_detector = cv2.face.createFacemarkLBF()
             self.landmark_detector.loadModel(landmark_model)
             self.use_landmarks = True
-            print("✅ Facial landmark detection enabled.")
+            print("[OK] Facial landmark detection enabled.")
         except Exception as e:
-            print(f"❌ CRITICAL: Could not setup landmark detection: {e}")
-            print("❌ This is a REQUIRED component - all models must work!")
+            print(f"[ERROR] CRITICAL: Could not setup landmark detection: {e}")
+            print("[ERROR] This is a REQUIRED component - all models must work!")
             raise
             
         # Setup additional enhanced detection methods
@@ -711,7 +724,7 @@ class OrientationDetector:
                 import openvino as ov
                 ov_core = ov.Core()
                 ov_module = ov
-                print("✓ Using OpenVINO 2023+ API")
+                print("[OK] Using OpenVINO 2023+ API")
             except (ImportError, AttributeError):
                 pass
             
@@ -721,7 +734,7 @@ class OrientationDetector:
                     import openvino.runtime as ov
                     ov_core = ov.Core()
                     ov_module = ov
-                    print("✓ Using OpenVINO runtime API (deprecated)")
+                    print("[OK] Using OpenVINO runtime API (deprecated)")
                 except (ImportError, AttributeError):
                     pass
             
@@ -731,7 +744,7 @@ class OrientationDetector:
                     from openvino.inference_engine import IECore
                     ov_core = IECore()
                     ov_module = None  # Legacy mode
-                    print("✓ Using OpenVINO legacy inference engine")
+                    print("[OK] Using OpenVINO legacy inference engine")
                 except ImportError:
                     pass
             
@@ -757,21 +770,21 @@ class OrientationDetector:
                     self.mobilenet_compiled = self.ov_core.load_network(self.mobilenet_model, "CPU")
                 
                 self.mobilenet_available = True
-                print("✓ MobileNetV2 OpenVINO model loaded successfully")
+                print("[OK] MobileNetV2 OpenVINO model loaded successfully")
             else:
                 # Check if MobileNet requirement is overridden (e.g., WSL/Linux environments)
                 if not mobilenet_required_override:
-                    print("ℹ️  MobileNet models not available - using core detection algorithms only")
+                    print("[INFO]  MobileNet models not available - using core detection algorithms only")
                     self.mobilenet_available = False
                 else:
-                    raise FileNotFoundError("❌ MobileNet model files are required but not found: mobilenet-v2.xml and mobilenet-v2.bin")
+                    raise FileNotFoundError("[ERROR] MobileNet model files are required but not found: mobilenet-v2.xml and mobilenet-v2.bin")
                 
         except Exception as e:
             if not mobilenet_required_override:
-                print(f"ℹ️  MobileNet setup skipped: {e}")
+                print(f"[INFO]  MobileNet setup skipped: {e}")
                 self.mobilenet_available = False
             else:
-                raise RuntimeError(f"❌ MobileNet setup failed - all models are required: {e}")
+                raise RuntimeError(f"[ERROR] MobileNet setup failed - all models are required: {e}")
 
     def mobilenet_detect_orientation(self, frame: np.ndarray) -> str:
         """Use MobileNet to detect orientation based on general image features"""
@@ -870,7 +883,7 @@ class OrientationDetector:
                     data = json.load(f)
                     self.reference_data = data
             
-            print(f"✓ Loaded reference data for {len(self.reference_data)} files")
+            print(f"[OK] Loaded reference data for {len(self.reference_data)} files")
             return True
             
         except Exception as e:
@@ -1139,7 +1152,7 @@ class OrientationDetector:
                                     'type': 'yolov8_person'
                                 })
             except Exception as e:
-                print(f"❌ YOLOv8 detection failed: {e}")
+                print(f"[ERROR] YOLOv8 detection failed: {e}")
                 print("� YOLOv8 is required for operation. Cannot continue without YOLOv8.")
         return persons
 
@@ -2357,7 +2370,7 @@ class OrientationDetector:
             # Some mobile videos have incorrect FPS reporting in OpenCV
             original_fps = fps
             if fps <= 0 or fps > 200:  # Clearly wrong FPS values
-                print(f"⚠️  Invalid FPS detected ({fps}), using fallback calculation")
+                print(f"[WARNING]  Invalid FPS detected ({fps}), using fallback calculation")
                 fps = 30.0  # Reasonable fallback
             elif total_frames > 0:
                 calculated_duration = total_frames / fps
@@ -2368,14 +2381,14 @@ class OrientationDetector:
                     for test_fps in [29.97, 30.0, 25.0, 23.976, 24.0]:
                         test_duration = total_frames / test_fps
                         if 10.0 <= test_duration <= 300.0:  # Reasonable duration (10s to 5min)
-                            print(f"🔧 FPS corrected from {original_fps:.1f} to {test_fps:.1f} for VFR video (duration: {test_duration:.1f}s)")
+                            print(f"[TOOL] FPS corrected from {original_fps:.1f} to {test_fps:.1f} for VFR video (duration: {test_duration:.1f}s)")
                             fps = test_fps
                             break
                     else:
                         # If no common fps works, use a simple heuristic
                         if calculated_duration < 1.0:  # Very short suggests very high wrong fps
                             corrected_fps = max(total_frames / 20.0, 15.0)  # Assume ~20s video, min 15fps
-                            print(f"🔧 FPS corrected from {original_fps:.1f} to {corrected_fps:.1f} (estimated from frames)")
+                            print(f"[TOOL] FPS corrected from {original_fps:.1f} to {corrected_fps:.1f} (estimated from frames)")
                             fps = corrected_fps
             
             self.stats['video_duration'] = total_frames / fps if fps > 0 else 0
@@ -2397,9 +2410,9 @@ class OrientationDetector:
             
             if is_batch_mode:
                 if len(sampling_ranges) > 1:
-                    print(f"  ⏱️  Distributed analysis: {len(sampling_ranges)} segments, {self.stats['analyzed_duration']:.1f}s total")
+                    print(f"  [TIMER]  Distributed analysis: {len(sampling_ranges)} segments, {self.stats['analyzed_duration']:.1f}s total")
                 else:
-                    print(f"  ⏱️  Time limit: analyzing first {self.time_limit}s of video")
+                    print(f"  [TIMER]  Time limit: analyzing first {self.time_limit}s of video")
 
             # Setup video writer (only for full mode with output)
             writer = None
@@ -2415,7 +2428,7 @@ class OrientationDetector:
                 if self.time_limit:
                     segments_info = f"{len(sampling_ranges)} segments" if len(sampling_ranges) > 1 else "1 segment"
                     segment_times = ", ".join([f"{start/fps:.1f}-{end/fps:.1f}s" for start, end in sampling_ranges])
-                    print(f"⏱️  Distributed analysis: {segments_info} ({segment_times})")
+                    print(f"[TIMER]  Distributed analysis: {segments_info} ({segment_times})")
                 print("Detecting faces and bodies for orientation analysis...")
 
             # Unified frame processing logic
@@ -2519,7 +2532,7 @@ class OrientationDetector:
     def _get_orientation_from_verdict(self, verdict: str) -> VideoOrientation:
         """Extract VideoOrientation from verdict string"""        
         # Normalize verdict by removing emoji and checking key words
-        verdict_clean = verdict.replace('✅', '').replace('❌', '').replace('⚠️', '').strip()
+        verdict_clean = verdict.replace('[OK]', '').replace('[ERROR]', '').replace('[WARNING]', '').strip()
         
         # CRITICAL: Check INCORRECT first, then CORRECT 
         # because "LIKELY CORRECT" contains both words!
@@ -2547,7 +2560,7 @@ class OrientationDetector:
         # Very portrait mobile videos are almost always rotated counterclockwise
         video_aspect_ratio = getattr(self, 'video_aspect_ratio', 1.0)
         if video_aspect_ratio < 0.65:  # Very portrait (like 2160x3840 = 0.5625)
-            verdict = "❌ INCORRECT"
+            verdict = "[ERROR] INCORRECT"
             confidence = 0.95  # High confidence for mobile portrait override
             recommendation = "Rotate 90° counterclockwise (mobile portrait detected)"
             
@@ -2583,7 +2596,7 @@ class OrientationDetector:
                 # Strong suspicion of rotation - faces might be misclassified due to rotation
                 print(f"DEBUG: Face-only high density detected ({face_density:.1f} faces/frame) - suspecting rotation")
                 # Force INCORRECT classification for face-only high density videos
-                verdict = "❌ INCORRECT"
+                verdict = "[ERROR] INCORRECT"
                 confidence = 0.85  # High confidence for face-only rotation detection
                 recommendation = "Rotate 90° clockwise (face-only rotation pattern detected)"
                 
@@ -2664,11 +2677,11 @@ class OrientationDetector:
                 weighted_incorrect = incorrect_ratio
 
             if weighted_correct >= confidence_threshold and weighted_correct > weighted_incorrect + 0.15:
-                verdict = "✅ CORRECT"
+                verdict = "[OK] CORRECT"
                 confidence = min(weighted_correct, 1.0)
                 recommendation = "No action needed"
             elif weighted_incorrect >= confidence_threshold and weighted_incorrect > weighted_correct + 0.15:
-                verdict = "❌ INCORRECT" 
+                verdict = "[ERROR] INCORRECT" 
                 confidence = min(weighted_incorrect, 1.0)
                 # Enhanced rotation direction logic
                 if 'rotation_directions' in self.stats and self.stats['rotation_directions']:
@@ -2689,12 +2702,12 @@ class OrientationDetector:
             else:
                 # More intelligent handling of edge cases
                 if ratio_difference < 0.1:  # Very close scores
-                    verdict = "⚠️ UNCERTAIN"
+                    verdict = "[WARNING] UNCERTAIN"
                     confidence = max(weighted_correct, weighted_incorrect)
                     recommendation = "Manual inspection recommended"
                 else:
                     # For close cases, lean conservative towards manual review
-                    verdict = "⚠️ UNCERTAIN"
+                    verdict = "[WARNING] UNCERTAIN"
                     confidence = max(weighted_correct, weighted_incorrect)
                     if weighted_correct > weighted_incorrect:
                         recommendation = "Likely correct - manual review recommended"
@@ -2740,14 +2753,14 @@ class OrientationDetector:
         print(f"Confidence: {results['confidence']:.2%}")
         print(f"Recommendation: {results['recommendation']}")
 
-        print(f"\n📊 Frame Analysis:")
+        print(f"\n[STATS] Frame Analysis:")
         print(f"  • Total frames analyzed: {results['statistics']['total_frames']}")
         print(f"  • Frames with humans: {results['statistics']['frames_with_humans']}")
         print(f"  • Correct orientation: {results['correct_percentage']:.1f}%")
         print(f"  • Incorrect orientation: {results['incorrect_percentage']:.1f}%")
         print(f"  • Close-up shots: {results['statistics']['close_up_frames']}")
 
-        print(f"\n🔍 Detection Statistics:")
+        print(f"\n[SEARCH] Detection Statistics:")
         print(f"  • Face detections: {results['detection_types'].get('face_detections', 0)}")
         print(f"  • Body detections: {results['detection_types'].get('body_detections', 0)}")
         print(f"  • Close-up frames: {results['detection_types'].get('close_up_frames', 0)}")
@@ -2755,7 +2768,7 @@ class OrientationDetector:
         # Enhanced detection statistics
         enhanced_stats = results['statistics']
         if 'mobilenet_votes' in enhanced_stats:
-            print(f"\n🧠 Enhanced Detection Votes:")
+            print(f"\n[AI] Enhanced Detection Votes:")
             print(f"  • MobileNet votes: {enhanced_stats['mobilenet_votes']}")
             print(f"  • Hough line votes: {enhanced_stats['hough_votes']}")
             print(f"  • Aspect ratio votes: {enhanced_stats['aspect_votes']}")
@@ -2770,14 +2783,14 @@ class OrientationDetector:
             
             if validation['has_reference']:
                 print(f"\n🎯 Reference Validation:")
-                match_icon = "✅" if validation['is_correct'] else "❌"
+                match_icon = "[OK]" if validation['is_correct'] else "[ERROR]"
                 print(f"  • Expected: {validation['expected'].upper()}")
                 print(f"  • Detected: {validation['detected'].upper()}")
                 print(f"  • Result: {match_icon} {validation['match'].upper()}")
                 if validation['notes']:
                     print(f"  • Notes: {validation['notes']}")
 
-        print(f"\n⏱️ Time Analysis:")
+        print(f"\n[TIMER] Time Analysis:")
         print(f"  • Video duration: {results.get('time_analysis', {}).get('video_duration', 0):.1f}s")
         print(f"  • Analyzed duration: {results.get('time_analysis', {}).get('analyzed_duration', 0):.1f}s")
         print(f"  • Analysis coverage: {results.get('time_analysis', {}).get('analysis_percentage', 0):.1f}%")
@@ -2811,7 +2824,7 @@ class OrientationDetector:
             return results
 
         segment_info = f" (distributed analysis: 3 segments, ~{self.time_limit}s total per file)" if self.time_limit else ""
-        print(f"\n🎬 Found {len(video_files)} video files to process{segment_info}...")
+        print(f"\n[VIDEO] Found {len(video_files)} video files to process{segment_info}...")
         print("=" * 80)
 
         # Process each video
@@ -2823,18 +2836,18 @@ class OrientationDetector:
 
             # Show progress
             if result.error:
-                print(f"  ❌ Error: {result.error}")
+                print(f"  [ERROR] Error: {result.error}")
             else:
-                status_icon = "✅" if result.orientation == VideoOrientation.CORRECT else "❌" if result.orientation == VideoOrientation.INCORRECT else "⚠️"
+                status_icon = "[OK]" if result.orientation == VideoOrientation.CORRECT else "[ERROR]" if result.orientation == VideoOrientation.INCORRECT else "[WARNING]"
                 print(f"  {status_icon} {result.orientation.value.split(' -')[0]} ({result.confidence:.1%} confidence)")
 
-            print(f"  ⏱️  Processing time: {result.processing_time:.1f}s")
+            print(f"  [TIMER]  Processing time: {result.processing_time:.1f}s")
             if 'time_analysis' in result.detection_info and self.time_limit:
                 time_analysis = result.detection_info['time_analysis']
                 coverage = time_analysis.get('analysis_percentage', 0)
                 video_duration = time_analysis.get('video_duration', 0)
                 analyzed_duration = time_analysis.get('analyzed_duration', 0)
-                print(f"  📊 Analyzed {coverage:.0f}% of video duration ({analyzed_duration:.1f}s / {video_duration:.1f}s)")
+                print(f"  [STATS] Analyzed {coverage:.0f}% of video duration ({analyzed_duration:.1f}s / {video_duration:.1f}s)")
             print()
 
         # Generate and display summary
@@ -2843,7 +2856,7 @@ class OrientationDetector:
         # Save detailed report if requested
         if output_file:
             self.save_batch_report(results, output_file)
-            print(f"\n📊 Detailed report saved to: {output_file}")
+            print(f"\n[STATS] Detailed report saved to: {output_file}")
 
         return results
 
@@ -2934,7 +2947,7 @@ class OrientationDetector:
 
         total_time = sum(r.processing_time for r in results)
         avg_time = total_time / len(results) if results else 0
-        print(f"\n⏱️ PERFORMANCE:")
+        print(f"\n[TIMER] PERFORMANCE:")
         print(f"  • Total processing time: {total_time:.1f}s")
         print(f"  • Average time per file: {avg_time:.1f}s")
 
@@ -3117,13 +3130,12 @@ Examples:
     # Check YOLOv8 availability (moved here so --version works without it)
     global YOLOV8_AVAILABLE
     try:
-        # Try importing YOLOv8 after OpenCV to avoid conflicts
+        # Simple check for ultralytics availability
         import importlib
         ultralytics_spec = importlib.util.find_spec("ultralytics")
         if ultralytics_spec is not None:
-            from ultralytics import YOLO
             YOLOV8_AVAILABLE = True
-            print("🚀 YOLOv8 (ultralytics) detected - enhanced body detection enabled!")
+            print("YOLOv8 (ultralytics) detected - enhanced body detection enabled!")
         else:
             YOLOV8_AVAILABLE = False
             print("ERROR: YOLOv8 not available - YOLOv8 is required for operation")
@@ -3131,7 +3143,7 @@ Examples:
             raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics")
     except (ImportError, AttributeError, ModuleNotFoundError) as e:
         YOLOV8_AVAILABLE = False
-        print(f"ERROR: YOLOv8 initialization failed: {e}")
+        print(f"ERROR: YOLOv8 check failed: {e}")
         print("ERROR: YOLOv8 is required for operation. Please install ultralytics: pip install ultralytics")
         raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
 
@@ -3152,7 +3164,7 @@ Examples:
         return 1
 
     # Quick system check and setup
-    print("🔍 Checking system requirements...")
+    print("[SEARCH] Checking system requirements...")
     success, issues = check_system_requirements()
     
     # Separate different types of issues
@@ -3163,14 +3175,14 @@ Examples:
     
     # Stop immediately for non-file critical issues (Python, packages, permissions)
     if other_critical_issues:
-        print("❌ Critical system issues detected:")
+        print("[ERROR] Critical system issues detected:")
         for issue in other_critical_issues:
             print(f"   • {issue}")
         return 1
     
     # Show missing files but continue to try downloading them
     if missing_files:
-        print("⚠️  Missing required model files (will attempt to download):")
+        print("[WARNING]  Missing required model files (will attempt to download):")
         for issue in missing_files:
             print(f"   • {issue}")
         print()
@@ -3178,7 +3190,7 @@ Examples:
     # Show warnings (non-critical)
     warnings = [issue for issue in issues if issue not in other_critical_issues and issue not in missing_files]
     if warnings:
-        print("⚠️  System warnings (non-critical):")
+        print("[WARNING]  System warnings (non-critical):")
         for warning in warnings[:3]:  # Show only first 3 warnings
             print(f"   • {warning}")
         if len(warnings) > 3:
@@ -3186,18 +3198,18 @@ Examples:
         print()
     
     # Install packages and download models (this should fix missing model files)
-    print("📦 Setting up dependencies...")
+    print("[PACKAGE] Setting up dependencies...")
     try:
         if not install_required_packages():
-            print("❌ Package installation failed.")
+            print("[ERROR] Package installation failed.")
             return 1
         download_model_files()
-        print("✅ Dependencies setup complete!")
+        print("[OK] Dependencies setup complete!")
     except Exception as e:
-        print(f"⚠️ Setup warning: {e}")
+        print(f"[WARNING] Setup warning: {e}")
     
     # Final check - ensure critical model files are now present
-    print("🔍 Final validation of required files...")
+    print("[SEARCH] Final validation of required files...")
     files_ok, missing_files_final = check_required_model_files()
     
     if not files_ok:
@@ -3206,44 +3218,44 @@ Examples:
         other_missing = [f for f in missing_files_final if "mobilenet" not in f.lower()]
         
         if other_missing:
-            print("❌ Critical model files are still missing after download attempt:")
+            print("[ERROR] Critical model files are still missing after download attempt:")
             for missing_file in other_missing:
                 print(f"   • {missing_file}")
-            print("\n💡 Possible solutions:")
+            print("\n[TIP] Possible solutions:")
             print("   1. Check internet connectivity")
             print("   2. Manually download files to script directory") 
             print("   3. Check firewall/proxy settings")
             return 1
         elif mobilenet_missing:
-            print("⚠️  MobileNet models could not be downloaded automatically:")
+            print("[WARNING]  MobileNet models could not be downloaded automatically:")
             for missing_file in mobilenet_missing:
                 print(f"   • {missing_file}")
-            print("\n🔄 Script will continue without enhanced MobileNet detection")
+            print("\n[RETRY] Script will continue without enhanced MobileNet detection")
             
             # Provide Apple Silicon specific guidance
             if is_apple_silicon():
-                print("💡 Apple Silicon (M1/M2/M3) detected - this is a known compatibility issue")
-                print("📋 OpenVINO has limited support for Apple Silicon architecture")
-                print("✅ Core detection algorithms provide excellent accuracy without MobileNet")
+                print("[TIP] Apple Silicon (M1/M2/M3) detected - this is a known compatibility issue")
+                print("[NOTE] OpenVINO has limited support for Apple Silicon architecture")
+                print("[OK] Core detection algorithms provide excellent accuracy without MobileNet")
             else:
-                print("💡 This typically happens in some Linux/WSL environments")
-                print("📋 Core detection algorithms will still provide accurate results")
+                print("[TIP] This typically happens in some Linux/WSL environments")
+                print("[NOTE] Core detection algorithms will still provide accurate results")
             
             # Temporarily disable MobileNet requirement for this run
             global mobilenet_required_override
             mobilenet_required_override = False
     else:
-        print("✅ All model files verified!")
+        print("[OK] All model files verified!")
     print()
 
     # Create detector with time limit
-    print(f"🎬 Smart Video Orientation Detector (SVOD) v{version}")
-    print(f"📅 Release: {release_name} ({release_date})")
+    print(f"[VIDEO] Smart Video Orientation Detector (SVOD) v{version}")
+    print(f"[DATE] Release: {release_name} ({release_date})")
     print("Initializing orientation detector...")
     if args.time_limit:
-        print(f"⏱️  Time limit set to {args.time_limit} seconds (analyzing first N seconds)")
+        print(f"[TIMER]  Time limit set to {args.time_limit} seconds (analyzing first N seconds)")
     else:
-        print("⏱️  No time limit - analyzing entire video")
+        print("[TIMER]  No time limit - analyzing entire video")
 
 
     detector = OrientationDetector(
@@ -3262,7 +3274,7 @@ Examples:
                 print("Error: Batch mode requires a folder path")
                 return 1
 
-            print(f"🎬 Starting batch processing of folder: {args.path}")
+            print(f"[VIDEO] Starting batch processing of folder: {args.path}")
             if args.recursive:
                 print("📁 Recursive mode enabled - processing subfolders")
 
@@ -3280,8 +3292,8 @@ Examples:
             needs_rotation = sum(1 for r in results if r.orientation == VideoOrientation.INCORRECT)
             total_files = len(results)
 
-            print(f"\n🏁 Batch processing complete!")
-            print(f"📋 {needs_rotation} out of {total_files} files need rotation")
+            print(f"\n[FINISH] Batch processing complete!")
+            print(f"[NOTE] {needs_rotation} out of {total_files} files need rotation")
 
         else:
             # Single file processing mode
@@ -3300,7 +3312,7 @@ Examples:
             detector.print_results(results)
 
             if args.output:
-                print(f"\n✓ Annotated video saved to: {args.output}")
+                print(f"\n[OK] Annotated video saved to: {args.output}")
 
     except KeyboardInterrupt:
         print("\n\nProcessing interrupted by user")
