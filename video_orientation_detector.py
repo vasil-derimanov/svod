@@ -38,9 +38,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.19.1"
+__version__ = "4.19.2"
 __release_date__ = "2025-09-13"
-__release_name__ = "macOS/ARM Compatibility Fix"
+__release_name__ = "YOLOv8 Mandatory - No Fallback"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -134,9 +134,9 @@ def install_required_packages():
                     if result.returncode == 0:
                         print(f"✅ {package_name} installed successfully - YOLOv8 enabled!")
                     else:
-                        print(f"⚠️ Failed to install {package_name} (will use YOLOv4 fallback): {result.stderr}")
+                        print(f"⚠️ Failed to install {package_name} (YOLOv8 is required for operation): {result.stderr}")
                 except Exception as e:
-                    print(f"⚠️ {package_name} installation failed (will use YOLOv4 fallback): {e}")
+                    print(f"⚠️ {package_name} installation failed (YOLOv8 is required for operation): {e}")
             
             # Try to install development tools for omz_downloader (not critical if fails)
             if optional_dev_packages:
@@ -193,11 +193,14 @@ try:
         print("🚀 YOLOv8 (ultralytics) detected - enhanced body detection enabled!")
     else:
         YOLOV8_AVAILABLE = False
-        print("WARNING: YOLOv8 not available - using YOLOv4 fallback")
+        print("ERROR: YOLOv8 not available - YOLOv8 is required for operation")
+        print("ERROR: Please install ultralytics: pip install ultralytics")
+        raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics")
 except (ImportError, AttributeError, ModuleNotFoundError) as e:
     YOLOV8_AVAILABLE = False
-    print(f"WARNING: YOLOv8 initialization failed: {e}")
-    print("INFO: Using YOLOv4 fallback for stable detection")
+    print(f"ERROR: YOLOv8 initialization failed: {e}")
+    print("ERROR: YOLOv8 is required for operation. Please install ultralytics: pip install ultralytics")
+    raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
 
 
 def check_required_model_files():
@@ -1129,12 +1132,12 @@ class OrientationDetector:
 
     def detect_persons(self, frame: np.ndarray) -> List[Dict]:
         """
-        Detect full person bodies in frame using hybrid YOLOv8/YOLOv4 approach
+        Detect full person bodies in frame using YOLOv8 (required)
         """
         persons = []
 
         if self.use_yolov8:
-            # YOLOv8 detection (enhanced)
+            # YOLOv8 detection (mandatory)
             try:
                 results = self.yolov8_model(frame, verbose=False)
                 for result in results:
@@ -1152,18 +1155,8 @@ class OrientationDetector:
                                     'type': 'yolov8_person'
                                 })
             except Exception as e:
-                print(f"⚠️ YOLOv8 detection failed: {e}")
-                print("🔄 Falling back to YOLOv4...")
-                # Temporary fallback to YOLOv4 for this frame
-                return self._detect_persons_yolov4(frame)
-                
-        elif self.use_yolo:
-            # YOLOv4 detection (existing)
-            return self._detect_persons_yolov4(frame)
-        else:
-            # Haar Cascade fallback
-            return self._detect_persons_cascade(frame)
-
+                print(f"❌ YOLOv8 detection failed: {e}")
+                print("� YOLOv8 is required for operation. Cannot continue without YOLOv8.")
         return persons
 
     def _detect_persons_cascade(self, frame: np.ndarray) -> List[Dict]:
@@ -3135,10 +3128,6 @@ Examples:
                         help='Process subfolders recursively (batch mode only)')
     parser.add_argument('--report', help='Save detailed batch report to file (batch mode only)')
     parser.add_argument('--reference', help='Reference file (CSV/JSON) for validation against known orientations')
-
-
-    parser.add_argument('--force-yolov4', action='store_true',
-                        help='Force using YOLOv4 only (disable YOLOv8 even if available)')
     args = parser.parse_args()
 
     # Validate input path
@@ -3251,12 +3240,6 @@ Examples:
     else:
         print("⏱️  No time limit - analyzing entire video")
 
-
-    # Patch: force YOLOv4 if requested
-    global YOLOV8_AVAILABLE
-    if hasattr(args, 'force_yolov4') and args.force_yolov4:
-        YOLOV8_AVAILABLE = False
-        print("⚡ YOLOv8 forcibly disabled, using YOLOv4 only!")
 
     detector = OrientationDetector(
         confidence_threshold=args.confidence,
