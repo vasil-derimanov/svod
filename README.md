@@ -1,6 +1,6 @@
-# Smart Video Orientation Detector (SVOD) v4.19.1
+# Smart Video Orientation Detector (SVOD) v4.19.2
 
-🎥 **YOLOv8 Required (macOS Fix)**
+🎥 **YOLOv8 Mandatory - No Fallback**
 
 ## 📋 Overview
 
@@ -13,29 +13,55 @@ SVOD automatically detects and analyzes video orientation using multiple detecti
 
 ## � YOLOv8 Required Fix (v4.19.1)
 
-SVOD v4.19.1 ensures YOLOv8 is properly required for optimal detection accuracy:
+SVOD v4.19.2 enforces strict YOLOv8-only operation with no fallback to YOLOv4:
 
 **Key Changes:**
-- **YOLOv8 Mandatory**: Removed optional fallback logic, YOLOv8 is now required
-- **Proper Error Handling**: Clear error messages when ultralytics package is missing
+- **YOLOv8 Mandatory**: YOLOv8 is now strictly required - no fallback logic exists
+- **No YOLOv4 References**: All YOLOv4 code, CLI flags, and references completely removed
+- **Clear Error Messages**: Explicit error when ultralytics package is missing or fails
 - **Cross-Platform Support**: Works on Windows, Linux, and macOS with proper installation
-- **Automatic Installation**: YOLOv8 automatically installed via ultralytics package
+- **NumPy/PyTorch Compatibility**: Guidance for resolving NumPy 2.x compatibility issues
 
 **Technical Implementation:**
 ```python
-# YOLOv8 Required Setup
+# YOLOv8 Mandatory Setup - No Fallback
 required_packages = [
-    ('ultralytics', 'ultralytics'),  # YOLOv8 support - required
+    ('ultralytics', 'ultralytics'),  # YOLOv8 support - strictly required
 ]
 
 if not YOLOV8_AVAILABLE:
-    raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics")
+    raise RuntimeError("YOLOv8 is required for person detection. Install ultralytics: pip install ultralytics")
 ```
 
 **Installation Requirements:**
 - **Windows**: `pip install ultralytics` (works out of the box)
-- **macOS**: `pip install ultralytics` (may require additional dependencies)
+- **macOS**: `pip install ultralytics` (may require NumPy/PyTorch compatibility fixes)
 - **Linux**: `pip install ultralytics` (works with most distributions)
+
+**NumPy/PyTorch Compatibility Issues:**
+If you encounter "Numpy is not available" or PyTorch/YOLOv8 import errors on macOS:
+
+**Solution 1: Downgrade NumPy (Recommended)**
+```bash
+pip install "numpy<2.0"
+```
+
+**Solution 2: Update PyTorch/YOLOv8**
+```bash
+pip install --upgrade torch torchvision torchaudio
+pip install --upgrade ultralytics
+```
+
+**Solution 3: Clean Reinstall**
+```bash
+pip uninstall numpy torch torchvision torchaudio ultralytics -y
+pip install "numpy<2.0" torch torchvision torchaudio ultralytics
+```
+
+**Verification:**
+```bash
+python -c "import numpy; import torch; import ultralytics; print('All compatible')"
+```
 
 ## �🚀 Face-Only Rotation Detection (v4.19.0)
 
@@ -124,16 +150,7 @@ if face_total_votes > 0 and body_total_votes > 0:
 - P9080828.mp4: CORRECT(71.43%) → INCORRECT(96.55%) ✅ 
 - P8150092.mp4: CORRECT(94.59%) → CORRECT(74.7%) ✅ (no regression)
 
-## 📋 Overview
-
-SVOD automatically detects and analyzes video orientation using multiple detection methods:
-- **Face Detection** - Primary orientation indicator using DNN face detector
-- **Body Detection** - Hybrid YOLOv8/YOLOv4 analysis with automatic fallback
-- **Enhanced Detection** - MobileNet models with OpenVINO optimization
-- **Facial Landmarks** - Precise orientation analysis using LBF landmark detection
-- **Cross-Platform Intelligence** - Optimized for Windows, Linux, and Apple Silicon (M1/M2/M3)
-
-## 🚀 YOLOv8 Detection System (v4.18.0)
+## �� Face-Only Rotation Detection (v4.19.0)
 
 SVOD now uses only YOLOv8 for body detection:
 
@@ -371,7 +388,7 @@ python video_orientation_detector.py video.mp4 --quick  # Quick mode (fast with 
    - High accuracy for videos with visible faces
 
 2. **Body Detection** (Secondary)  
-   - YOLO v4 object detection for people
+   - YOLOv8 object detection for people
    - Backup method when faces aren't clearly visible
    - Useful for wide shots and group scenes
 
@@ -571,7 +588,9 @@ python svod_evolution_reporter.py --summary
 
 ## �📝 Version History
 
-- **v4.16.0** (2025-01-20): YOLOv8 Hybrid Detection - added optional YOLOv8 support with automatic fallback to YOLOv4, enhanced body detection precision while maintaining 85.7% accuracy, robust dependency management with OpenCV conflict resolution
+- **v4.19.2** (2025-01-21): YOLOv8 Mandatory - No Fallback - enforced strict YOLOv8-only operation, removed all YOLOv4 references and fallback logic, added NumPy/PyTorch compatibility guidance for macOS
+- **v4.19.1** (2025-01-21): YOLOv8 Required Fix - ensured YOLOv8 is properly required for optimal detection accuracy
+- **v4.19.0** (2025-01-21): Face-Only Rotation Detection - introduced face-only rotation detection that eliminates false positives
 - **v4.15.0** (2025-01-20): Balanced Face/Body Weighting - implemented 50/50 balanced weighting system where faces and bodies contribute equally regardless of detection counts, increased face confidence threshold to 0.8, significantly improved counterclockwise detection accuracy
 - **v4.14.0** (2025-01-20): Enhanced Rotation Direction Detection - improved accuracy for counterclockwise rotations with balanced detection logic and position-based heuristics
 - **v4.13.0** (2025-09-08): Code Unification & Simplification - merged process_video() methods into unified system
@@ -619,20 +638,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 The script uses several pre-trained models for optimal detection accuracy. All files are automatically downloaded on first run, but here are the details for manual setup or troubleshooting:
 
-#### 1. YOLO v4 Object Detection
-- **File**: `yolov4.cfg` (configuration)
-- **File**: `yolov4.weights` (weights, ~245MB)
-- **Source**: [AlexeyAB/darknet releases](https://github.com/AlexeyAB/darknet/releases)
-- **Version**: YOLOv4 optimal
+#### 1. YOLOv8 Object Detection
+- **File**: `yolov8n.pt` (model weights, ~6MB)
+- **Source**: [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics)
+- **Version**: YOLOv8 nano
 - **Purpose**: Person detection for body orientation analysis
-- **Manual Download**:
-  ```bash
-  # Configuration file
-  curl -O https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg
-  
-  # Weights file (large download)
-  curl -L -O https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights
-  ```
+- **Auto-download**: Downloaded automatically via ultralytics package
 
 #### 2. DNN Face Detection
 - **File**: `deploy.prototxt` (network architecture)
@@ -692,13 +703,13 @@ These files provide enhanced detection accuracy but are **optional** - the scrip
 ### File Size Summary
 | File | Size | Required | Purpose |
 |------|------|----------|---------|
-| `yolov4.weights` | ~245MB | ✅ Yes | Object detection |
+| `yolov8n.pt` | ~6MB | ✅ Yes | Object detection |
 | `lbfmodel.yaml` | ~54MB | ✅ Yes | Facial landmarks |
 | `mobilenet-v2.bin` | ~14MB | ⚠️ Optional | Enhanced detection |
 | `res10_300x300_ssd_iter_140000.caffemodel` | ~10MB | ✅ Yes | Face detection |
 | Other files | <1MB each | ✅ Yes | Configurations |
-| **Total Required** | **~310MB** | | |
-| **Total with Optional** | **~324MB** | | |
+| **Total Required** | **~76MB** | | |
+| **Total with Optional** | **~90MB** | | |
 
 ### Troubleshooting Model Downloads
 
