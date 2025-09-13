@@ -3517,21 +3517,137 @@ Examples:
         )
         raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
 
-    # Validate input path
-    if not args.path:
-        parser.error("path is required")
+    # Enhanced input validation with security checks
+    print("[VALIDATE] Validating input parameters...")
 
-    # Validate input path exists
-    if not os.path.exists(args.path):
-        print(f"Error: Path '{args.path}' not found")
+    # Validate path is provided
+    if not args.path:
+        parser.error("path is required (use --help for usage information)")
+
+    # Sanitize and validate path
+    try:
+        # Convert to absolute path and resolve any symlinks
+        args.path = os.path.abspath(os.path.expanduser(args.path))
+
+        # Check for path length limits (prevent extremely long paths)
+        if len(args.path) > 4096:  # Common filesystem limit
+            print(f"Error: Path too long (max 4096 characters): {len(args.path)}")
+            return 1
+
+        # Check for potentially dangerous path patterns (cross-platform)
+        # Only reject truly dangerous characters, allow platform path separators
+        dangerous_chars = ['\x00', '\n', '\r']  # Null byte and line breaks
+        for char in dangerous_chars:
+            if char in args.path:
+                print(f"Error: Invalid characters in path: {repr(char)}")
+                return 1
+
+        # Check for directory traversal attempts
+        if '..' in args.path:
+            # Allow .. in paths as long as it doesn't escape the allowed directories
+            # This is a basic check - in production you'd want more sophisticated validation
+            normalized_path = os.path.normpath(args.path)
+            if normalized_path.startswith('..') or '\\..\\' in normalized_path or '/../' in normalized_path:
+                print("Error: Directory traversal not allowed in path")
+                return 1
+
+        # Check if path exists
+        if not os.path.exists(args.path):
+            print(f"Error: Path does not exist: '{args.path}'")
+            print("Please check the path and try again.")
+            return 1
+
+        # Check read permissions
+        if not os.access(args.path, os.R_OK):
+            print(f"Error: No read permission for path: '{args.path}'")
+            return 1
+
+        # Additional validation for batch mode
+        if args.batch:
+            if not os.path.isdir(args.path):
+                print(f"Error: Batch mode requires a directory, but '{args.path}' is not a directory")
+                print("For single file processing, remove the --batch flag")
+                return 1
+
+            # Check if directory is empty (warning only)
+            try:
+                if not os.listdir(args.path):
+                    print(f"Warning: Directory '{args.path}' appears to be empty")
+            except PermissionError:
+                print(f"Error: Cannot read contents of directory: '{args.path}'")
+                return 1
+
+        else:
+            # Single file mode validation
+            if os.path.isdir(args.path):
+                print(f"Error: Single file mode requires a file, but '{args.path}' is a directory")
+                print("For batch processing, add the --batch flag")
+                return 1
+
+            # Basic video file extension check (not foolproof but helpful)
+            video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v', '.3gp'}
+            file_ext = os.path.splitext(args.path)[1].lower()
+            if file_ext not in video_extensions:
+                print(f"Warning: File extension '{file_ext}' may not be a supported video format")
+                print("Supported formats: MP4, AVI, MOV, MKV, WMV, FLV, WebM, M4V, 3GP")
+                print("Proceeding anyway...")
+
+    except (OSError, ValueError) as e:
+        print(f"Error: Invalid path format: {e}")
         return 1
 
-    # Validate time limit and handle no-time-limit option
+    # Enhanced time limit validation
     if args.no_time_limit:
         args.time_limit = None
-    elif args.time_limit is not None and args.time_limit <= 0:
-        print("Error: Time limit must be positive")
+    elif args.time_limit is not None:
+        if not isinstance(args.time_limit, (int, float)) or args.time_limit <= 0:
+            print("Error: Time limit must be a positive number (seconds)")
+            return 1
+        if args.time_limit > 3600:  # 1 hour limit
+            print("Error: Time limit too large (maximum 3600 seconds / 1 hour)")
+            return 1
+        if args.time_limit < 1:  # Minimum 1 second
+            print("Warning: Very short time limit ({args.time_limit}s) may not provide accurate results")
+            print("Recommended minimum: 10 seconds for reliable detection")
+
+    # Validate confidence threshold
+    if not (0.0 <= args.confidence <= 1.0):
+        print("Error: Confidence threshold must be between 0.0 and 1.0")
         return 1
+
+    # Validate output path if provided
+    if args.output:
+        try:
+            output_dir = os.path.dirname(os.path.abspath(args.output))
+            if output_dir and not os.path.exists(output_dir):
+                print(f"Error: Output directory does not exist: '{output_dir}'")
+                return 1
+            if not os.access(output_dir, os.W_OK):
+                print(f"Error: No write permission for output directory: '{output_dir}'")
+                return 1
+        except (OSError, ValueError) as e:
+            print(f"Error: Invalid output path: {e}")
+            return 1
+
+    # Validate reference file if provided
+    if args.reference:
+        try:
+            ref_path = os.path.abspath(os.path.expanduser(args.reference))
+            if not os.path.exists(ref_path):
+                print(f"Error: Reference file does not exist: '{ref_path}'")
+                return 1
+            if not os.access(ref_path, os.R_OK):
+                print(f"Error: Cannot read reference file: '{ref_path}'")
+                return 1
+            # Check file size (prevent extremely large files)
+            if os.path.getsize(ref_path) > 10 * 1024 * 1024:  # 10MB limit
+                print("Error: Reference file too large (maximum 10MB)")
+                return 1
+        except (OSError, ValueError) as e:
+            print(f"Error: Invalid reference file path: {e}")
+            return 1
+
+    print("[OK] Input validation passed!")
 
     # Quick system check and setup
     print("[SEARCH] Checking system requirements...")
@@ -3652,11 +3768,7 @@ Examples:
 
     try:
         if args.batch:
-            # Batch processing mode
-            if not os.path.isdir(args.path):
-                print("Error: Batch mode requires a folder path")
-                return 1
-
+            # Batch processing mode (validation already done above)
             print(f"[VIDEO] Starting batch processing of folder: {args.path}")
             if args.recursive:
                 print("📁 Recursive mode enabled - processing subfolders")
@@ -3677,12 +3789,7 @@ Examples:
             print(f"[NOTE] {needs_rotation} out of {total_files} files need rotation")
 
         else:
-            # Single file processing mode
-            if os.path.isdir(args.path):
-                print("Error: Single file mode requires a video file path")
-                print("Use --batch flag for folder processing")
-                return 1
-
+            # Single file processing mode (validation already done above)
             results = detector.process_video(
                 args.path, display=not args.no_display, output_path=args.output
             )
