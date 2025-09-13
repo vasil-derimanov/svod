@@ -6,8 +6,8 @@ opencv-contrib-python==4.8.1.78
 numpy==1.26.4
 
 # AI/ML frameworks
-torch==2.8.0+cpu
-torchvision==0.23.0+cpu
+torch==2.8.0
+torchvision==0.23.0
 ultralytics==8.3.196
 
 # Model optimization and inference
