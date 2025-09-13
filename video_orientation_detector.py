@@ -61,7 +61,7 @@ def is_apple_silicon():
 # Third-party imports with auto-installation
 def install_required_packages():
     """Install required packages if not available with enhanced error handling"""
-    print("[PACKAGE] Checking and installing required packages...")
+    print_info("Checking and installing required packages...")
 
     required_packages = [
         ("cv2", "opencv-contrib-python"),  # Changed to contrib version for face landmarks
@@ -69,6 +69,7 @@ def install_required_packages():
         ("openvino", "openvino"),  # Moved from optional to required
         ("ultralytics", "ultralytics"),  # YOLOv8 support - required
         ("tqdm", "tqdm"),  # Progress bars for batch processing
+        ("rich", "rich"),  # Enhanced console output
     ]
 
     # Optional YOLOv8 package for enhanced detection (now required)
@@ -96,20 +97,20 @@ def install_required_packages():
                         module.dnn, "readNet"
                     )  # Check DNN module exists
                     hasattr(module.dnn, "readNetFromCaffe")  # Check Caffe support
-                    print(f"[OK] {package_name}: Already installed with full DNN support")
+                    print_success(f"{package_name}: Already installed with full DNN support")
                 except:
                     print(
                         f"[WARNING] {package_name}: Installed but missing DNN support - will reinstall"
                     )
                     missing_packages.append(package_name)
             else:
-                print(f"[OK] {package_name}: Already installed")
+                    print_success(f"{package_name}: Already installed")
         except ImportError:
             missing_packages.append(package_name)
-            print(f"[ERROR] {package_name}: Missing")
+            print_error(f"{package_name}: Missing")
 
     if missing_packages:
-        print(f"\n� Installing required packages: {', '.join(missing_packages)}")
+        print_info(f"Installing required packages: {', '.join(missing_packages)}")
 
         # Check if pip is available
         try:
@@ -119,13 +120,13 @@ def install_required_packages():
                 stderr=subprocess.DEVNULL,
             )
         except subprocess.CalledProcessError:
-            print("[ERROR] pip is not available. Please install pip first.")
+            print_error("pip is not available. Please install pip first.")
             return False
 
         try:
             # Install missing packages
             for package in missing_packages:
-                print(f"[DOWNLOAD] Installing {package}...")
+                print_info(f"Installing {package}...")
                 result = subprocess.run(
                     [sys.executable, "-m", "pip", "install", package],
                     capture_output=True,
@@ -133,18 +134,18 @@ def install_required_packages():
                     timeout=600,
                 )
                 if result.returncode == 0:
-                    print(f"[OK] {package} installed successfully")
+                    print_success(f"{package} installed successfully")
                 else:
-                    print(f"[ERROR] Failed to install {package}: {result.stderr}")
+                    print_error(f"Failed to install {package}: {result.stderr}")
                     return False
 
-            print("[OK] All required packages installed successfully!")
+            print_success("All required packages installed successfully!")
 
             # Try to install YOLOv8 for enhanced detection (optional)
-            print("\nAttempting to install YOLOv8 for enhanced body detection...")
+            print_info("Attempting to install YOLOv8 for enhanced body detection...")
             for module_name, package_name in required_yolo_packages:
                 try:
-                    print(f"[DOWNLOAD] Installing {package_name} (optional YOLOv8 support)...")
+                    print_info(f"Installing {package_name} (optional YOLOv8 support)...")
                     result = subprocess.run(
                         [sys.executable, "-m", "pip", "install", package_name],
                         capture_output=True,
@@ -152,26 +153,18 @@ def install_required_packages():
                         timeout=600,
                     )
                     if result.returncode == 0:
-                        print(f"[OK] {package_name} installed successfully - YOLOv8 enabled!")
+                        print_success(f"{package_name} installed successfully - YOLOv8 enabled!")
                     else:
-                        print(
-                            f"[WARNING] Failed to install {package_name} (YOLOv8 is required for operation): {result.stderr}"
-                        )
+                        print_error(f"Failed to install {package_name} (YOLOv8 is required for operation): {result.stderr}")
                 except Exception as e:
-                    print(
-                        f"[WARNING] {package_name} installation failed (YOLOv8 is required for operation): {e}"
-                    )
+                    print_error(f"{package_name} installation failed (YOLOv8 is required for operation): {e}")
 
             # Try to install development tools for omz_downloader (not critical if fails)
             if optional_dev_packages:
-                print(
-                    "\n[TOOL] Installing optional development tools for enhanced functionality..."
-                )
+                print_info("Installing optional development tools for enhanced functionality...")
                 for module_name, package_name in optional_dev_packages:
                     try:
-                        print(
-                            f"[DOWNLOAD] Installing {package_name} (for omz_downloader support)..."
-                        )
+                        print_info(f"Installing {package_name} (for omz_downloader support)...")
                         result = subprocess.run(
                             [sys.executable, "-m", "pip", "install", package_name],
                             capture_output=True,
@@ -179,26 +172,24 @@ def install_required_packages():
                             timeout=600,
                         )
                         if result.returncode == 0:
-                            print(f"[OK] {package_name} installed successfully")
+                            print_success(f"{package_name} installed successfully")
                         else:
-                            print(
-                                f"[WARNING] Failed to install {package_name} (not critical): {result.stderr}"
-                            )
-                            print(f"[TIP] Direct download fallbacks will be used instead")
+                            print_warning(f"Failed to install {package_name} (not critical): {result.stderr}")
+                            print_info("Direct download fallbacks will be used instead")
                     except Exception as e:
-                        print(f"[WARNING] {package_name} installation failed (not critical): {e}")
-                        print(f"[TIP] Direct download fallbacks will be used instead")
+                        print_warning(f"{package_name} installation failed (not critical): {e}")
+                        print_info("Direct download fallbacks will be used instead")
 
             return True
 
         except subprocess.TimeoutExpired:
-            print("[ERROR] Package installation timed out")
+            print_error("Package installation timed out")
             return False
         except Exception as e:
-            print(f"[ERROR] Installation failed: {e}")
+            print_error(f"Installation failed: {e}")
             return False
     else:
-        print("[OK] All required packages are already available!")
+        print_success("All required packages are already available!")
         return True
 
 
@@ -210,9 +201,9 @@ try:
 
     TQDM_AVAILABLE = True
 except ImportError:
-    print("[TOOL] Installing required packages automatically...")
+    print_info("Installing required packages automatically...")
     if install_required_packages():
-        print("[RETRY] Restarting import after installation...")
+        print_info("Restarting import after installation...")
         import cv2
         import numpy as np
         import openvino
@@ -223,10 +214,83 @@ except ImportError:
             TQDM_AVAILABLE = True
         except ImportError:
             TQDM_AVAILABLE = False
-            print("[WARNING] tqdm not available - batch processing will not show progress bars")
+            print_warning("tqdm not available - batch processing will not show progress bars")
     else:
-        print("[ERROR] Failed to install required packages!")
+        print_error("Failed to install required packages!")
         sys.exit(1)
+
+# Rich console for enhanced output (optional)
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.text import Text
+    from rich.columns import Columns
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+    RICH_AVAILABLE = True
+    console = Console()
+except ImportError:
+    RICH_AVAILABLE = False
+    console = None
+
+
+def print_message(message: str, style: str = None, emoji: str = None):
+    """Enhanced print function with Rich support"""
+    if RICH_AVAILABLE and console:
+        if emoji:
+            message = f"{emoji} {message}"
+        if style:
+            console.print(message, style=style)
+        else:
+            console.print(message)
+    else:
+        # Fallback to regular print
+        if emoji:
+            message = f"{emoji} {message}"
+        print(message)
+
+
+def print_panel(title: str, content: str, border_style: str = "blue"):
+    """Print content in a Rich panel"""
+    if RICH_AVAILABLE and console:
+        panel = Panel(content, title=title, border_style=border_style)
+        console.print(panel)
+    else:
+        print(f"\n{title}")
+        print("=" * len(title))
+        print(content)
+        print("=" * len(title))
+
+
+def print_success(message: str):
+    """Print success message"""
+    print_message(message, "green", "✅")
+
+
+def print_error(message: str):
+    """Print error message"""
+    print_message(message, "red", "❌")
+
+
+def print_warning(message: str):
+    """Print warning message"""
+    print_message(message, "yellow", "⚠️")
+
+
+def print_info(message: str):
+    """Print info message"""
+    print_message(message, "blue", "ℹ️")
+
+
+def print_header(title: str):
+    """Print a header with Rich styling"""
+    if RICH_AVAILABLE and console:
+        header = Text(title, style="bold magenta")
+        console.print(header)
+        console.print("=" * len(title), style="magenta")
+    else:
+        print(f"\n{title}")
+        print("=" * len(title))
 
 # Optional YOLOv8 import for enhanced detection with robust error handling
 # Moved to main() function to allow --version to work without YOLOv8
@@ -309,9 +373,9 @@ def check_system_requirements():
     try:
         import cv2
 
-        print("[OK] OpenCV DNN support verified during installation")
+        print_success("OpenCV DNN support verified during installation")
     except Exception as e:
-        issues.append(f"OpenCV check failed: {str(e)}")
+        print_error(f"OpenCV check failed: {str(e)}")
 
     # Check internet connectivity for model downloads
     try:
@@ -401,7 +465,7 @@ def download_model_files():
         "mobilenet-v2.xml": "MobileNet model configuration (will be generated)",
         "mobilenet-v2.bin": "MobileNet model weights (will be generated)",
     }
-    print("[NOTE] MobileNet will be downloaded using OpenVINO Model Zoo tools")
+    print_info("MobileNet will be downloaded using OpenVINO Model Zoo tools")
 
     # Combine all files
     files_to_download.update(mobilenet_files)
@@ -444,7 +508,7 @@ def download_model_files():
             return True
 
         except Exception as e:
-            print(f"Warning: Could not validate {filename}: {e}")
+            print_warning(f"Could not validate {filename}: {e}")
             return False
 
     def download_mobilenet_with_fallback(script_dir, filename):
@@ -452,11 +516,11 @@ def download_model_files():
         dest_path = os.path.join(script_dir, filename)
 
         if os.path.exists(dest_path):
-            print(f"[OK] {filename} already available")
+            print_success(f"{filename} already available")
             if validate_model_file(dest_path, filename):
                 return True
             else:
-                print(f"[ERROR] Existing {filename} is invalid - will re-download")
+                print_error(f"Existing {filename} is invalid - will re-download")
                 try:
                     os.remove(dest_path)
                 except:
@@ -464,15 +528,15 @@ def download_model_files():
 
         # Check platform-specific compatibility first
         if is_apple_silicon():
-            print("[TIP] Detected Apple Silicon (M1/M2/M3) - Using optimized fallback approach")
-            print(
-                "[TIP] omz_downloader may have limited support on Apple Silicon, trying direct downloads first"
+            print_info("Detected Apple Silicon (M1/M2/M3) - Using optimized fallback approach")
+            print_info(
+                "omz_downloader may have limited support on Apple Silicon, trying direct downloads first"
             )
             # On Apple Silicon, skip omz_downloader and go directly to fallbacks
-            print(f"[RETRY] Skipping omz_downloader on Apple Silicon, using direct download...")
+            print_info("Skipping omz_downloader on Apple Silicon, using direct download...")
         else:
             # Try OpenVINO Model Zoo tools first on non-Apple Silicon platforms
-            print(f"[DOWNLOAD] Attempting MobileNet download using OpenVINO Model Zoo tools...")
+            print_info("Attempting MobileNet download using OpenVINO Model Zoo tools...")
             omz_success = download_mobilenet_with_omz(script_dir, filename)
 
             if omz_success:
@@ -480,17 +544,17 @@ def download_model_files():
 
             # Fallback: MobileNet models cannot be reliably downloaded without omz_downloader
             # These models require proper conversion from PyTorch format
-            print(
-                f"� OpenVINO tools failed, MobileNet requires omz_downloader for proper conversion"
+            print_warning(
+                "OpenVINO tools failed, MobileNet requires omz_downloader for proper conversion"
             )
-            print(f"[TIP] Continuing without MobileNet - core detection algorithms are sufficient")
+            print_info("Continuing without MobileNet - core detection algorithms are sufficient")
             return False
 
     def download_mobilenet_with_omz(script_dir, filename):
         """Download and convert MobileNet using OpenVINO Model Zoo tools"""
         dest_path = os.path.join(script_dir, filename)
 
-        print(f"[TOOL] Trying OpenVINO Model Zoo approach...")
+        print_info("Trying OpenVINO Model Zoo approach...")
 
         try:
             # Install OpenVINO dev tools if not available
@@ -517,18 +581,18 @@ def download_model_files():
                 if result.returncode != 0:
                     raise Exception("omz_downloader not found")
             except:
-                print("[PACKAGE] Installing OpenVINO development tools...")
+                print_info("Installing OpenVINO development tools...")
                 install_result = subprocess.run(
                     [sys.executable, "-m", "pip", "install", "openvino-dev"],
                     capture_output=True,
                     text=True,
                 )
                 if install_result.returncode != 0:
-                    print(f"[ERROR] Failed to install openvino-dev: {install_result.stderr}")
+                    print_error(f"Failed to install openvino-dev: {install_result.stderr}")
                     return False
 
             # Install required dependencies for model conversion
-            print("[PACKAGE] Installing PyTorch and ONNX for model conversion...")
+            print_info("Installing PyTorch and ONNX for model conversion...")
             try:
                 # Install minimal PyTorch CPU version for conversion only
                 subprocess.run(
@@ -552,9 +616,9 @@ def download_model_files():
                     text=True,
                     timeout=600,
                 )
-                print("[OK] PyTorch and ONNX installed for model conversion")
+                print_success("PyTorch and ONNX installed for model conversion")
             except Exception as e:
-                print(f"[ERROR] Failed to install conversion dependencies: {e}")
+                print_error(f"Failed to install conversion dependencies: {e}")
                 return False
 
             # Create models subdirectory
@@ -562,7 +626,7 @@ def download_model_files():
             os.makedirs(models_dir, exist_ok=True)
 
             # Download the model
-            print("[DOWNLOAD] Downloading mobilenet-v2-pytorch model...")
+            print_info("Downloading mobilenet-v2-pytorch model...")
             result = subprocess.run(
                 [omz_downloader_cmd, "--name", "mobilenet-v2-pytorch", "--output_dir", models_dir],
                 capture_output=True,
@@ -571,11 +635,11 @@ def download_model_files():
             )
 
             if result.returncode != 0:
-                print(f"[ERROR] Download failed: {result.stderr}")
+                print_error(f"Download failed: {result.stderr}")
                 return False
 
             # Convert the model to OpenVINO IR format
-            print("[RETRY] Converting model to OpenVINO IR format...")
+            print_info("Converting model to OpenVINO IR format...")
             result = subprocess.run(
                 [
                     omz_converter_cmd,
@@ -592,7 +656,7 @@ def download_model_files():
             )
 
             if result.returncode != 0:
-                print(f"[ERROR] Conversion failed: {result.stderr}")
+                print_error(f"Conversion failed: {result.stderr}")
                 return False
 
             # Move the converted files to script directory
@@ -605,13 +669,13 @@ def download_model_files():
                     import shutil
 
                     shutil.copy2(xml_file, os.path.join(script_dir, "mobilenet-v2.xml"))
-                    print("[OK] mobilenet-v2.xml copied successfully")
+                    print_success("mobilenet-v2.xml copied successfully")
 
                 if os.path.exists(bin_file):
                     import shutil
 
                     shutil.copy2(bin_file, os.path.join(script_dir, "mobilenet-v2.bin"))
-                    print("[OK] mobilenet-v2.bin copied successfully")
+                    print_success("mobilenet-v2.bin copied successfully")
 
                 # Clean up models directory
                 import shutil
@@ -620,14 +684,14 @@ def download_model_files():
 
                 return os.path.exists(os.path.join(script_dir, filename))
             else:
-                print(f"[ERROR] Converted model not found in expected location: {model_path}")
+                print_error(f"Converted model not found in expected location: {model_path}")
                 return False
 
         except subprocess.TimeoutExpired:
-            print("[ERROR] Download/conversion timed out")
+            print_error("Download/conversion timed out")
             return False
         except Exception as e:
-            print(f"[ERROR] OpenVINO Model Zoo tools failed: {e}")
+            print_error(f"OpenVINO Model Zoo tools failed: {e}")
             return False
 
     def download_file(filename, url):
@@ -638,14 +702,14 @@ def download_model_files():
             return download_mobilenet_with_fallback(script_dir, filename)
 
         if not os.path.exists(dest_path):
-            print(f"[DOWNLOAD] Downloading {filename}...")
+            print_info(f"Downloading {filename}...")
             try:
                 urllib.request.urlretrieve(url, dest_path)
-                print(f"[OK] {filename} downloaded successfully")
+                print_success(f"{filename} downloaded successfully")
 
                 # Validate the downloaded file
                 if not validate_model_file(dest_path, filename):
-                    print(f"[ERROR] Downloaded file {filename} is invalid - removing")
+                    print_error(f"Downloaded file {filename} is invalid - removing")
                     try:
                         os.remove(dest_path)
                     except:
@@ -653,13 +717,13 @@ def download_model_files():
                     return False
 
             except Exception as e:
-                print(f"[ERROR] Failed to download {filename}: {e}")
+                print_error(f"Failed to download {filename}: {e}")
                 return False
         else:
-            print(f"[OK] {filename} already available")
+            print_success(f"{filename} already available")
             # Validate existing file too
             if not validate_model_file(dest_path, filename):
-                print(f"[ERROR] Existing file {filename} is invalid - removing and re-downloading")
+                print_error(f"Existing file {filename} is invalid - removing and re-downloading")
                 try:
                     os.remove(dest_path)
                     return download_file(filename, url)  # Retry download
@@ -810,7 +874,7 @@ class OrientationDetector:
             self.face_net = cv2.dnn.readNet(model_path, config_path)
             self.use_dnn_face = True
         else:
-            print("DNN face model not found. Using Haar Cascade only.")
+            print_warning("DNN face model not found. Using Haar Cascade only.")
             self.use_dnn_face = False
 
     def setup_person_detection(self):
@@ -824,7 +888,7 @@ class OrientationDetector:
                 from ultralytics import YOLO
 
                 YOLOV8_AVAILABLE = True
-                print("YOLOv8 imported successfully for person detection")
+                print_success("YOLOv8 imported successfully for person detection")
             except ImportError as e:
                 YOLOV8_AVAILABLE = False
                 raise RuntimeError(
@@ -833,14 +897,14 @@ class OrientationDetector:
 
         if YOLOV8_AVAILABLE:
             try:
-                print("Initializing YOLOv8 for enhanced body detection...")
+                print_info("Initializing YOLOv8 for enhanced body detection...")
                 from ultralytics import YOLO
 
                 self.yolov8_model = YOLO("yolov8n.pt")  # Auto-downloads if needed
                 self.use_yolov8 = True
-                print("[OK] YOLOv8 initialized successfully - using enhanced detection!")
+                print_success("YOLOv8 initialized successfully - using enhanced detection!")
             except Exception as e:
-                print(f"[ERROR] YOLOv8 initialization failed: {e}")
+                print_error(f"YOLOv8 initialization failed: {e}")
                 raise RuntimeError(
                     f"YOLOv8 is required for person detection. Installation failed: {e}"
                 )
@@ -856,24 +920,24 @@ class OrientationDetector:
         try:
             # Face module is OPTIONAL - enhanced detection only!
             if not hasattr(cv2, "face"):
-                print("[INFO] cv2.face module not available - facial landmark detection disabled")
-                print("[INFO] Install opencv-contrib-python for enhanced face analysis")
+                print_info("cv2.face module not available - facial landmark detection disabled")
+                print_info("Install opencv-contrib-python for enhanced face analysis")
                 return
 
             script_dir = os.path.dirname(os.path.abspath(__file__))
             landmark_model = os.path.join(script_dir, "lbfmodel.yaml")
             if not os.path.exists(landmark_model):
-                print(f"[INFO] Landmark model not found: {landmark_model}")
-                print("[INFO] Facial landmark detection disabled")
+                print_info(f"Landmark model not found: {landmark_model}")
+                print_info("Facial landmark detection disabled")
                 return
 
             self.landmark_detector = cv2.face.createFacemarkLBF()
             self.landmark_detector.loadModel(landmark_model)
             self.use_landmarks = True
-            print("[OK] Facial landmark detection enabled.")
+            print_success("Facial landmark detection enabled.")
         except Exception as e:
-            print(f"[INFO] Facial landmark detection setup failed: {e}")
-            print("[INFO] Continuing with core detection algorithms only")
+            print_info(f"Facial landmark detection setup failed: {e}")
+            print_info("Continuing with core detection algorithms only")
             self.use_landmarks = False
 
         # Setup additional enhanced detection methods
@@ -895,7 +959,7 @@ class OrientationDetector:
 
                 ov_core = ov.Core()
                 ov_module = ov
-                print("[OK] Using OpenVINO 2023+ API")
+                print_success("Using OpenVINO 2023+ API")
             except (ImportError, AttributeError):
                 pass
 
@@ -906,7 +970,7 @@ class OrientationDetector:
 
                     ov_core = ov.Core()
                     ov_module = ov
-                    print("[OK] Using OpenVINO runtime API (deprecated)")
+                    print_success("Using OpenVINO runtime API (deprecated)")
                 except (ImportError, AttributeError):
                     pass
 
@@ -917,12 +981,12 @@ class OrientationDetector:
 
                     ov_core = IECore()
                     ov_module = None  # Legacy mode
-                    print("[OK] Using OpenVINO legacy inference engine")
+                    print_success("Using OpenVINO legacy inference engine")
                 except ImportError:
                     pass
 
             if ov_core is None:
-                print("⚠ No compatible OpenVINO API found - enhanced detection disabled")
+                print_warning("No compatible OpenVINO API found - enhanced detection disabled")
                 return
 
             # Check for model files
@@ -947,13 +1011,11 @@ class OrientationDetector:
                     self.mobilenet_compiled = self.ov_core.load_network(self.mobilenet_model, "CPU")
 
                 self.mobilenet_available = True
-                print("[OK] MobileNetV2 OpenVINO model loaded successfully")
+                print_success("MobileNetV2 OpenVINO model loaded successfully")
             else:
                 # Check if MobileNet requirement is overridden (e.g., WSL/Linux environments)
                 if not mobilenet_required_override:
-                    print(
-                        "[INFO]  MobileNet models not available - using core detection algorithms only"
-                    )
+                    print_info("MobileNet models not available - using core detection algorithms only")
                     self.mobilenet_available = False
                 else:
                     raise FileNotFoundError(
@@ -962,7 +1024,7 @@ class OrientationDetector:
 
         except Exception as e:
             if not mobilenet_required_override:
-                print(f"[INFO]  MobileNet setup skipped: {e}")
+                print_info(f"MobileNet setup skipped: {e}")
                 self.mobilenet_available = False
             else:
                 raise RuntimeError(f"[ERROR] MobileNet setup failed - all models are required: {e}")
@@ -980,7 +1042,7 @@ class OrientationDetector:
             else:
                 return "landscape"  # Wide frame suggests landscape
         except Exception as e:
-            print(f"Error in MobileNet detection: {e}")
+            print_error(f"Error in MobileNet detection: {e}")
             return "unknown"
 
     def detect_hough_lines(self, frame: np.ndarray) -> str:
@@ -1009,7 +1071,7 @@ class OrientationDetector:
 
             return "unknown"
         except Exception as e:
-            print(f"Error in Hough line detection: {e}")
+            print_error(f"Error in Hough line detection: {e}")
             return "unknown"
 
     def analyze_aspect_ratio(self, frame: np.ndarray) -> str:
@@ -3402,76 +3464,187 @@ class OrientationDetector:
 
     def print_results(self, results: Dict):
         """
-        Print comprehensive analysis results
+        Print comprehensive analysis results with Rich formatting
         """
-        print("\n" + "=" * 60)
-        print(" VIDEO ORIENTATION ANALYSIS RESULTS")
-        print("=" * 60)
-        print(f"\n{results['verdict']}")
-        print(f"Confidence: {results['confidence']:.2%}")
-        print(f"Recommendation: {results['recommendation']}")
+        if RICH_AVAILABLE and console:
+            # Create a beautiful panel with results
+            verdict_text = Text(results['verdict'], style="bold green" if "CORRECT" in results['verdict'] else "bold red")
+            confidence_text = Text(f"Confidence: {results['confidence']:.2%}", style="cyan")
+            recommendation_text = Text(f"Recommendation: {results['recommendation']}", style="yellow")
 
-        print(f"\n[STATS] Frame Analysis:")
-        print(f"  • Total frames analyzed: {results['statistics']['total_frames']}")
-        print(f"  • Frames with humans: {results['statistics']['frames_with_humans']}")
-        print(f"  • Correct orientation: {results['correct_percentage']:.1f}%")
-        print(f"  • Incorrect orientation: {results['incorrect_percentage']:.1f}%")
-        print(f"  • Close-up shots: {results['statistics']['close_up_frames']}")
+            # Create main results panel
+            main_content = f"{verdict_text}\n{confidence_text}\n{recommendation_text}"
+            console.print(Panel(main_content, title="[bold blue]VIDEO ORIENTATION ANALYSIS RESULTS[/bold blue]", border_style="blue"))
 
-        print(f"\n[SEARCH] Detection Statistics:")
-        print(f"  • Face detections: {results['detection_types'].get('face_detections', 0)}")
-        print(f"  • Body detections: {results['detection_types'].get('body_detections', 0)}")
-        print(f"  • Close-up frames: {results['detection_types'].get('close_up_frames', 0)}")
+            # Create statistics table
+            stats_table = Table(title="[bold]Frame Analysis[/bold]", show_header=True, header_style="bold magenta")
+            stats_table.add_column("Metric", style="cyan", no_wrap=True)
+            stats_table.add_column("Value", style="green")
+            stats_table.add_column("Percentage", style="yellow")
 
-        # Enhanced detection statistics
-        enhanced_stats = results["statistics"]
-        if "mobilenet_votes" in enhanced_stats:
-            print(f"\n[AI] Enhanced Detection Votes:")
-            print(f"  • MobileNet votes: {enhanced_stats['mobilenet_votes']}")
-            print(f"  • Hough line votes: {enhanced_stats['hough_votes']}")
-            print(f"  • Aspect ratio votes: {enhanced_stats['aspect_votes']}")
-            print(f"  • Conflict resolutions: {enhanced_stats['conflict_resolutions']}")
-
-        # Show validation against reference if available
-        if hasattr(self, "current_filename") and self.current_filename:
-            validation = self.validate_against_reference(
-                self.current_filename,
-                (
-                    VideoOrientation.CORRECT
-                    if results["confidence"] > 0.5
-                    else VideoOrientation.INCORRECT
-                ),
+            stats_table.add_row(
+                "Total frames analyzed",
+                str(results['statistics']['total_frames']),
+                ""
+            )
+            stats_table.add_row(
+                "Frames with humans",
+                str(results['statistics']['frames_with_humans']),
+                ""
+            )
+            stats_table.add_row(
+                "Correct orientation",
+                str(int(results['correct_percentage'] * results['statistics']['total_frames'] / 100)),
+                f"{results['correct_percentage']:.1f}%"
+            )
+            stats_table.add_row(
+                "Incorrect orientation",
+                str(int(results['incorrect_percentage'] * results['statistics']['total_frames'] / 100)),
+                f"{results['incorrect_percentage']:.1f}%"
+            )
+            stats_table.add_row(
+                "Close-up shots",
+                str(results['statistics']['close_up_frames']),
+                ""
             )
 
-            if validation["has_reference"]:
-                print(f"\n🎯 Reference Validation:")
-                match_icon = "[OK]" if validation["is_correct"] else "[ERROR]"
-                print(f"  • Expected: {validation['expected'].upper()}")
-                print(f"  • Detected: {validation['detected'].upper()}")
-                print(f"  • Result: {match_icon} {validation['match'].upper()}")
-                if validation["notes"]:
-                    print(f"  • Notes: {validation['notes']}")
+            console.print(stats_table)
 
-        print(f"\n[TIMER] Time Analysis:")
-        print(
-            f"  • Video duration: {results.get('time_analysis', {}).get('video_duration', 0):.1f}s"
-        )
-        print(
-            f"  • Analyzed duration: {results.get('time_analysis', {}).get('analyzed_duration', 0):.1f}s"
-        )
-        print(
-            f"  • Analysis coverage: {results.get('time_analysis', {}).get('analysis_percentage', 0):.1f}%"
-        )
+            # Detection statistics
+            detection_table = Table(title="[bold]Detection Statistics[/bold]", show_header=True, header_style="bold magenta")
+            detection_table.add_column("Detection Type", style="cyan", no_wrap=True)
+            detection_table.add_column("Count", style="green")
 
-        if (
-            self.time_limit
-            and results.get("time_analysis", {}).get("analysis_percentage", 100) < 100
-        ):
+            detection_table.add_row("Face detections", str(results['detection_types'].get('face_detections', 0)))
+            detection_table.add_row("Body detections", str(results['detection_types'].get('body_detections', 0)))
+            detection_table.add_row("Close-up frames", str(results['detection_types'].get('close_up_frames', 0)))
+
+            console.print(detection_table)
+
+            # Enhanced detection statistics if available
+            enhanced_stats = results["statistics"]
+            if "mobilenet_votes" in enhanced_stats:
+                enhanced_table = Table(title="[bold]Enhanced Detection Votes[/bold]", show_header=True, header_style="bold magenta")
+                enhanced_table.add_column("Algorithm", style="cyan", no_wrap=True)
+                enhanced_table.add_column("Votes", style="green")
+
+                enhanced_table.add_row("MobileNet", str(enhanced_stats['mobilenet_votes']))
+                enhanced_table.add_row("Hough line", str(enhanced_stats['hough_votes']))
+                enhanced_table.add_row("Aspect ratio", str(enhanced_stats['aspect_votes']))
+                enhanced_table.add_row("Conflict resolutions", str(enhanced_stats['conflict_resolutions']))
+
+                console.print(enhanced_table)
+
+            # Reference validation if available
+            if hasattr(self, "current_filename") and self.current_filename:
+                validation = self.validate_against_reference(
+                    self.current_filename,
+                    (
+                        VideoOrientation.CORRECT
+                        if results["confidence"] > 0.5
+                        else VideoOrientation.INCORRECT
+                    ),
+                )
+
+                if validation["has_reference"]:
+                    validation_table = Table(title="[bold]🎯 Reference Validation[/bold]", show_header=True, header_style="bold magenta")
+                    validation_table.add_column("Aspect", style="cyan", no_wrap=True)
+                    validation_table.add_column("Result", style="green")
+
+                    validation_table.add_row("Expected", validation['expected'].upper())
+                    validation_table.add_row("Detected", validation['detected'].upper())
+                    validation_table.add_row("Match", f"[{'green' if validation['is_correct'] else 'red'}]{validation['match'].upper()}[/{'green' if validation['is_correct'] else 'red'}]")
+                    if validation["notes"]:
+                        validation_table.add_row("Notes", validation['notes'])
+
+                    console.print(validation_table)
+
+            # Time analysis
+            time_table = Table(title="[bold]⏱️ Time Analysis[/bold]", show_header=True, header_style="bold magenta")
+            time_table.add_column("Metric", style="cyan", no_wrap=True)
+            time_table.add_column("Value", style="green")
+
+            time_table.add_row("Video duration", ".1f")
+            time_table.add_row("Analyzed duration", ".1f")
+            time_table.add_row("Analysis coverage", ".1f")
+            if (
+                self.time_limit
+                and results.get("time_analysis", {}).get("analysis_percentage", 100) < 100
+            ):
+                time_table.add_row("Time limit", f"{self.time_limit}s (distributed analysis)")
+
+            console.print(time_table)
+
+        else:
+            # Fallback to original plain text output
+            print("\n" + "=" * 60)
+            print(" VIDEO ORIENTATION ANALYSIS RESULTS")
+            print("=" * 60)
+            print(f"\n{results['verdict']}")
+            print(f"Confidence: {results['confidence']:.2%}")
+            print(f"Recommendation: {results['recommendation']}")
+
+            print_info("Frame Analysis:")
+            print(f"  • Total frames analyzed: {results['statistics']['total_frames']}")
+            print(f"  • Frames with humans: {results['statistics']['frames_with_humans']}")
+            print(f"  • Correct orientation: {results['correct_percentage']:.1f}%")
+            print(f"  • Incorrect orientation: {results['incorrect_percentage']:.1f}%")
+            print(f"  • Close-up shots: {results['statistics']['close_up_frames']}")
+
+            print_info("Detection Statistics:")
+            print(f"  • Face detections: {results['detection_types'].get('face_detections', 0)}")
+            print(f"  • Body detections: {results['detection_types'].get('body_detections', 0)}")
+            print(f"  • Close-up frames: {results['detection_types'].get('close_up_frames', 0)}")
+
+            # Enhanced detection statistics
+            enhanced_stats = results["statistics"]
+            if "mobilenet_votes" in enhanced_stats:
+                print_info("Enhanced Detection Votes:")
+                print(f"  • MobileNet votes: {enhanced_stats['mobilenet_votes']}")
+                print(f"  • Hough line votes: {enhanced_stats['hough_votes']}")
+                print(f"  • Aspect ratio votes: {enhanced_stats['aspect_votes']}")
+                print(f"  • Conflict resolutions: {enhanced_stats['conflict_resolutions']}")
+
+            # Show validation against reference if available
+            if hasattr(self, "current_filename") and self.current_filename:
+                validation = self.validate_against_reference(
+                    self.current_filename,
+                    (
+                        VideoOrientation.CORRECT
+                        if results["confidence"] > 0.5
+                        else VideoOrientation.INCORRECT
+                    ),
+                )
+
+                if validation["has_reference"]:
+                    print_info("Reference Validation:")
+                    match_icon = "[OK]" if validation["is_correct"] else "[ERROR]"
+                    print(f"  • Expected: {validation['expected'].upper()}")
+                    print(f"  • Detected: {validation['detected'].upper()}")
+                    print(f"  • Result: {match_icon} {validation['match'].upper()}")
+                    if validation["notes"]:
+                        print(f"  • Notes: {validation['notes']}")
+
+            print_info("Time Analysis:")
             print(
-                f"  • Time limit: {self.time_limit}s (distributed analysis across video segments)"
+                f"  • Video duration: {results.get('time_analysis', {}).get('video_duration', 0):.1f}s"
+            )
+            print(
+                f"  • Analyzed duration: {results.get('time_analysis', {}).get('analyzed_duration', 0):.1f}s"
+            )
+            print(
+                f"  • Analysis coverage: {results.get('time_analysis', {}).get('analysis_percentage', 0):.1f}%"
             )
 
-        print("=" * 60)
+            if (
+                self.time_limit
+                and results.get("time_analysis", {}).get("analysis_percentage", 100) < 100
+            ):
+                print(
+                    f"  • Time limit: {self.time_limit}s (distributed analysis across video segments)"
+                )
+
+            print("=" * 60)
 
     def process_folder(
         self,
@@ -3496,11 +3669,11 @@ class OrientationDetector:
 
         # Security hardening: Validate folder path
         if not os.path.exists(folder_path):
-            print(f"Error: Folder '{folder_path}' does not exist")
+            print_error(f"Folder '{folder_path}' does not exist")
             return results
 
         if not os.path.isdir(folder_path):
-            print(f"Error: '{folder_path}' is not a directory")
+            print_error(f"'{folder_path}' is not a directory")
             return results
 
         # Find all video files with security limits
@@ -3523,7 +3696,7 @@ class OrientationDetector:
                             elif item.is_dir() and recursive:
                                 files.extend(get_video_files_recursive(item, current_depth + 1))
                     except PermissionError:
-                        print(f"Warning: Permission denied accessing {path}")
+                        print_warning(f"Permission denied accessing {path}")
                         return []
 
                     return files
@@ -3536,7 +3709,7 @@ class OrientationDetector:
                     if f.is_file() and f.suffix.lower() in video_extensions
                 ]
         except PermissionError:
-            print(f"Error: Cannot read contents of directory: '{folder_path}'")
+            print_error(f"Cannot read contents of directory: '{folder_path}'")
             return results
 
         # Security hardening: Apply file count limit
@@ -3547,7 +3720,7 @@ class OrientationDetector:
             video_files = video_files[:max_files]
 
         if not video_files:
-            print(f"No video files found in {folder_path}")
+            print_warning(f"No video files found in {folder_path}")
             return results
 
         segment_info = (
@@ -3555,7 +3728,7 @@ class OrientationDetector:
             if self.time_limit
             else ""
         )
-        print(f"\n[VIDEO] Found {len(video_files)} video files to process{segment_info}...")
+        print_info(f"Found {len(video_files)} video files to process{segment_info}...")
         print("=" * 80)
 
         # Process each video with progress bar and security monitoring
@@ -3571,7 +3744,7 @@ class OrientationDetector:
         for video_file in video_iterator:
             # Security hardening: Monitor processing time and resource usage
             if processed_count >= max_files:
-                print(f"Security limit reached: maximum {max_files} files processed")
+                print_warning(f"Security limit reached: maximum {max_files} files processed")
                 break
 
             processed_count += 1
@@ -3579,10 +3752,10 @@ class OrientationDetector:
             # Basic security check for each file
             file_path_str = str(video_file)
             if len(file_path_str) > 4096:  # Path length limit
-                print(f"Warning: Skipping file with path too long: {video_file.name}")
+                print_warning(f"Skipping file with path too long: {video_file.name}")
                 continue
 
-            print(f"Processing: {video_file.name}")
+            print_info(f"Processing: {video_file.name}")
 
             try:
                 result = self.process_video_quick(file_path_str)
@@ -3590,7 +3763,7 @@ class OrientationDetector:
 
                 # Show progress
                 if result.error:
-                    print(f"  [ERROR] Error: {result.error}")
+                    print_error(f"Error: {result.error}")
                 else:
                     status_icon = (
                         "[OK]"
@@ -3601,16 +3774,16 @@ class OrientationDetector:
                             else "[WARNING]"
                         )
                     )
-                    print(
-                        f"  {status_icon} {result.orientation.value.split(' -')[0]} ({result.confidence:.1%} confidence)"
+                    print_info(
+                        f"{status_icon} {result.orientation.value.split(' -')[0]} ({result.confidence:.1%} confidence)"
                     )
 
-                print(f"  [TIMER]  Processing time: {result.processing_time:.1f}s")
+                print_info(f"Processing time: {result.processing_time:.1f}s")
 
                 # Security monitoring: Check for excessive processing time
                 if result.processing_time > 300:  # 5 minutes per file is excessive
-                    print(
-                        f"  [WARNING] File took unusually long to process: {result.processing_time:.1f}s"
+                    print_warning(
+                        f"File took unusually long to process: {result.processing_time:.1f}s"
                     )
 
                 if "time_analysis" in result.detection_info and self.time_limit:
@@ -3618,8 +3791,8 @@ class OrientationDetector:
                     coverage = time_analysis.get("analysis_percentage", 0)
                     video_duration = time_analysis.get("video_duration", 0)
                     analyzed_duration = time_analysis.get("analyzed_duration", 0)
-                    print(
-                        f"  [STATS] Analyzed {coverage:.0f}% of video duration ({analyzed_duration:.1f}s / {video_duration:.1f}s)"
+                    print_info(
+                        f"Analyzed {coverage:.0f}% of video duration ({analyzed_duration:.1f}s / {video_duration:.1f}s)"
                     )
                 print()
 
@@ -3634,7 +3807,7 @@ class OrientationDetector:
                     f"Processing failed: {str(e)}",
                 )
                 results.append(error_result)
-                print(f"  [ERROR] Failed to process {video_file.name}: {e}")
+                print_error(f"Failed to process {video_file.name}: {e}")
                 print()
 
         # Generate and display summary
@@ -3643,7 +3816,7 @@ class OrientationDetector:
         # Save detailed report if requested
         if output_file:
             self.save_batch_report(results, output_file)
-            print(f"\n[STATS] Detailed report saved to: {output_file}")
+            print_info(f"Detailed report saved to: {output_file}")
 
         return results
 
@@ -3990,24 +4163,22 @@ Examples:
         ultralytics_spec = importlib.util.find_spec("ultralytics")
         if ultralytics_spec is not None:
             YOLOV8_AVAILABLE = True
-            print("YOLOv8 (ultralytics) detected - enhanced body detection enabled!")
+            print_success("YOLOv8 (ultralytics) detected - enhanced body detection enabled!")
         else:
             YOLOV8_AVAILABLE = False
-            print("ERROR: YOLOv8 not available - YOLOv8 is required for operation")
-            print("ERROR: Please install ultralytics: pip install ultralytics")
+            print_error("YOLOv8 not available - YOLOv8 is required for operation")
+            print_error("Please install ultralytics: pip install ultralytics")
             raise RuntimeError(
                 "YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics"
             )
     except Exception as e:
         YOLOV8_AVAILABLE = False
-        print(f"ERROR: YOLOv8 check failed: {e}")
-        print(
-            "ERROR: YOLOv8 is required for operation. Please install ultralytics: pip install ultralytics"
-        )
+        print_error(f"YOLOv8 check failed: {e}")
+        print_error("YOLOv8 is required for operation. Please install ultralytics: pip install ultralytics")
         raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
 
     # Enhanced input validation with security checks
-    print("[VALIDATE] Validating input parameters...")
+    print_info("Validating input parameters...")
 
     # Validate path is provided
     if not args.path:
@@ -4020,7 +4191,7 @@ Examples:
 
         # Check for path length limits (prevent extremely long paths)
         if len(args.path) > 4096:  # Common filesystem limit
-            print(f"Error: Path too long (max 4096 characters): {len(args.path)}")
+            print_error(f"Path too long (max 4096 characters): {len(args.path)}")
             return 1
 
         # Check for potentially dangerous path patterns (cross-platform)
@@ -4028,7 +4199,7 @@ Examples:
         dangerous_chars = ["\x00", "\n", "\r"]  # Null byte and line breaks
         for char in dangerous_chars:
             if char in args.path:
-                print(f"Error: Invalid characters in path: {repr(char)}")
+                print_error(f"Invalid characters in path: {repr(char)}")
                 return 1
 
         # Check for directory traversal attempts
@@ -4041,42 +4212,40 @@ Examples:
                 or "\\..\\" in normalized_path
                 or "/../" in normalized_path
             ):
-                print("Error: Directory traversal not allowed in path")
+                print_error("Directory traversal not allowed in path")
                 return 1
 
         # Check if path exists
         if not os.path.exists(args.path):
-            print(f"Error: Path does not exist: '{args.path}'")
-            print("Please check the path and try again.")
+            print_error(f"Path does not exist: '{args.path}'")
+            print_error("Please check the path and try again.")
             return 1
 
         # Check read permissions
         if not os.access(args.path, os.R_OK):
-            print(f"Error: No read permission for path: '{args.path}'")
+            print_error(f"No read permission for path: '{args.path}'")
             return 1
 
         # Additional validation for batch mode
         if args.batch:
             if not os.path.isdir(args.path):
-                print(
-                    f"Error: Batch mode requires a directory, but '{args.path}' is not a directory"
-                )
-                print("For single file processing, remove the --batch flag")
+                print_error(f"Batch mode requires a directory, but '{args.path}' is not a directory")
+                print_error("For single file processing, remove the --batch flag")
                 return 1
 
             # Check if directory is empty (warning only)
             try:
                 if not os.listdir(args.path):
-                    print(f"Warning: Directory '{args.path}' appears to be empty")
+                    print_warning(f"Directory '{args.path}' appears to be empty")
             except PermissionError:
-                print(f"Error: Cannot read contents of directory: '{args.path}'")
+                print_error(f"Cannot read contents of directory: '{args.path}'")
                 return 1
 
         else:
             # Single file mode validation
             if os.path.isdir(args.path):
-                print(f"Error: Single file mode requires a file, but '{args.path}' is a directory")
-                print("For batch processing, add the --batch flag")
+                print_error(f"Single file mode requires a file, but '{args.path}' is a directory")
+                print_error("For batch processing, add the --batch flag")
                 return 1
 
             # Basic video file extension check (not foolproof but helpful)
@@ -4093,12 +4262,12 @@ Examples:
             }
             file_ext = os.path.splitext(args.path)[1].lower()
             if file_ext not in video_extensions:
-                print(f"Warning: File extension '{file_ext}' may not be a supported video format")
-                print("Supported formats: MP4, AVI, MOV, MKV, WMV, FLV, WebM, M4V, 3GP")
-                print("Proceeding anyway...")
+                print_warning(f"File extension '{file_ext}' may not be a supported video format")
+                print_warning("Supported formats: MP4, AVI, MOV, MKV, WMV, FLV, WebM, M4V, 3GP")
+                print_warning("Proceeding anyway...")
 
     except (OSError, ValueError) as e:
-        print(f"Error: Invalid path format: {e}")
+        print_error(f"Invalid path format: {e}")
         return 1
 
     # Enhanced time limit validation
@@ -4106,20 +4275,18 @@ Examples:
         args.time_limit = None
     elif args.time_limit is not None:
         if not isinstance(args.time_limit, (int, float)) or args.time_limit <= 0:
-            print("Error: Time limit must be a positive number (seconds)")
+            print_error("Time limit must be a positive number (seconds)")
             return 1
         if args.time_limit > 3600:  # 1 hour limit
-            print("Error: Time limit too large (maximum 3600 seconds / 1 hour)")
+            print_error("Time limit too large (maximum 3600 seconds / 1 hour)")
             return 1
         if args.time_limit < 1:  # Minimum 1 second
-            print(
-                "Warning: Very short time limit ({args.time_limit}s) may not provide accurate results"
-            )
-            print("Recommended minimum: 10 seconds for reliable detection")
+            print_warning(f"Very short time limit ({args.time_limit}s) may not provide accurate results")
+            print_warning("Recommended minimum: 10 seconds for reliable detection")
 
     # Validate confidence threshold
     if not (0.0 <= args.confidence <= 1.0):
-        print("Error: Confidence threshold must be between 0.0 and 1.0")
+        print_error("Confidence threshold must be between 0.0 and 1.0")
         return 1
 
     # Validate output path if provided
@@ -4127,13 +4294,13 @@ Examples:
         try:
             output_dir = os.path.dirname(os.path.abspath(args.output))
             if output_dir and not os.path.exists(output_dir):
-                print(f"Error: Output directory does not exist: '{output_dir}'")
+                print_error(f"Output directory does not exist: '{output_dir}'")
                 return 1
             if not os.access(output_dir, os.W_OK):
-                print(f"Error: No write permission for output directory: '{output_dir}'")
+                print_error(f"No write permission for output directory: '{output_dir}'")
                 return 1
         except (OSError, ValueError) as e:
-            print(f"Error: Invalid output path: {e}")
+            print_error(f"Invalid output path: {e}")
             return 1
 
     # Validate reference file if provided
@@ -4141,25 +4308,25 @@ Examples:
         try:
             ref_path = os.path.abspath(os.path.expanduser(args.reference))
             if not os.path.exists(ref_path):
-                print(f"Error: Reference file does not exist: '{ref_path}'")
+                print_error(f"Reference file does not exist: '{ref_path}'")
                 return 1
             if not os.access(ref_path, os.R_OK):
-                print(f"Error: Cannot read reference file: '{ref_path}'")
+                print_error(f"Cannot read reference file: '{ref_path}'")
                 return 1
             # Check file size (prevent extremely large files)
             if os.path.getsize(ref_path) > 10 * 1024 * 1024:  # 10MB limit
-                print("Error: Reference file too large (maximum 10MB)")
+                print_error("Reference file too large (maximum 10MB)")
                 return 1
         except (OSError, ValueError) as e:
-            print(f"Error: Invalid reference file path: {e}")
+            print_error(f"Invalid reference file path: {e}")
             return 1
 
     # Security hardening: Validate batch processing limits
     if args.max_files < 1 or args.max_files > 10000:
-        print("Error: max-files must be between 1 and 10000")
+        print_error("max-files must be between 1 and 10000")
         return 1
     if args.max_depth < 1 or args.max_depth > 20:
-        print("Error: max-depth must be between 1 and 20")
+        print_error("max-depth must be between 1 and 20")
         return 1
 
     # Security hardening: Additional path security checks
@@ -4170,7 +4337,7 @@ Examples:
         # Resolve any symlinks and check for dangerous patterns
         resolved_path = os.path.realpath(args.path)
         if resolved_path != os.path.abspath(args.path):
-            print("Warning: Path contains symlinks - proceeding with resolved path")
+            print_warning("Path contains symlinks - proceeding with resolved path")
             args.path = resolved_path
 
         # Check for suspicious path patterns that might indicate attacks
@@ -4195,23 +4362,23 @@ Examples:
         path_lower = args.path.lower()
         for pattern in suspicious_patterns:
             if pattern in path_lower:
-                print(f"Error: Suspicious path pattern detected: {pattern}")
+                print_error(f"Suspicious path pattern detected: {pattern}")
                 return 1
 
         # Check for excessive path depth (prevent deep recursion attacks)
         path_parts = args.path.replace("\\", "/").strip("/").split("/")
         if len(path_parts) > 50:  # Reasonable maximum path depth
-            print("Error: Path depth too deep (maximum 50 levels)")
+            print_error("Path depth too deep (maximum 50 levels)")
             return 1
 
     except Exception as e:
-        print(f"Error: Path security validation failed: {e}")
+        print_error(f"Path security validation failed: {e}")
         return 1
 
-    print("[OK] Input validation passed!")
+    print_success("Input validation passed!")
 
     # Quick system check and setup
-    print("[SEARCH] Checking system requirements...")
+    print_info("Checking system requirements...")
     success, issues = check_system_requirements()
 
     # Separate different types of issues
@@ -4233,17 +4400,16 @@ Examples:
 
     # Stop immediately for non-file critical issues (Python, packages, permissions)
     if other_critical_issues:
-        print("[ERROR] Critical system issues detected:")
+        print_error("Critical system issues detected:")
         for issue in other_critical_issues:
-            print(f"   • {issue}")
+            print_error(f"   • {issue}")
         return 1
 
     # Show missing files but continue to try downloading them
     if missing_files:
-        print("[WARNING]  Missing required model files (will attempt to download):")
+        print_warning("Missing required model files (will attempt to download):")
         for issue in missing_files:
-            print(f"   • {issue}")
-        print()
+            print_warning(f"   • {issue}")
 
     # Show warnings (non-critical)
     warnings = [
@@ -4252,26 +4418,25 @@ Examples:
         if issue not in other_critical_issues and issue not in missing_files
     ]
     if warnings:
-        print("[WARNING]  System warnings (non-critical):")
+        print_warning("System warnings (non-critical):")
         for warning in warnings[:3]:  # Show only first 3 warnings
-            print(f"   • {warning}")
+            print_warning(f"   • {warning}")
         if len(warnings) > 3:
-            print(f"   ... and {len(warnings) - 3} more")
-        print()
+            print_warning(f"   ... and {len(warnings) - 3} more")
 
     # Install packages and download models (this should fix missing model files)
-    print("[PACKAGE] Setting up dependencies...")
+    print_info("Setting up dependencies...")
     try:
         if not install_required_packages():
-            print("[ERROR] Package installation failed.")
+            print_error("Package installation failed.")
             return 1
         download_model_files()
-        print("[OK] Dependencies setup complete!")
+        print_success("Dependencies setup complete!")
     except Exception as e:
-        print(f"[WARNING] Setup warning: {e}")
+        print_warning(f"Setup warning: {e}")
 
     # Final check - ensure critical model files are now present
-    print("[SEARCH] Final validation of required files...")
+    print_info("Final validation of required files...")
     files_ok, missing_files_final = check_required_model_files()
 
     if not files_ok:
@@ -4280,71 +4445,64 @@ Examples:
         other_missing = [f for f in missing_files_final if "mobilenet" not in f.lower()]
 
         if other_missing:
-            print("[ERROR] Critical model files are still missing after download attempt:")
+            print_error("Critical model files are still missing after download attempt:")
             for missing_file in other_missing:
-                print(f"   • {missing_file}")
-            print("\n[TIP] Possible solutions:")
-            print("   1. Check internet connectivity")
-            print("   2. Manually download files to script directory")
-            print("   3. Check firewall/proxy settings")
+                print_error(f"   • {missing_file}")
+            print_error("\n[TIP] Possible solutions:")
+            print_error("   1. Check internet connectivity")
+            print_error("   2. Manually download files to script directory")
+            print_error("   3. Check firewall/proxy settings")
             return 1
         elif mobilenet_missing:
-            print("[WARNING]  MobileNet models could not be downloaded automatically:")
+            print_warning("MobileNet models could not be downloaded automatically:")
             for missing_file in mobilenet_missing:
-                print(f"   • {missing_file}")
-            print("\n[RETRY] Script will continue without enhanced MobileNet detection")
+                print_warning(f"   • {missing_file}")
 
             # Provide Apple Silicon specific guidance
             if is_apple_silicon():
-                print(
-                    "[TIP] Apple Silicon (M1/M2/M3) detected - this is a known compatibility issue"
-                )
-                print("[NOTE] OpenVINO has limited support for Apple Silicon architecture")
-                print("[OK] Core detection algorithms provide excellent accuracy without MobileNet")
+                print_info("Apple Silicon (M1/M2/M3) detected - this is a known compatibility issue")
+                print_info("OpenVINO has limited support for Apple Silicon architecture")
+                print_success("Core detection algorithms provide excellent accuracy without MobileNet")
             else:
-                print("[TIP] This typically happens in some Linux/WSL environments")
-                print("[NOTE] Core detection algorithms will still provide accurate results")
+                print_info("This typically happens in some Linux/WSL environments")
+                print_info("Core detection algorithms will still provide accurate results")
 
             # Temporarily disable MobileNet requirement for this run
             global mobilenet_required_override
             mobilenet_required_override = False
     else:
-        print("[OK] All model files verified!")
-    print()
+        print_success("All model files verified!")
 
     # Security hardening: Check system resources
-    print("[SECURITY] Checking system resources...")
+    print_info("Checking system resources...")
     resources_ok, resource_warnings = check_system_resources()
 
     if not resources_ok:
-        print("[WARNING] System resource issues detected:")
+        print_warning("System resource issues detected:")
         for warning in resource_warnings:
-            print(f"   • {warning}")
-        print("Processing may be slow or unstable. Consider freeing up system resources.")
-        print()
+            print_warning(f"   • {warning}")
+        print_warning("Processing may be slow or unstable. Consider freeing up system resources.")
 
     # Security hardening: Safe defaults for processing parameters
     # Ensure time limit is reasonable to prevent excessive resource usage
     if args.time_limit is None:
         # Default time limit for security
         args.time_limit = 30.0
-        print("[SECURITY] Applied safe default: time_limit = 30.0 seconds")
+        print_info("Applied safe default: time_limit = 30.0 seconds")
 
     # Ensure confidence threshold is reasonable
     if args.confidence < 0.1:
-        print(
-            f"[WARNING] Very low confidence threshold ({args.confidence}) may produce unreliable results"
-        )
-        print("[SECURITY] Consider using confidence >= 0.3 for better reliability")
+        print_warning(f"Very low confidence threshold ({args.confidence}) may produce unreliable results")
+        print_info("Consider using confidence >= 0.3 for better reliability")
 
     # Create detector with time limit
-    print(f"[VIDEO] Smart Video Orientation Detector (SVOD) v{version}")
-    print(f"[DATE] Release: {release_name} ({release_date})")
-    print("Initializing orientation detector...")
+    print_header(f"Smart Video Orientation Detector (SVOD) v{version}")
+    print_info(f"Release: {release_name} ({release_date})")
+    print_info("Initializing orientation detector...")
     if args.time_limit:
-        print(f"[TIMER]  Time limit set to {args.time_limit} seconds (analyzing first N seconds)")
+        print_info(f"Time limit set to {args.time_limit} seconds (analyzing first N seconds)")
     else:
-        print("[TIMER]  No time limit - analyzing entire video")
+        print_info("No time limit - analyzing entire video")
 
     detector = OrientationDetector(confidence_threshold=args.confidence, time_limit=args.time_limit)
 
@@ -4355,9 +4513,9 @@ Examples:
     try:
         if args.batch:
             # Batch processing mode (validation already done above)
-            print(f"[VIDEO] Starting batch processing of folder: {args.path}")
+            print_info(f"Starting batch processing of folder: {args.path}")
             if args.recursive:
-                print("📁 Recursive mode enabled - processing subfolders")
+                print_info("Recursive mode enabled - processing subfolders")
 
             # Security hardening: Apply batch processing limits
             results = detector.process_folder(
@@ -4369,19 +4527,19 @@ Examples:
             )
 
             if not results:
-                print("No video files found or processed")
+                print_error("No video files found or processed")
                 return 1
 
             # Quick summary for command line
             needs_rotation = sum(1 for r in results if r.orientation == VideoOrientation.INCORRECT)
             total_files = len(results)
 
-            print(f"\n[FINISH] Batch processing complete!")
-            print(f"[NOTE] {needs_rotation} out of {total_files} files need rotation")
+            print_success("Batch processing complete!")
+            print_info(f"{needs_rotation} out of {total_files} files need rotation")
 
         else:
             # Single file processing mode (validation already done above)
-            print(f"Processing: {os.path.basename(args.path)}")
+            print_info(f"Processing: {os.path.basename(args.path)}")
             results = detector.process_video(
                 args.path, display=not args.no_display, output_path=args.output
             )
@@ -4390,13 +4548,13 @@ Examples:
             detector.print_results(results)
 
             if args.output:
-                print(f"\n[OK] Annotated video saved to: {args.output}")
+                print_success(f"Annotated video saved to: {args.output}")
 
     except KeyboardInterrupt:
-        print("\n\nProcessing interrupted by user")
+        print_warning("\n\nProcessing interrupted by user")
         return 1
     except Exception as e:
-        print(f"\nError processing: {e}")
+        print_error(f"Error processing: {e}")
         return 1
 
     return 0
