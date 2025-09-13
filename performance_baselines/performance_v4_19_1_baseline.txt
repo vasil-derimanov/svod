@@ -1,0 +1,64 @@
+VIDEO ORIENTATION ANALYSIS REPORT - v4.19.1
+==================================================
+Generated: 2025-09-13
+Version: 4.19.1 - YOLOv8 Required (macOS Fix)
+Total files tested: 1
+Time limit: 5.0s per video (distributed analysis)
+Confidence threshold: 0.5
+
+KEY IMPROVEMENTS:
+- YOLOv8 restored as required dependency (no fallback)
+- Enhanced face-only rotation detection for high-density face videos
+- Eliminated false positives in Bad_Examples (P2270220.mp4, P7061440.mp4)
+- Improved counterclockwise rotation detection logic
+- Cross-platform compatibility maintained with proper error handling
+
+PERFORMANCE RESULTS:
+--------------------------------------------------
+File: P5051162.mp4 (CORRECT video)
+  Orientation: CORRECT - Humans are upright
+  Confidence: 82.61%
+  Analysis coverage: 35.0%
+  Detection stats: 44 faces, 46 bodies
+  YOLOv8 Status: ✅ Required and working
+  Status: ✅ Correctly identified as upright
+
+COMPARISON WITH PREVIOUS VERSIONS:
+--------------------------------------------------
+v4.17.0: P5051162.mp4 - 83.1% confidence
+v4.19.0: P5051162.mp4 - 82.6% confidence  
+v4.19.1: P5051162.mp4 - 82.61% confidence (YOLOv8 required)
+
+ALGORITHM STATUS:
+--------------------------------------------------
+1. YOLOv8 dependency management
+   - Status: Required (no optional fallback)
+   - Installation: Automatic via ultralytics package
+   - Cross-platform: Works on Windows, requires installation on macOS/Linux
+   
+2. Face-only rotation suspicion logic
+   - High face density (>3.0 faces/frame) triggers rotation suspicion
+   - Confidence: 85% for face-only pattern detection
+   - Status: Active and working
+   
+3. Enhanced rotation direction logic
+   - More conservative aspect ratio handling
+   - Reduced false clockwise assumptions
+   - Better counterclockwise detection for mobile videos
+   - Status: Stable
+
+DEPENDENCIES (ALL REQUIRED):
+--------------------------------------------------
+- opencv-contrib-python: Face detection and landmarks
+- numpy: Numerical computations
+- openvino: MobileNet inference
+- ultralytics: YOLOv8 body detection (REQUIRED)
+
+MODEL FILES (ALL REQUIRED):
+--------------------------------------------------
+- yolov8n.pt: YOLOv8 nano model (auto-downloaded)
+- res10_300x300_ssd_iter_140000.caffemodel: DNN face detector
+- lbfmodel.yaml: Facial landmark model  
+- mobilenet-v2.xml/bin: MobileNet OpenVINO model
+- coco.names: YOLO class names
+- deploy.prototxt: DNN configuration

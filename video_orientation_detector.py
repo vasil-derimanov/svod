@@ -2,14 +2,15 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.19.0 - Face-Only Rotation Detection
+Version: 4.19.1 - YOLOv8 Required (macOS Fix)
 Date: September 13, 2025
 Author: Enhanced with AI assistance
 
 Features:
-- Multi-model detection: YOLO, DNN Face, Haar Cascades, MobileNet
+- Multi-model detection: YOLO (required), DNN Face, Haar Cascades, MobileNet
 - Enhanced face-only rotation detection for high-density face videos
-- Cross-platform compatibility (Windows, Linux, macOS with Apple Silicon graceful fallback)
+- Cross-platform compatibility (Windows, Linux, macOS with Apple Silicon support)
+- YOLOv8 required for optimal person/body detection accuracy
 - Smart dependency installation with omz_downloader for MobileNet models
 - Context-aware weighted voting system (landscape/portrait awareness)
 - Reference-based validation
@@ -37,9 +38,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.19.0"
+__version__ = "4.19.1"
 __release_date__ = "2025-09-13"
-__release_name__ = "Face-Only Rotation Detection"
+__release_name__ = "macOS/ARM Compatibility Fix"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -60,11 +61,12 @@ def install_required_packages():
         ('cv2', 'opencv-contrib-python'),  # Changed to contrib version for face landmarks
         ('numpy', 'numpy'),
         ('openvino', 'openvino'),  # Moved from optional to required
+        ('ultralytics', 'ultralytics'),  # YOLOv8 support - required
     ]
     
-    # Optional YOLOv8 package for enhanced detection
-    optional_yolo_packages = [
-        ('ultralytics', 'ultralytics')  # YOLOv8 support
+    # Optional YOLOv8 package for enhanced detection (now required)
+    required_yolo_packages = [
+        ('ultralytics', 'ultralytics')  # YOLOv8 support - required
     ]
     
     # Platform-specific packages for omz_downloader functionality
@@ -667,7 +669,7 @@ class OrientationDetector:
             self.use_dnn_face = False
 
     def setup_person_detection(self):
-        """Setup YOLOv8 person/body detection only"""
+        """Setup YOLOv8 person/body detection (required)"""
         self.use_yolov8 = False
         if YOLOV8_AVAILABLE:
             try:
@@ -677,9 +679,9 @@ class OrientationDetector:
                 print("✅ YOLOv8 initialized successfully - using enhanced detection!")
             except Exception as e:
                 print(f"❌ YOLOv8 initialization failed: {e}")
-                raise
+                raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
         else:
-            raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics.")
+            raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics")
 
     def setup_feature_detection(self):
         """Setup facial landmark detection for precise orientation"""

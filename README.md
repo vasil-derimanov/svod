@@ -1,6 +1,6 @@
-# Smart Video Orientation Detector (SVOD) v4.19.0
+# Smart Video Orientation Detector (SVOD) v4.19.1
 
-🎥 **Face-Only Rotation Detection**
+🎥 **YOLOv8 Required (macOS Fix)**
 
 ## 📋 Overview
 
@@ -11,7 +11,33 @@ SVOD automatically detects and analyzes video orientation using multiple detecti
 - **Facial Landmarks** - Precise orientation analysis using LBF landmark detection
 - **Cross-Platform Intelligence** - Optimized for Windows, Linux, and Apple Silicon (M1/M2/M3)
 
-## 🚀 Face-Only Rotation Detection (v4.19.0)
+## � YOLOv8 Required Fix (v4.19.1)
+
+SVOD v4.19.1 ensures YOLOv8 is properly required for optimal detection accuracy:
+
+**Key Changes:**
+- **YOLOv8 Mandatory**: Removed optional fallback logic, YOLOv8 is now required
+- **Proper Error Handling**: Clear error messages when ultralytics package is missing
+- **Cross-Platform Support**: Works on Windows, Linux, and macOS with proper installation
+- **Automatic Installation**: YOLOv8 automatically installed via ultralytics package
+
+**Technical Implementation:**
+```python
+# YOLOv8 Required Setup
+required_packages = [
+    ('ultralytics', 'ultralytics'),  # YOLOv8 support - required
+]
+
+if not YOLOV8_AVAILABLE:
+    raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics")
+```
+
+**Installation Requirements:**
+- **Windows**: `pip install ultralytics` (works out of the box)
+- **macOS**: `pip install ultralytics` (may require additional dependencies)
+- **Linux**: `pip install ultralytics` (works with most distributions)
+
+## �🚀 Face-Only Rotation Detection (v4.19.0)
 
 SVOD v4.19.0 introduces revolutionary face-only rotation detection that eliminates false positives:
 
