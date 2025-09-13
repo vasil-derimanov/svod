@@ -36,6 +36,10 @@ import sys
 from collections import Counter
 import platform
 import shutil
+import cProfile
+import pstats
+import io
+from contextlib import contextmanager
 
 # Version information
 __version__ = "4.19.2"
@@ -1783,6 +1787,7 @@ class OrientationDetector:
 
     def _analyze_optical_flow_rotation(
         self, prev_frame: np.ndarray, curr_frame: np.ndarray, video_aspect: float
+   
     ) -> Dict[str, float]:
         """
         Analyze optical flow patterns to detect rotation direction
@@ -3503,10 +3508,8 @@ Examples:
             YOLOV8_AVAILABLE = False
             print("ERROR: YOLOv8 not available - YOLOv8 is required for operation")
             print("ERROR: Please install ultralytics: pip install ultralytics")
-            raise RuntimeError(
-                "YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics"
-            )
-    except (ImportError, AttributeError, ModuleNotFoundError) as e:
+            raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics")
+    except Exception as e:
         YOLOV8_AVAILABLE = False
         print(f"ERROR: YOLOv8 check failed: {e}")
         print(
