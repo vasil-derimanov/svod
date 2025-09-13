@@ -2,12 +2,13 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.18.0 - YOLOv8 Only Detection (No Fallback)
-Date: September 10, 2025
+Version: 4.19.0 - Face-Only Rotation Detection
+Date: September 13, 2025
 Author: Enhanced with AI assistance
 
 Features:
 - Multi-model detection: YOLO, DNN Face, Haar Cascades, MobileNet
+- Enhanced face-only rotation detection for high-density face videos
 - Cross-platform compatibility (Windows, Linux, macOS with Apple Silicon graceful fallback)
 - Smart dependency installation with omz_downloader for MobileNet models
 - Context-aware weighted voting system (landscape/portrait awareness)
@@ -15,7 +16,7 @@ Features:
 - Auto-download of dependencies and models
 - Batch processing with comprehensive reporting
 - Time-limited analysis for efficiency
-- 100% accuracy on reference dataset
+- Enhanced false positive detection and elimination
 """
 
 # Standard library imports first
@@ -36,9 +37,9 @@ import platform
 import shutil
 
 # Version information  
-__version__ = "4.18.0"
-__release_date__ = "2025-09-10"
-__release_name__ = "YOLOv8 Only Detection"
+__version__ = "4.19.0"
+__release_date__ = "2025-09-13"
+__release_name__ = "Face-Only Rotation Detection"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -1346,30 +1347,34 @@ class OrientationDetector:
         
         # More nuanced decision making - enhanced counterclockwise detection
         if best_score < confidence_threshold:
-            # When confidence is low, use enhanced aspect ratio analysis
+            # When confidence is low, use enhanced aspect ratio analysis but with reduced trust
             if video_aspect_ratio < 0.6:  # Very portrait (like 2160x3840 = 0.56)
                 return 'counterclockwise'  # Strong bias for mobile vertical videos
             elif video_aspect_ratio < 0.9:  # Portrait-like
                 return 'counterclockwise'  # Common mobile vertical rotation
             elif video_aspect_ratio > 1.5:  # Landscape
-                # Check if we have evidence of portrait content in landscape video
-                if rotation_evidence['counterclockwise'] > rotation_evidence['clockwise'] * 1.2:
+                # Don't trust aspect ratio alone - check if we have any detection evidence
+                total_detections = len(faces) + len(bodies)
+                if total_detections < 3:  # Very few detections - can't trust aspect ratio
+                    return 'none'  # Uncertain, let frame analysis decide
+                elif rotation_evidence['counterclockwise'] > rotation_evidence['clockwise'] * 1.2:
                     return 'counterclockwise'  # Portrait content detected
                 else:
-                    return 'clockwise'  # Common camera horizontal rotation
+                    return 'none'  # Don't assume clockwise just from aspect ratio
             else:  # Near square
                 return 'counterclockwise'  # Default to counterclockwise for ambiguous cases
         
-        # If scores are very close, use enhanced aspect ratio rules
+        # If scores are very close, use enhanced aspect ratio rules but be more conservative
         if score_difference < 0.15:  # Increased threshold for more decisive action
             if video_aspect_ratio < 0.7:  # Strong portrait bias
                 return 'counterclockwise'
             elif video_aspect_ratio > 1.4:  # Strong landscape bias
-                # Check for portrait content pattern
-                if rotation_evidence['counterclockwise'] > rotation_evidence['clockwise'] * 1.1:
+                # Check for portrait content pattern, but don't trust aspect ratio alone
+                total_detections = len(faces) + len(bodies)
+                if total_detections >= 3 and rotation_evidence['counterclockwise'] > rotation_evidence['clockwise'] * 1.1:
                     return 'counterclockwise'
                 else:
-                    return 'clockwise'
+                    return 'none'  # Don't assume clockwise from aspect ratio when scores are close
             else:
                 return 'counterclockwise'  # Default to counterclockwise
         
@@ -2459,13 +2464,12 @@ class OrientationDetector:
                 # Update statistics (unified logic for all modes)
                 self.stats['total_frames'] += 1
                 has_humans = bool(detection_info['faces'] or detection_info['bodies'])
-                if orientation == VideoOrientation.CORRECT:
-                    self.stats['correct_orientation_frames'] += 1
-                    if has_humans:
+                if has_humans:
+                    if orientation == VideoOrientation.CORRECT:
+                        self.stats['correct_orientation_frames'] += 1
                         self.stats['frames_with_humans'] += 1
-                elif orientation == VideoOrientation.INCORRECT:
-                    self.stats['incorrect_orientation_frames'] += 1
-                    if has_humans:
+                    elif orientation == VideoOrientation.INCORRECT:
+                        self.stats['incorrect_orientation_frames'] += 1
                         self.stats['frames_with_humans'] += 1
                         # Collect rotation directions for all modes
                         direction = self.detect_rotation_direction(frame, detection_info['faces'], detection_info['bodies'])
@@ -2473,6 +2477,7 @@ class OrientationDetector:
                             self.stats['rotation_directions'] = []
                         self.stats['rotation_directions'].append(direction)
                 else:
+                    # Frame without humans - still count as uncertain
                     self.stats['uncertain_frames'] += 1
 
                 # Mode-specific processing (display, annotation, output)
@@ -2590,6 +2595,41 @@ class OrientationDetector:
             confidence = 0.0
             recommendation = "Try with a video containing visible people"
         else:
+            # FACE-ONLY ROTATION DETECTION IMPROVEMENT
+            # If we have only face detections and high face density, suspect rotation
+            face_density = self.stats['face_detections'] / max(self.stats['frames_with_humans'], 1)
+            has_only_faces = self.stats['body_detections'] == 0 and self.stats['face_detections'] > 0
+            
+            if has_only_faces and face_density > 3.0:  # High face density with no bodies
+                # Strong suspicion of rotation - faces might be misclassified due to rotation
+                print(f"DEBUG: Face-only high density detected ({face_density:.1f} faces/frame) - suspecting rotation")
+                # Force INCORRECT classification for face-only high density videos
+                verdict = "❌ INCORRECT"
+                confidence = 0.85  # High confidence for face-only rotation detection
+                recommendation = "Rotate 90° clockwise (face-only rotation pattern detected)"
+                
+                results = {
+                    'verdict': verdict,
+                    'confidence': confidence,
+                    'recommendation': recommendation,
+                    'statistics': self.stats,
+                    'correct_percentage': 0.0,  # Override for face-only suspicion
+                    'incorrect_percentage': 100.0,  # Override for face-only suspicion
+                    'close_up_percentage': (self.stats['close_up_frames'] / max(self.stats['total_frames'], 1)) * 100,
+                    'detection_types': {
+                        'face_detections': self.stats['face_detections'],
+                        'body_detections': self.stats['body_detections'],
+                        'face_only_rotation_suspicion': True
+                    },
+                    'time_analysis': {
+                        'video_duration': self.stats['video_duration'],
+                        'analyzed_duration': self.stats['analyzed_duration'],
+                        'analysis_percentage': (self.stats['analyzed_duration'] / max(self.stats['video_duration'], 0.01)) * 100 if self.stats['video_duration'] > 0 else 0
+                    },
+                    'analysis_quality': 'face_only_rotation_suspicion'
+                }
+                return results
+            
             correct_ratio = self.stats['correct_orientation_frames'] / self.stats['frames_with_humans']
             incorrect_ratio = self.stats['incorrect_orientation_frames'] / self.stats['frames_with_humans']
 
