@@ -1,0 +1,23 @@
+# SVOD v4.19.2 Requirements
+# Pinned versions for reproducible builds and compatibility
+
+# Core computer vision and image processing
+opencv-contrib-python==4.8.1.78
+numpy==1.26.4
+
+# AI/ML frameworks
+torch==2.8.0+cpu
+torchvision==0.23.0+cpu
+ultralytics==8.3.196
+
+# Model optimization and inference
+openvino==2024.6.0
+onnx==1.19.0
+
+# User experience and utilities
+tqdm==4.67.1
+
+# Development and testing (optional)
+black==25.1.0
+flake8==7.3.0
+pre-commit==4.3.0
