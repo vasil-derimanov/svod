@@ -33,7 +33,7 @@ jobs:
     - name: Test SVOD version (vanilla environment)
       run: |
         source .venv-macos-clean/bin/activate
-        echo "🎬 Testing SVOD v4.8.0 with enhanced DNN validation..."
+        echo "🎬 Testing SVOD v4.20.0 with enhanced DNN validation..."
         python3 video_orientation_detector.py --version
     
     - name: Test SVOD basic functionality

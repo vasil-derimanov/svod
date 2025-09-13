@@ -97,6 +97,7 @@ svod_benchmark_*.json
 svod_evolution_report_*.json
 svod_statistics.db
 svod_statistics.db-*
+comparison_results.json
 
 # Temporary files
 *.tmp
