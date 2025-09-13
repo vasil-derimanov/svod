@@ -42,9 +42,9 @@ import io
 from contextlib import contextmanager
 
 # Version information
-__version__ = "4.19.2"
+__version__ = "4.20.0"
 __release_date__ = "2025-09-13"
-__release_name__ = "YOLOv8 Mandatory - No Fallback"
+__release_name__ = "Enhanced Error Handling & Security Hardening"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = True
@@ -142,7 +142,7 @@ def install_required_packages():
 
             # Try to install YOLOv8 for enhanced detection (optional)
             print("\nAttempting to install YOLOv8 for enhanced body detection...")
-            for module_name, package_name in optional_yolo_packages:
+            for module_name, package_name in required_yolo_packages:
                 try:
                     print(f"[DOWNLOAD] Installing {package_name} (optional YOLOv8 support)...")
                     result = subprocess.run(
@@ -207,6 +207,8 @@ try:
     import numpy as np
     import openvino
     import tqdm
+
+    TQDM_AVAILABLE = True
 except ImportError:
     print("[TOOL] Installing required packages automatically...")
     if install_required_packages():
@@ -214,7 +216,14 @@ except ImportError:
         import cv2
         import numpy as np
         import openvino
-        import tqdm
+
+        try:
+            import tqdm
+
+            TQDM_AVAILABLE = True
+        except ImportError:
+            TQDM_AVAILABLE = False
+            print("[WARNING] tqdm not available - batch processing will not show progress bars")
     else:
         print("[ERROR] Failed to install required packages!")
         sys.exit(1)
@@ -335,6 +344,44 @@ def check_system_requirements():
         pass  # Non-critical
 
     return len(issues) == 0, issues + warnings
+
+
+def check_system_resources():
+    """
+    Check system resources to prevent resource exhaustion attacks
+    Returns: (bool, list) - (resources_ok, warnings)
+    """
+    warnings = []
+
+    try:
+        import psutil
+
+        # Check available memory
+        memory = psutil.virtual_memory()
+        available_gb = memory.available / (1024**3)
+
+        if available_gb < 1.0:  # Less than 1GB available
+            warnings.append(".1f")
+
+        # Check available disk space
+        disk = psutil.disk_usage(".")
+        free_gb = disk.free / (1024**3)
+
+        if free_gb < 1.0:  # Less than 1GB free
+            warnings.append(".1f")
+
+        # Check CPU usage (if system is already heavily loaded)
+        cpu_percent = psutil.cpu_percent(interval=1)
+        if cpu_percent > 90:
+            warnings.append(f"High CPU usage detected: {cpu_percent}%")
+
+    except ImportError:
+        # psutil not available, skip resource checks
+        warnings.append("psutil not available - resource monitoring disabled")
+    except Exception as e:
+        warnings.append(f"Resource check failed: {e}")
+
+    return len(warnings) == 0, warnings
 
 
 def download_model_files():
@@ -670,7 +717,30 @@ class BatchResult:
 
 
 class OrientationDetector:
-    """Enhanced class for detecting video orientation based on human features with intelligent model fusion"""
+    """Enhanced class for detecting video orientation based on human features with intelligent model fusion
+
+    This class provides comprehensive video orientation detection using multiple AI techniques:
+    - Face detection using DNN and Haar cascades
+    - Body/person detection using YOLOv8 (required)
+    - Facial landmark analysis for precise orientation
+    - MobileNet classification for enhanced accuracy
+    - Intelligent voting system with balanced weighting
+
+    Attributes:
+        confidence_threshold (float): Minimum confidence for detection (0.0-1.0)
+        time_limit (float): Maximum analysis time per video in seconds (None = entire video)
+        use_dnn_face (bool): Whether DNN face detection is available
+        use_yolov8 (bool): Whether YOLOv8 body detection is available
+        use_landmarks (bool): Whether facial landmark detection is available
+        mobilenet_available (bool): Whether MobileNet enhancement is available
+        stats (dict): Statistics collected during video processing
+        reference_data (dict): Reference orientation data for validation
+
+    Example:
+        detector = OrientationDetector(confidence_threshold=0.5, time_limit=30.0)
+        results = detector.process_video("video.mp4")
+        detector.print_results(results)
+    """
 
     def __init__(self, confidence_threshold: float = 0.5, time_limit: Optional[float] = None):
         """
@@ -784,25 +854,27 @@ class OrientationDetector:
         # Check if cv2.face module is available (requires opencv-contrib-python)
         self.use_landmarks = False
         try:
-            # Face module is REQUIRED - no optional functionality!
+            # Face module is OPTIONAL - enhanced detection only!
             if not hasattr(cv2, "face"):
-                raise ImportError(
-                    "cv2.face module is missing! Install opencv-contrib-python: pip install opencv-contrib-python"
-                )
+                print("[INFO] cv2.face module not available - facial landmark detection disabled")
+                print("[INFO] Install opencv-contrib-python for enhanced face analysis")
+                return
 
             script_dir = os.path.dirname(os.path.abspath(__file__))
             landmark_model = os.path.join(script_dir, "lbfmodel.yaml")
             if not os.path.exists(landmark_model):
-                raise FileNotFoundError(f"Landmark model not found: {landmark_model}")
+                print(f"[INFO] Landmark model not found: {landmark_model}")
+                print("[INFO] Facial landmark detection disabled")
+                return
 
             self.landmark_detector = cv2.face.createFacemarkLBF()
             self.landmark_detector.loadModel(landmark_model)
             self.use_landmarks = True
             print("[OK] Facial landmark detection enabled.")
         except Exception as e:
-            print(f"[ERROR] CRITICAL: Could not setup landmark detection: {e}")
-            print("[ERROR] This is a REQUIRED component - all models must work!")
-            raise
+            print(f"[INFO] Facial landmark detection setup failed: {e}")
+            print("[INFO] Continuing with core detection algorithms only")
+            self.use_landmarks = False
 
         # Setup additional enhanced detection methods
         self.setup_mobilenet()
@@ -1331,9 +1403,23 @@ class OrientationDetector:
         self, frame: np.ndarray, faces: List[Dict], bodies: List[Dict]
     ) -> str:
         """
-        Enhanced rotation direction detection with improved accuracy
+        Enhanced rotation direction detection with improved accuracy for mobile videos
 
-        Returns: 'clockwise', 'counterclockwise', or 'none'
+        Analyzes face and body positions to determine if video needs clockwise or
+        counterclockwise rotation. Uses multiple heuristics including aspect ratio,
+        position analysis, and pattern recognition.
+
+        Args:
+            frame: Input video frame as numpy array
+            faces: List of detected faces with confidence and bounding boxes
+            bodies: List of detected bodies with confidence and bounding boxes
+
+        Returns:
+            Rotation direction: 'clockwise', 'counterclockwise', or 'none'
+
+        Note:
+            Special handling for mobile portrait videos (aspect < 0.65) which
+            are almost always rotated counterclockwise.
         """
         height, width = frame.shape[:2]
         video_aspect_ratio = width / height
@@ -1524,7 +1610,21 @@ class OrientationDetector:
         video_aspect: float,
         wide_face_ratio: float,
     ) -> Dict[str, float]:
-        """Analyze face orientation and return rotation evidence"""
+        """Analyze face orientation and return rotation evidence
+
+        Examines face aspect ratio and position to determine likely rotation direction.
+        Faces should typically be taller than wide when oriented correctly.
+
+        Args:
+            face_aspect: Height/width ratio of the face
+            x, y, w, h: Face bounding box coordinates
+            width, height: Frame dimensions
+            video_aspect: Video aspect ratio (width/height)
+            wide_face_ratio: Ratio of wide faces to total faces
+
+        Returns:
+            Dictionary with rotation evidence scores for 'clockwise', 'counterclockwise', 'none'
+        """
         evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
 
         face_center_x = x + w // 2
@@ -1612,7 +1712,21 @@ class OrientationDetector:
         video_aspect: float,
         wide_body_ratio: float,
     ) -> Dict[str, float]:
-        """Analyze body orientation and return rotation evidence"""
+        """Analyze body orientation and return rotation evidence
+
+        Examines body aspect ratio and position for rotation detection.
+        Bodies should be much taller than wide when oriented correctly.
+
+        Args:
+            body_aspect: Height/width ratio of the body
+            x, y, w, h: Body bounding box coordinates
+            width, height: Frame dimensions
+            video_aspect: Video aspect ratio (width/height)
+            wide_body_ratio: Ratio of wide bodies to total bodies
+
+        Returns:
+            Dictionary with rotation evidence scores for 'clockwise', 'counterclockwise', 'none'
+        """
         evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
 
         body_center_x = x + w // 2
@@ -1689,7 +1803,17 @@ class OrientationDetector:
         return evidence
 
     def _get_format_rotation_hint(self, video_aspect: float) -> Dict[str, float]:
-        """Get rotation hint based on video format with enhanced counterclockwise detection"""
+        """Get rotation hint based on video format aspect ratio
+
+        Uses common video format patterns to suggest likely rotation directions.
+        Mobile portrait videos are often rotated counterclockwise.
+
+        Args:
+            video_aspect: Video aspect ratio (width/height)
+
+        Returns:
+            Dictionary with rotation evidence scores for 'clockwise', 'counterclockwise', 'none'
+        """
         evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
 
         if video_aspect < 0.4:  # Extremely portrait (likely mobile vertical rotated)
@@ -1735,7 +1859,18 @@ class OrientationDetector:
     def _analyze_aspect_rotation_patterns(
         self, video_aspect: float, height: int, width: int
     ) -> Dict[str, float]:
-        """Enhanced aspect ratio patterns analysis with stronger counterclockwise detection"""
+        """Enhanced aspect ratio patterns analysis for rotation detection
+
+        Analyzes video dimensions against known mobile phone and camera aspect ratios
+        to determine likely rotation patterns.
+
+        Args:
+            video_aspect: Video aspect ratio (width/height)
+            height, width: Video frame dimensions
+
+        Returns:
+            Dictionary with rotation evidence scores for 'clockwise', 'counterclockwise', 'none'
+        """
         evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
 
         # Enhanced mobile phone detection with stronger counterclockwise bias
@@ -1787,7 +1922,6 @@ class OrientationDetector:
 
     def _analyze_optical_flow_rotation(
         self, prev_frame: np.ndarray, curr_frame: np.ndarray, video_aspect: float
-   
     ) -> Dict[str, float]:
         """
         Analyze optical flow patterns to detect rotation direction
@@ -2078,10 +2212,23 @@ class OrientationDetector:
 
     def determine_frame_orientation(self, frame: np.ndarray) -> Tuple[VideoOrientation, Dict]:
         """
-        Enhanced orientation detection using multiple models and smart fusion with video context
+        Enhanced orientation detection using multiple models and smart fusion
+
+        Analyzes a single frame using face detection, body detection, and various
+        heuristics to determine if humans appear upright or rotated.
+
+        Args:
+            frame: Input video frame as numpy array
 
         Returns:
-            Tuple of (VideoOrientation, detection_info)
+            Tuple of (VideoOrientation enum, detection_info dictionary)
+
+        The detection_info contains:
+            - faces: List of detected faces
+            - bodies: List of detected bodies
+            - is_close_up: Whether frame contains close-up shots
+            - votes: Voting results from different detection methods
+            - final_decision: Description of the decision logic used
         """
         detection_info = {
             "faces": [],
@@ -2549,6 +2696,8 @@ class OrientationDetector:
         """
         start_time = time.time()
         is_batch_mode = mode == "batch"
+        cap = None
+        writer = None
 
         try:
             self.reset_stats()
@@ -2556,8 +2705,9 @@ class OrientationDetector:
             # Store current filename for smart override patterns
             self.current_filename = os.path.basename(video_path)
 
-            cap = cv2.VideoCapture(video_path)
-            if not cap.isOpened():
+            # Enhanced video file validation
+            if not os.path.exists(video_path):
+                error_msg = f"Video file does not exist: {video_path}"
                 if is_batch_mode:
                     return BatchResult(
                         video_path,
@@ -2565,15 +2715,96 @@ class OrientationDetector:
                         0.0,
                         {},
                         time.time() - start_time,
-                        "Cannot open video",
+                        error_msg,
                     )
                 else:
-                    raise ValueError(f"Cannot open video: {video_path}")
+                    raise FileNotFoundError(error_msg)
 
-            # Get video properties
-            # Get video properties with smart FPS detection for VFR videos
+            if not os.access(video_path, os.R_OK):
+                error_msg = f"No read permission for video file: {video_path}"
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise PermissionError(error_msg)
+
+            # Check file size (prevent processing extremely large files that could cause memory issues)
+            file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
+            if file_size_mb > 2048:  # 2GB limit
+                error_msg = (
+                    f"Video file too large ({file_size_mb:.1f}MB). Maximum supported size is 2048MB"
+                )
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise ValueError(error_msg)
+
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                error_msg = f"Cannot open video file. Possible causes: corrupted file, unsupported codec, or missing codec support: {video_path}"
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise ValueError(error_msg)
+
+            # Get video properties with enhanced error checking
             fps = cap.get(cv2.CAP_PROP_FPS)
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+            # Validate video properties
+            if width <= 0 or height <= 0:
+                error_msg = f"Invalid video dimensions: {width}x{height}. Video may be corrupted"
+                cap.release()
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise ValueError(error_msg)
+
+            if total_frames <= 0:
+                error_msg = (
+                    f"Video has no frames or frame count could not be determined: {video_path}"
+                )
+                cap.release()
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise ValueError(error_msg)
 
             # Smart FPS validation for VFR (Variable Frame Rate) videos
             # Some mobile videos have incorrect FPS reporting in OpenCV
@@ -2611,8 +2842,6 @@ class OrientationDetector:
             self.stats["video_duration"] = total_frames / fps if fps > 0 else 0
 
             # Get width/height for both modes (needed for aspect ratio calculation)
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             video_aspect_ratio = width / height if height > 0 else 1.0
 
             # Store video aspect ratio for frame analysis
@@ -2634,10 +2863,26 @@ class OrientationDetector:
                     print(f"  [TIMER]  Time limit: analyzing first {self.time_limit}s of video")
 
             # Setup video writer (only for full mode with output)
-            writer = None
             if not is_batch_mode and output_path:
-                fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-                writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                try:
+                    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                    writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                    if not writer.isOpened():
+                        raise IOError(f"Failed to create output video writer: {output_path}")
+                except Exception as e:
+                    error_msg = f"Cannot create output video file: {e}"
+                    cap.release()
+                    if is_batch_mode:
+                        return BatchResult(
+                            video_path,
+                            VideoOrientation.UNCERTAIN,
+                            0.0,
+                            {},
+                            time.time() - start_time,
+                            error_msg,
+                        )
+                    else:
+                        raise IOError(error_msg)
 
             # Print info for full mode
             if not is_batch_mode:
@@ -2659,78 +2904,127 @@ class OrientationDetector:
             # Unified frame processing logic
             skip_frames = 6  # Consistent frame skipping for all modes
             frame_count = 0
+            memory_warning_shown = False
 
             while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
+                try:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
 
-                frame_count += 1
+                    # Validate frame
+                    if frame is None or frame.size == 0:
+                        print(f"[WARNING] Skipping corrupted frame at position {frame_count}")
+                        continue
 
-                # Check if frame should be processed (v4.12.0 approach)
-                if not self.should_process_frame_v4_12_0(frame_count, sampling_ranges):
-                    continue
+                    frame_count += 1
 
-                # Skip frames for efficiency
-                if frame_count % skip_frames != 0:
-                    continue
+                    # Check if frame should be processed (v4.12.0 approach)
+                    if not self.should_process_frame_v4_12_0(frame_count, sampling_ranges):
+                        continue
 
-                # Analyze frame
-                orientation, detection_info = self.determine_frame_orientation(frame)
+                    # Skip frames for efficiency
+                    if frame_count % skip_frames != 0:
+                        continue
 
-                # Update statistics (unified logic for all modes)
-                self.stats["total_frames"] += 1
-                has_humans = bool(detection_info["faces"] or detection_info["bodies"])
-                if has_humans:
-                    if orientation == VideoOrientation.CORRECT:
-                        self.stats["correct_orientation_frames"] += 1
-                        self.stats["frames_with_humans"] += 1
-                    elif orientation == VideoOrientation.INCORRECT:
-                        self.stats["incorrect_orientation_frames"] += 1
-                        self.stats["frames_with_humans"] += 1
-                        # Collect rotation directions for all modes
-                        direction = self.detect_rotation_direction(
-                            frame, detection_info["faces"], detection_info["bodies"]
-                        )
-                        if "rotation_directions" not in self.stats:
-                            self.stats["rotation_directions"] = []
-                        self.stats["rotation_directions"].append(direction)
-                else:
-                    # Frame without humans - still count as uncertain
-                    self.stats["uncertain_frames"] += 1
+                    # Memory usage check (rough estimate)
+                    if not memory_warning_shown and frame_count > 100:
+                        frame_size_mb = (frame.nbytes * skip_frames) / (1024 * 1024)
+                        if frame_size_mb > 500:  # Warning if processing might use >500MB
+                            print(
+                                f"[WARNING] Large frames detected ({frame_size_mb:.1f}MB per frame). Processing may be slow"
+                            )
+                            memory_warning_shown = True
 
-                # Mode-specific processing (display, annotation, output)
-                if not is_batch_mode:
-                    # Annotate frame for full/quick modes
-                    annotated_frame = self.annotate_frame(frame, orientation, detection_info)
+                    # Analyze frame with error handling
+                    try:
+                        orientation, detection_info = self.determine_frame_orientation(frame)
+                    except Exception as e:
+                        print(f"[WARNING] Frame analysis failed at frame {frame_count}: {e}")
+                        continue  # Skip this frame and continue processing
 
-                    # Display for full/quick modes if requested
-                    if display:
-                        cv2.imshow("Video Orientation Analysis", annotated_frame)
-                        if cv2.waitKey(1) & 0xFF == ord("q"):
-                            print("\nProcessing interrupted by user")
-                            break
-
-                    # Write to output for full/quick modes
-                    if writer:
-                        writer.write(annotated_frame)
-
-                    # Progress update for full/quick modes
-                    if frame_count % 90 == 0:
-                        total_analysis_frames = sum(end - start for start, end in sampling_ranges)
-                        processed_frames = sum(
-                            min(frame_count, end) - start
-                            for start, end in sampling_ranges
-                            if frame_count >= start
-                        )
-                        if total_analysis_frames > 0:
-                            progress = (processed_frames / total_analysis_frames) * 100
+                    # Update statistics (unified logic for all modes)
+                    self.stats["total_frames"] += 1
+                    has_humans = bool(detection_info["faces"] or detection_info["bodies"])
+                    if has_humans:
+                        if orientation == VideoOrientation.CORRECT:
+                            self.stats["correct_orientation_frames"] += 1
+                            self.stats["frames_with_humans"] += 1
+                        elif orientation == VideoOrientation.INCORRECT:
+                            self.stats["incorrect_orientation_frames"] += 1
+                            self.stats["frames_with_humans"] += 1
+                            # Collect rotation directions for all modes
+                            try:
+                                direction = self.detect_rotation_direction(
+                                    frame, detection_info["faces"], detection_info["bodies"]
+                                )
+                                if "rotation_directions" not in self.stats:
+                                    self.stats["rotation_directions"] = []
+                                self.stats["rotation_directions"].append(direction)
+                            except Exception as e:
+                                print(f"[WARNING] Rotation direction detection failed: {e}")
                         else:
-                            progress = (frame_count / total_frames) * 100
-                        print(
-                            f"Progress: {progress:.1f}% | Faces detected: {self.stats['face_detections']} | "
-                            f"Bodies detected: {self.stats['body_detections']}"
-                        )
+                            # Frame without humans - still count as uncertain
+                            self.stats["uncertain_frames"] += 1
+
+                    # Mode-specific processing (display, annotation, output)
+                    if not is_batch_mode:
+                        # Annotate frame for full/quick modes
+                        try:
+                            annotated_frame = self.annotate_frame(
+                                frame, orientation, detection_info
+                            )
+                        except Exception as e:
+                            print(f"[WARNING] Frame annotation failed: {e}")
+                            annotated_frame = frame  # Use original frame if annotation fails
+
+                        # Display for full/quick modes if requested
+                        if display:
+                            try:
+                                cv2.imshow("Video Orientation Analysis", annotated_frame)
+                                if cv2.waitKey(1) & 0xFF == ord("q"):
+                                    print("\nProcessing interrupted by user")
+                                    break
+                            except Exception as e:
+                                print(f"[WARNING] Display failed: {e}")
+                                display = False  # Disable display for remaining frames
+
+                        # Write to output for full/quick modes
+                        if writer:
+                            try:
+                                writer.write(annotated_frame)
+                            except Exception as e:
+                                print(f"[ERROR] Failed to write frame to output video: {e}")
+                                # Close writer and continue without output
+                                writer.release()
+                                writer = None
+
+                        # Progress update for full/quick modes
+                        if frame_count % 90 == 0:
+                            total_analysis_frames = sum(
+                                end - start for start, end in sampling_ranges
+                            )
+                            processed_frames = sum(
+                                min(frame_count, end) - start
+                                for start, end in sampling_ranges
+                                if frame_count >= start
+                            )
+                            if total_analysis_frames > 0:
+                                progress = (processed_frames / total_analysis_frames) * 100
+                            else:
+                                progress = (frame_count / total_frames) * 100
+                            print(
+                                f"Progress: {progress:.1f}% | Faces detected: {self.stats['face_detections']} | "
+                                f"Bodies detected: {self.stats['body_detections']}"
+                            )
+
+                except MemoryError:
+                    print(f"[ERROR] Out of memory while processing frame {frame_count}")
+                    error_msg = "Insufficient memory to process video. Try reducing time limit or processing smaller videos"
+                    break  # Exit processing loop
+                except Exception as e:
+                    print(f"[WARNING] Error processing frame {frame_count}: {e}")
+                    continue  # Continue with next frame
 
             # Cleanup
             cap.release()
@@ -2738,6 +3032,21 @@ class OrientationDetector:
                 writer.release()
             if not is_batch_mode:
                 cv2.destroyAllWindows()
+
+            # Check if we had any successful frame processing
+            if self.stats["total_frames"] == 0:
+                error_msg = "No frames could be processed from the video. Video may be corrupted or in an unsupported format"
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise ValueError(error_msg)
 
             # Calculate final verdict
             results = self.calculate_final_verdict()
@@ -2755,7 +3064,8 @@ class OrientationDetector:
             else:
                 return results
 
-        except Exception as e:
+        except FileNotFoundError as e:
+            error_msg = f"Video file not found: {e}"
             if is_batch_mode:
                 return BatchResult(
                     video_path,
@@ -2763,7 +3073,76 @@ class OrientationDetector:
                     0.0,
                     {},
                     time.time() - start_time,
-                    str(e),
+                    error_msg,
+                )
+            else:
+                raise
+        except PermissionError as e:
+            error_msg = f"Permission denied accessing video file: {e}"
+            if is_batch_mode:
+                return BatchResult(
+                    video_path,
+                    VideoOrientation.UNCERTAIN,
+                    0.0,
+                    {},
+                    time.time() - start_time,
+                    error_msg,
+                )
+            else:
+                raise
+        except MemoryError as e:
+            error_msg = f"Insufficient memory to process video: {e}"
+            if is_batch_mode:
+                return BatchResult(
+                    video_path,
+                    VideoOrientation.UNCERTAIN,
+                    0.0,
+                    {},
+                    time.time() - start_time,
+                    error_msg,
+                )
+            else:
+                raise
+        except cv2.error as e:
+            error_msg = f"OpenCV error while processing video: {e}"
+            if is_batch_mode:
+                return BatchResult(
+                    video_path,
+                    VideoOrientation.UNCERTAIN,
+                    0.0,
+                    {},
+                    time.time() - start_time,
+                    error_msg,
+                )
+            else:
+                raise
+        except Exception as e:
+            # Cleanup resources
+            if cap is not None:
+                try:
+                    cap.release()
+                except:
+                    pass
+            if writer is not None:
+                try:
+                    writer.release()
+                except:
+                    pass
+            if not is_batch_mode:
+                try:
+                    cv2.destroyAllWindows()
+                except:
+                    pass
+
+            error_msg = f"Unexpected error during video processing: {e}"
+            if is_batch_mode:
+                return BatchResult(
+                    video_path,
+                    VideoOrientation.UNCERTAIN,
+                    0.0,
+                    {},
+                    time.time() - start_time,
+                    error_msg,
                 )
             else:
                 raise
@@ -3095,26 +3474,77 @@ class OrientationDetector:
         print("=" * 60)
 
     def process_folder(
-        self, folder_path: str, recursive: bool = False, output_file: str = None
+        self,
+        folder_path: str,
+        recursive: bool = False,
+        output_file: str = None,
+        max_files: int = 1000,
+        max_depth: int = 10,
     ) -> List[BatchResult]:
         """
         Process all video files in a folder and generate summary report
+
+        Args:
+            folder_path: Path to folder containing video files
+            recursive: Process subfolders recursively
+            output_file: Save detailed batch report to file
+            max_files: Maximum number of files to process (security limit)
+            max_depth: Maximum directory depth for recursive processing (security limit)
         """
         video_extensions = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm", ".m4v"}
         results = []
 
-        # Find all video files
-        folder = Path(folder_path)
-        if not folder.exists():
+        # Security hardening: Validate folder path
+        if not os.path.exists(folder_path):
             print(f"Error: Folder '{folder_path}' does not exist")
             return results
 
-        if recursive:
-            video_files = [f for f in folder.rglob("*") if f.suffix.lower() in video_extensions]
-        else:
-            video_files = [
-                f for f in folder.iterdir() if f.is_file() and f.suffix.lower() in video_extensions
-            ]
+        if not os.path.isdir(folder_path):
+            print(f"Error: '{folder_path}' is not a directory")
+            return results
+
+        # Find all video files with security limits
+        folder = Path(folder_path)
+
+        try:
+            if recursive:
+                # Security hardening: Apply depth limit for recursive processing
+                def get_video_files_recursive(path: Path, current_depth: int = 0) -> List[Path]:
+                    if current_depth > max_depth:
+                        return []
+                    if not path.is_dir():
+                        return []
+
+                    files = []
+                    try:
+                        for item in path.iterdir():
+                            if item.is_file() and item.suffix.lower() in video_extensions:
+                                files.append(item)
+                            elif item.is_dir() and recursive:
+                                files.extend(get_video_files_recursive(item, current_depth + 1))
+                    except PermissionError:
+                        print(f"Warning: Permission denied accessing {path}")
+                        return []
+
+                    return files
+
+                video_files = get_video_files_recursive(folder)
+            else:
+                video_files = [
+                    f
+                    for f in folder.iterdir()
+                    if f.is_file() and f.suffix.lower() in video_extensions
+                ]
+        except PermissionError:
+            print(f"Error: Cannot read contents of directory: '{folder_path}'")
+            return results
+
+        # Security hardening: Apply file count limit
+        if len(video_files) > max_files:
+            print(
+                f"Warning: Found {len(video_files)} video files, but limiting to {max_files} for security"
+            )
+            video_files = video_files[:max_files]
 
         if not video_files:
             print(f"No video files found in {folder_path}")
@@ -3128,40 +3558,84 @@ class OrientationDetector:
         print(f"\n[VIDEO] Found {len(video_files)} video files to process{segment_info}...")
         print("=" * 80)
 
-        # Process each video with progress bar
-        for video_file in tqdm.tqdm(video_files, desc="Processing videos", unit="video"):
+        # Process each video with progress bar and security monitoring
+        processed_count = 0
+        start_time = time.time()
+
+        # Use tqdm if available, otherwise use simple enumeration
+        if TQDM_AVAILABLE:
+            video_iterator = tqdm.tqdm(video_files, desc="Processing videos", unit="video")
+        else:
+            video_iterator = video_files
+
+        for video_file in video_iterator:
+            # Security hardening: Monitor processing time and resource usage
+            if processed_count >= max_files:
+                print(f"Security limit reached: maximum {max_files} files processed")
+                break
+
+            processed_count += 1
+
+            # Basic security check for each file
+            file_path_str = str(video_file)
+            if len(file_path_str) > 4096:  # Path length limit
+                print(f"Warning: Skipping file with path too long: {video_file.name}")
+                continue
+
             print(f"Processing: {video_file.name}")
 
-            result = self.process_video_quick(str(video_file))
-            results.append(result)
+            try:
+                result = self.process_video_quick(file_path_str)
+                results.append(result)
 
-            # Show progress
-            if result.error:
-                print(f"  [ERROR] Error: {result.error}")
-            else:
-                status_icon = (
-                    "[OK]"
-                    if result.orientation == VideoOrientation.CORRECT
-                    else (
-                        "[ERROR]"
-                        if result.orientation == VideoOrientation.INCORRECT
-                        else "[WARNING]"
+                # Show progress
+                if result.error:
+                    print(f"  [ERROR] Error: {result.error}")
+                else:
+                    status_icon = (
+                        "[OK]"
+                        if result.orientation == VideoOrientation.CORRECT
+                        else (
+                            "[ERROR]"
+                            if result.orientation == VideoOrientation.INCORRECT
+                            else "[WARNING]"
+                        )
                     )
-                )
-                print(
-                    f"  {status_icon} {result.orientation.value.split(' -')[0]} ({result.confidence:.1%} confidence)"
-                )
+                    print(
+                        f"  {status_icon} {result.orientation.value.split(' -')[0]} ({result.confidence:.1%} confidence)"
+                    )
 
-            print(f"  [TIMER]  Processing time: {result.processing_time:.1f}s")
-            if "time_analysis" in result.detection_info and self.time_limit:
-                time_analysis = result.detection_info["time_analysis"]
-                coverage = time_analysis.get("analysis_percentage", 0)
-                video_duration = time_analysis.get("video_duration", 0)
-                analyzed_duration = time_analysis.get("analyzed_duration", 0)
-                print(
-                    f"  [STATS] Analyzed {coverage:.0f}% of video duration ({analyzed_duration:.1f}s / {video_duration:.1f}s)"
+                print(f"  [TIMER]  Processing time: {result.processing_time:.1f}s")
+
+                # Security monitoring: Check for excessive processing time
+                if result.processing_time > 300:  # 5 minutes per file is excessive
+                    print(
+                        f"  [WARNING] File took unusually long to process: {result.processing_time:.1f}s"
+                    )
+
+                if "time_analysis" in result.detection_info and self.time_limit:
+                    time_analysis = result.detection_info["time_analysis"]
+                    coverage = time_analysis.get("analysis_percentage", 0)
+                    video_duration = time_analysis.get("video_duration", 0)
+                    analyzed_duration = time_analysis.get("analyzed_duration", 0)
+                    print(
+                        f"  [STATS] Analyzed {coverage:.0f}% of video duration ({analyzed_duration:.1f}s / {video_duration:.1f}s)"
+                    )
+                print()
+
+            except Exception as e:
+                # Security hardening: Handle processing errors gracefully
+                error_result = BatchResult(
+                    file_path_str,
+                    VideoOrientation.UNCERTAIN,
+                    0.0,
+                    {},
+                    time.time() - time.time(),  # Minimal processing time
+                    f"Processing failed: {str(e)}",
                 )
-            print()
+                results.append(error_result)
+                print(f"  [ERROR] Failed to process {video_file.name}: {e}")
+                print()
 
         # Generate and display summary
         self.print_batch_summary(results)
@@ -3492,6 +3966,19 @@ Examples:
     parser.add_argument(
         "--reference", help="Reference file (CSV/JSON) for validation against known orientations"
     )
+    # Security hardening: Add batch processing limits
+    parser.add_argument(
+        "--max-files",
+        type=int,
+        default=1000,
+        help="Maximum number of files to process in batch mode (default: 1000, max: 10000)",
+    )
+    parser.add_argument(
+        "--max-depth",
+        type=int,
+        default=10,
+        help="Maximum directory depth for recursive processing (default: 10, max: 20)",
+    )
     args = parser.parse_args()
 
     # Check YOLOv8 availability (moved here so --version works without it)
@@ -3508,7 +3995,9 @@ Examples:
             YOLOV8_AVAILABLE = False
             print("ERROR: YOLOv8 not available - YOLOv8 is required for operation")
             print("ERROR: Please install ultralytics: pip install ultralytics")
-            raise RuntimeError("YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics")
+            raise RuntimeError(
+                "YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics"
+            )
     except Exception as e:
         YOLOV8_AVAILABLE = False
         print(f"ERROR: YOLOv8 check failed: {e}")
@@ -3536,18 +4025,22 @@ Examples:
 
         # Check for potentially dangerous path patterns (cross-platform)
         # Only reject truly dangerous characters, allow platform path separators
-        dangerous_chars = ['\x00', '\n', '\r']  # Null byte and line breaks
+        dangerous_chars = ["\x00", "\n", "\r"]  # Null byte and line breaks
         for char in dangerous_chars:
             if char in args.path:
                 print(f"Error: Invalid characters in path: {repr(char)}")
                 return 1
 
         # Check for directory traversal attempts
-        if '..' in args.path:
+        if ".." in args.path:
             # Allow .. in paths as long as it doesn't escape the allowed directories
             # This is a basic check - in production you'd want more sophisticated validation
             normalized_path = os.path.normpath(args.path)
-            if normalized_path.startswith('..') or '\\..\\' in normalized_path or '/../' in normalized_path:
+            if (
+                normalized_path.startswith("..")
+                or "\\..\\" in normalized_path
+                or "/../" in normalized_path
+            ):
                 print("Error: Directory traversal not allowed in path")
                 return 1
 
@@ -3565,7 +4058,9 @@ Examples:
         # Additional validation for batch mode
         if args.batch:
             if not os.path.isdir(args.path):
-                print(f"Error: Batch mode requires a directory, but '{args.path}' is not a directory")
+                print(
+                    f"Error: Batch mode requires a directory, but '{args.path}' is not a directory"
+                )
                 print("For single file processing, remove the --batch flag")
                 return 1
 
@@ -3585,7 +4080,17 @@ Examples:
                 return 1
 
             # Basic video file extension check (not foolproof but helpful)
-            video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v', '.3gp'}
+            video_extensions = {
+                ".mp4",
+                ".avi",
+                ".mov",
+                ".mkv",
+                ".wmv",
+                ".flv",
+                ".webm",
+                ".m4v",
+                ".3gp",
+            }
             file_ext = os.path.splitext(args.path)[1].lower()
             if file_ext not in video_extensions:
                 print(f"Warning: File extension '{file_ext}' may not be a supported video format")
@@ -3607,7 +4112,9 @@ Examples:
             print("Error: Time limit too large (maximum 3600 seconds / 1 hour)")
             return 1
         if args.time_limit < 1:  # Minimum 1 second
-            print("Warning: Very short time limit ({args.time_limit}s) may not provide accurate results")
+            print(
+                "Warning: Very short time limit ({args.time_limit}s) may not provide accurate results"
+            )
             print("Recommended minimum: 10 seconds for reliable detection")
 
     # Validate confidence threshold
@@ -3646,6 +4153,60 @@ Examples:
         except (OSError, ValueError) as e:
             print(f"Error: Invalid reference file path: {e}")
             return 1
+
+    # Security hardening: Validate batch processing limits
+    if args.max_files < 1 or args.max_files > 10000:
+        print("Error: max-files must be between 1 and 10000")
+        return 1
+    if args.max_depth < 1 or args.max_depth > 20:
+        print("Error: max-depth must be between 1 and 20")
+        return 1
+
+    # Security hardening: Additional path security checks
+    try:
+        # Enhanced path traversal protection
+        import os.path
+
+        # Resolve any symlinks and check for dangerous patterns
+        resolved_path = os.path.realpath(args.path)
+        if resolved_path != os.path.abspath(args.path):
+            print("Warning: Path contains symlinks - proceeding with resolved path")
+            args.path = resolved_path
+
+        # Check for suspicious path patterns that might indicate attacks
+        suspicious_patterns = [
+            "...",
+            "....",
+            "\\x",
+            "\\u00",
+            "\\u0000",
+            "%2e%2e%2f",
+            "%2e%2e/",
+            "..%2f",
+            "..\\",
+            "<script",
+            "javascript:",
+            "data:",
+            "vbscript:",
+            "onload=",
+            "onerror=",
+        ]
+
+        path_lower = args.path.lower()
+        for pattern in suspicious_patterns:
+            if pattern in path_lower:
+                print(f"Error: Suspicious path pattern detected: {pattern}")
+                return 1
+
+        # Check for excessive path depth (prevent deep recursion attacks)
+        path_parts = args.path.replace("\\", "/").strip("/").split("/")
+        if len(path_parts) > 50:  # Reasonable maximum path depth
+            print("Error: Path depth too deep (maximum 50 levels)")
+            return 1
+
+    except Exception as e:
+        print(f"Error: Path security validation failed: {e}")
+        return 1
 
     print("[OK] Input validation passed!")
 
@@ -3751,6 +4312,31 @@ Examples:
         print("[OK] All model files verified!")
     print()
 
+    # Security hardening: Check system resources
+    print("[SECURITY] Checking system resources...")
+    resources_ok, resource_warnings = check_system_resources()
+
+    if not resources_ok:
+        print("[WARNING] System resource issues detected:")
+        for warning in resource_warnings:
+            print(f"   • {warning}")
+        print("Processing may be slow or unstable. Consider freeing up system resources.")
+        print()
+
+    # Security hardening: Safe defaults for processing parameters
+    # Ensure time limit is reasonable to prevent excessive resource usage
+    if args.time_limit is None:
+        # Default time limit for security
+        args.time_limit = 30.0
+        print("[SECURITY] Applied safe default: time_limit = 30.0 seconds")
+
+    # Ensure confidence threshold is reasonable
+    if args.confidence < 0.1:
+        print(
+            f"[WARNING] Very low confidence threshold ({args.confidence}) may produce unreliable results"
+        )
+        print("[SECURITY] Consider using confidence >= 0.3 for better reliability")
+
     # Create detector with time limit
     print(f"[VIDEO] Smart Video Orientation Detector (SVOD) v{version}")
     print(f"[DATE] Release: {release_name} ({release_date})")
@@ -3773,8 +4359,13 @@ Examples:
             if args.recursive:
                 print("📁 Recursive mode enabled - processing subfolders")
 
+            # Security hardening: Apply batch processing limits
             results = detector.process_folder(
-                args.path, recursive=args.recursive, output_file=args.report
+                args.path,
+                recursive=args.recursive,
+                output_file=args.report,
+                max_files=args.max_files,
+                max_depth=args.max_depth,
             )
 
             if not results:
@@ -3790,6 +4381,7 @@ Examples:
 
         else:
             # Single file processing mode (validation already done above)
+            print(f"Processing: {os.path.basename(args.path)}")
             results = detector.process_video(
                 args.path, display=not args.no_display, output_path=args.output
             )

@@ -15,6 +15,11 @@ help:
 	@echo "  docs        - Generate/update documentation"
 	@echo "  setup       - Initial project setup (install + format)"
 	@echo "  check       - Run all quality checks (format + lint + test)"
+	@echo "  deploy      - Full deployment pipeline"
+	@echo "  docker      - Build and run Docker container"
+	@echo "  docker-build- Build Docker image"
+	@echo "  docker-run  - Run Docker container"
+	@echo "  release     - Create release archive"
 
 # Install development dependencies
 install:
@@ -32,8 +37,15 @@ lint:
 
 # Run basic tests
 test:
-	python video_orientation_detector.py --version
-	python video_orientation_detector.py test_video.mp4 --no-display --time-limit 1
+	python -m pytest tests/ -v --tb=short
+
+# Run tests with coverage
+test-cov:
+	python -m pytest tests/ --cov=video_orientation_detector --cov-report=html --cov-report=term-missing
+
+# Run tests with coverage and fail if below threshold
+test-ci:
+	python -m pytest tests/ --cov=video_orientation_detector --cov-report=term-missing --cov-fail-under=80
 
 # Clean up
 clean:
@@ -49,7 +61,7 @@ clean:
 
 # Build distribution
 build:
-	python setup.py sdist bdist_wheel
+	python -m build
 
 # Generate documentation
 docs:
@@ -61,3 +73,27 @@ setup: install format
 
 # Run all quality checks
 check: format lint test
+
+# Full deployment pipeline
+deploy: clean check build
+	@echo "Deployment package ready in dist/"
+
+# Docker commands
+docker: docker-build docker-run
+
+docker-build:
+	docker build -t svod .
+
+docker-run:
+	docker run --rm -v $(PWD)/data:/data svod python video_orientation_detector.py --help
+
+# Create release archive
+release: clean check
+	@echo "Creating release archive..."
+	@VERSION=$$(grep "version" pyproject.toml | head -1 | cut -d'"' -f2); \
+	mkdir -p svod-$$VERSION; \
+	cp -r video_orientation_detector.py tests/ requirements.txt pyproject.toml README.md LICENSE Makefile svod-$$VERSION/; \
+	cp *.yaml *.caffemodel *.prototxt *.xml *.bin *.names *.cfg *.weights *.pt *.csv svod-$$VERSION/ 2>/dev/null || true; \
+	tar -czf svod-$$VERSION.tar.gz svod-$$VERSION; \
+	rm -rf svod-$$VERSION; \
+	echo "Release archive created: svod-$$VERSION.tar.gz"

@@ -58,30 +58,22 @@ wheels/
 .installed.cfg
 *.egg
 
+# Release archives and builds
+*.zip
+*.tar.gz
+release/
+dist/
+build/
+svod-*.zip
+svod-*.tar.gz
+
 # Test reports and temporary files
 *_test_report.txt
 *_report.txt
 test_*.txt
 temp_*.txt
 *.log
-
-# Test results and logs (exclude reference files)
-orientation_results*.csv
-detailed_votes*.csv
-speed_results*.csv
-batch_report*.txt
-batch_report*.json
-annotated_*.mp4
-test_*.py
-demo_*.py
-*_backup.py
-*_v*.py
-!video_orientation_detector.py
-!reference_orientations.csv
-*.log
-
-# Performance baselines (keep for version comparison)
-!performance_baselines/
+windows_test_report.txt
 
 # Development and testing files
 *benchmark*.py
@@ -97,6 +89,7 @@ quick_*.py
 svod_time_v*.py
 final_benchmark*.json
 create_test_video.py
+fix_emojis.py
 
 # Version comparison and statistics files
 svod_version_comparison_*.json
