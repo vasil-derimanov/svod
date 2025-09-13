@@ -16,7 +16,7 @@ onnx==1.19.0
 
 # User experience and utilities
 tqdm==4.67.1
-rich==13.7.1
+rich>=13.7.1
 
 # Development and testing (optional)
 black==25.1.0

@@ -64,12 +64,20 @@ def install_required_packages():
     print_info("Checking and installing required packages...")
 
     required_packages = [
-        ("cv2", "opencv-contrib-python"),  # Changed to contrib version for face landmarks
-        ("numpy", "numpy"),
-        ("openvino", "openvino"),  # Moved from optional to required
-        ("ultralytics", "ultralytics"),  # YOLOv8 support - required
-        ("tqdm", "tqdm"),  # Progress bars for batch processing
-        ("rich", "rich"),  # Enhanced console output
+        ("cv2", "opencv-contrib-python==4.8.1.78"),  # Changed to contrib version for face landmarks
+        ("numpy", "numpy==1.26.4"),
+        ("torch", "torch==2.8.0"),  # PyTorch for model conversion
+        ("torchvision", "torchvision==0.23.0"),  # PyTorch vision for model conversion
+        ("ultralytics", "ultralytics==8.3.196"),  # YOLOv8 support - required
+        ("openvino", "openvino==2024.6.0"),  # OpenVINO for optimized inference
+        ("onnx", "onnx==1.19.0"),  # ONNX for model format conversion
+        ("tqdm", "tqdm==4.67.1"),  # Progress bars for batch processing
+        ("rich", "rich>=13.7.1"),  # Enhanced console output
+        ("black", "black==25.1.0"),  # Code formatting
+        ("flake8", "flake8==7.3.0"),  # Code linting
+        ("pre_commit", "pre-commit==4.3.0"),  # Git hooks for code quality
+        ("pytest", "pytest==8.3.4"),  # Testing framework
+        ("pytest_cov", "pytest-cov==6.0.0"),  # Test coverage reporting
     ]
 
     # Optional YOLOv8 package for enhanced detection (now required)
