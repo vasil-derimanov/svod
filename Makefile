@@ -16,9 +16,6 @@ help:
 	@echo "  setup       - Initial project setup (install + format)"
 	@echo "  check       - Run all quality checks (format + lint + test)"
 	@echo "  deploy      - Full deployment pipeline"
-	@echo "  docker      - Build and run Docker container"
-	@echo "  docker-build- Build Docker image"
-	@echo "  docker-run  - Run Docker container"
 	@echo "  release     - Create release archive"
 
 # Install development dependencies
@@ -77,9 +74,6 @@ check: format lint test
 # Full deployment pipeline
 deploy: clean check build
 	@echo "Deployment package ready in dist/"
-
-# Docker commands
-docker: docker-build docker-run
 
 docker-build:
 	docker build -t svod .

@@ -986,22 +986,6 @@ class OrientationDetector:
                 return True
         return False
 
-    def get_max_frame_for_time_limit(self, fps: float) -> Optional[int]:
-        """
-        Calculate maximum frame number to process based on time limit
-        
-        DEPRECATED: Use should_process_frame() for smart sampling instead
-
-        Args:
-            fps: Video frames per second
-
-        Returns:
-            Maximum frame number or None if no limit
-        """
-        if self.time_limit is None:
-            return None
-        return int(self.time_limit * fps)
-
     def detect_faces_dnn(self, frame: np.ndarray) -> List[Dict]:
         """
         Detect faces using DNN method with orientation hints

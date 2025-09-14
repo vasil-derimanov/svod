@@ -108,7 +108,7 @@ python video_orientation_detector.py /path/to/videos --batch --max-files 500 --m
 python video_orientation_detector.py folder --batch --reference orientations.csv
 
 # Combined options for large datasets
-python video_orientation_detector.py /videos --batch -r --time-limit 30 --report detailed.json -c 0.8
+python video_orientation_detector.py /videos --batch -r --time-limit 10 --report detailed.json -c 0.8
 ```
 
 ## ⚙️ Command Line Options
@@ -119,7 +119,7 @@ python video_orientation_detector.py /videos --batch -r --time-limit 30 --report
 | `--output` | `-o` | Save annotated video | None |
 | `--no-display` | | Process without preview | False |
 | `--confidence` | `-c` | Detection threshold (0.0-1.0) | 0.5 |
-| `--time-limit` | `-t` | Max analysis time (seconds) | 30 |
+| `--time-limit` | `-t` | Max analysis time (seconds) | None (unlimited) |
 | `--no-time-limit` | | Analyze entire video | False |
 | `--batch` | | Enable batch processing | False |
 | `--recursive` | `-r` | Process subfolders | False |
@@ -338,7 +338,7 @@ python cleanup.py
 - **Combined Analysis**: 90%+ overall accuracy with balanced weighting
 
 ### Processing Speed
-- **Single Video**: 5-30 seconds depending on length
+- **Single Video**: 5+ seconds depending on length and time limit
 - **Batch Processing**: 2-10x faster with `--no-display`
 - **Time Limits**: Configurable analysis duration
 - **GPU Acceleration**: Automatic when available

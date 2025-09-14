@@ -1,5 +1,107 @@
 # GitHub Copilot Instructions for SVOD Project
 
+## 🚫 STRICT RULES - NEVER VIOLATE
+
+### 1. NO HARDCODED FILE-SPECIFIC OVERRIDES
+**CRITICAL RULE**: Never create hardcoded overrides for any specific file!
+
+- ❌ **FORBIDDEN**: `if filename == "P2170127.mp4": return INCORRECT`
+- ❌ **FORBIDDEN**: Special conditions for specific files
+- ❌ **FORBIDDEN**: Hardcoded solutions for known problems
+
+- ✅ **ALLOWED**: Generic logic that works for all files
+- ✅ **ALLOWED**: Pattern-based recognition (aspect ratio, detection patterns)
+- ✅ **ALLOWED**: Reference data for algorithm improvement
+- ✅ **ALLOWED**: Machine learning approaches for generic solutions
+
+**Rationale**: Code must be generic and work for all cases, not have special cases for specific files. This leads to:
+- Maintainable code
+- Correct behavior for new files
+- Avoidance of technical debt
+- Better software architecture
+
+### 2. NO DUPLICATE COPILOT-INSTRUCTIONS FILES
+**CRITICAL RULE**: Never create a new `copilot-instructions.md` file in the project's root directory!
+
+- ❌ **FORBIDDEN**: Creating `C:\Users\boris\svod\copilot-instructions.md`
+- ❌ **FORBIDDEN**: Duplicating instructions in other directories
+- ❌ **FORBIDDEN**: Splitting instructions across multiple files
+
+- ✅ **ALLOWED**: Use only the original `.github\workflows\copilot-instructions.md` file
+- ✅ **ALLOWED**: Add new instructions to the existing file
+- ✅ **ALLOWED**: Update and improve the original file
+
+### 3. NO SIMULATIONS - USE REAL VIDEO FILES ONLY
+**CRITICAL RULE**: Never use simulations, mocks, or artificial test data for video processing tests!
+
+- ❌ **FORBIDDEN**: Mock video files, synthetic data, or simulated detection results
+- ❌ **FORBIDDEN**: Creating test scripts that don't use real video files
+- ❌ **FORBIDDEN**: "Mock detection scenarios" or artificial test cases
+- ❌ **FORBIDDEN**: Testing with generated/fake video content
+- ❌ **FORBIDDEN**: np.zeros() frames or manually created video data
+- ❌ **FORBIDDEN**: Simulated face/body detections without real video processing
+- ❌ **FORBIDDEN**: Test scripts that claim to test "P2170127.mp4" but use artificial data
+
+
+- ✅ **ALLOWED**: Real video files from designated test directories
+- ✅ **ALLOWED**: Reference data for algorithm improvement (CSV files, etc.)
+- ✅ **ALLOWED**: Unit tests for individual functions with controlled inputs
+- ✅ **ALLOWED**: Integration tests using actual video files
+- ✅ **ALLOWED**: Testing with actual video files that exist on disk
+
+**Rationale**: Video orientation detection must be tested with real video files to ensure accuracy and reliability. Simulations cannot replicate the complexity of real video processing, leading to:
+- False confidence in detection algorithms
+- Undetected edge cases and failures
+- Poor performance with actual video files
+- Inaccurate results in production use
+
+**Test Data Sources** (see section below for details):
+- Quick tests: `C:\Users\boris\Videos`
+- Test videos are REAL files that must exist on disk
+- Comprehensive tests: `C:\Users\boris\Good_Examples` and `C:\Users\boris\Bad_Examples`
+
+### 4. TIME LIMIT CONSTRAINTS FOR TESTING
+**CRITICAL RULE**: Strict time limits must be enforced during testing!
+
+- ❌ **FORBIDDEN**: Testing without explicit --time-limit parameter
+- ❌ **FORBIDDEN**: Time limits exceeding 30 seconds per video file
+- ❌ **FORBIDDEN**: Unlimited processing time during testing
+
+- ✅ **ALLOWED**: Start with --time-limit 5 seconds for initial testing
+- ✅ **ALLOWED**: Increase to maximum 30 seconds if better detection is needed
+- ✅ **ALLOWED**: Different time limits for different test scenarios (5s-30s range)
+
+**Testing Time Guidelines**:
+- **Quick validation**: --time-limit 5 seconds (fast feedback)
+- **Standard testing**: --time-limit 10-15 seconds (balanced performance)
+- **Comprehensive analysis**: --time-limit 20-30 seconds (maximum allowed)
+- **Performance benchmarking**: --time-limit 30 seconds (full analysis)
+
+**Rationale**: Video processing is resource-intensive and time limits ensure:
+- Consistent and predictable test execution times
+- Prevention of excessive resource consumption
+- Realistic performance expectations for production use
+- Efficient development workflow without unnecessary delays
+
+### 5. ENGLISH-ONLY DOCUMENTATION AND COMMENTS
+**CRITICAL RULE**: All documentation, comments, and text must be written in English only!
+
+- ❌ **FORBIDDEN**: Bulgarian text in any documentation files
+- ❌ **FORBIDDEN**: Non-English comments in code files
+- ❌ **FORBIDDEN**: Mixed language documentation
+- ❌ **FORBIDDEN**: Bulgarian variable names or function names
+
+- ✅ **ALLOWED**: English documentation only
+- ✅ **ALLOWED**: English code comments only
+- ✅ **ALLOWED**: English variable and function names
+- ✅ **ALLOWED**: English error messages and user output
+
+**Rationale**: English-only ensures:
+- International collaboration and maintainability
+- Consistent professional documentation standards
+- Better code readability for global developers
+- Unified project language across all components
+
 ## Project Overview
 
 **SVOD (Smart Video Orientation Detector)** is a Python-based video analysis tool that automatically detects whether videos are correctly oriented or need rotation. The project uses computer vision techniques including face detection, body detection, and various heuristics to determine video orientation.
@@ -31,27 +133,40 @@
 ```
 svod/
 ├── video_orientation_detector.py    # Main application (v4.20.0)
-├── video_orientation_detector_old.py # Backup version for comparison
-├── test_batch.py                    # Batch testing utility
+├── video_orientation_detector_old.py # Backup version for comparison (DO NOT DELETE)
+├── test_batch.py                    # ACTIVE: Batch testing utility (DO NOT DELETE)
 ├── test_single.py                   # Single file testing
 ├── test_comparison.py               # Version comparison testing
+├── reference_orientations.csv       # Test data reference file (DO NOT DELETE)
 ├── pyproject.toml                   # Project config (setuptools)
 ├── requirements.txt                 # Dependencies
 ├── Makefile                         # Development automation
-└── tests/                           # Test suite
-    ├── conftest.py
-    ├── test_*.py
+├── cleanup.ps1                      # PowerShell cleanup script (DO NOT DELETE)
+├── cleanup.py                       # Python cleanup script (DO NOT DELETE)
+├── .pre-commit-config.yaml          # Pre-commit hooks configuration (DO NOT DELETE)
+├── .vscode/                         # VS Code workspace settings (DO NOT DELETE)
+├── performance_baselines/           # Performance benchmark data (DO NOT DELETE)
+├── tests/                           # ACTIVE: Test suite (DO NOT DELETE)
+    ├── conftest.py                  # Pytest configuration
+    ├── test_batch_processing.py     # Batch processing tests
+    ├── test_integration.py          # Integration tests
+    ├── test_orientation_detector.py # Core detector tests
     └── __pycache__/
+└── .github/
+    └── workflows/
+        └── copilot-instructions.md   # This file
 ```
 
 ## Code Style & Conventions
 
 ### Python Standards (PEP 8 + Project Specific)
-- **Line Length**: 100 characters (Black formatter)
+- **Line Length**: 100 characters (see Code Quality & Linting section)
 - **Type Hints**: Required for all function parameters and returns
 - **Docstrings**: Google/NumPy style for all public functions
 - **Imports**: Group by standard library, third-party, local
 - **Naming**: snake_case for functions/variables, PascalCase for classes
+- **Code Formatting**: Automated with Black (see Code Quality & Linting section)
+- **Linting**: Enforced with Flake8 and MyPy (see Code Quality & Linting section)
 
 ### Error Handling Patterns
 ```python
@@ -111,30 +226,27 @@ python -m venv venv
 venv\Scripts\activate  # Windows PowerShell
 pip install -r requirements.txt
 
-# Install development tools
-pip install black flake8 pre-commit pytest pytest-cov
-
-# Setup pre-commit hooks
-pre-commit install
-pre-commit run --all-files
+# Install development tools (see Code Quality & Linting section for details)
+pip install black flake8 mypy pre-commit pytest pytest-cov
 ```
 
 ### Quality Assurance Commands
 ```bash
-# Format code (Black)
-make format
-# or
-python -m black .
-
-# Lint code (Flake8)
-make lint
-# or
-python -m flake8 . --max-line-length=100 --extend-ignore=E203,W503
-
 # Run tests
 make test
 # or
 python -m pytest tests/ -v --tb=short
+
+# Run with coverage
+make test-cov
+# or
+python -m pytest tests/ --cov=video_orientation_detector --cov-report=html
+
+# Full quality check (includes formatting, linting, type checking)
+make check
+```
+
+**Note**: Individual quality tools are configured in the **Code Quality & Linting** section below.
 
 # Run with coverage
 make test-cov
@@ -183,6 +295,17 @@ def test_orientation_detection():
 
 ### Version Management & Python Environment
 - **Version Updates**: Always update version in `pyproject.toml` and `video_orientation_detector.py` after changes to the main script. Do not update version if only documentation or tests were modified.
+- **Script Versioning**: All project scripts (cleanup.ps1, cleanup.py, etc.) must include version information in their headers following this format:
+  ```powershell
+  # Version: 1.0.0
+  # Last Updated: YYYY-MM-DD
+  ```
+  ```python
+  """
+  Version: 1.0.0
+  Last Updated: YYYY-MM-DD
+  """
+  ```
 - **Python Version**: Use Python 3.12 as the primary development and production environment. Ensure compatibility with 3.11+.
 - **Virtual Environment**: Always work in isolated virtual environments to prevent dependency conflicts.
 
@@ -195,13 +318,61 @@ def test_orientation_detection():
 ### File Management & Repository Hygiene
 - **Gitignore Management**: Regularly check for new files that should be added to `.gitignore`. Remove unnecessary files and folders that aren't related to the script's direct functionality.
 - **Repository Cleanup**: Delete old unnecessary files and folders. Keep only files essential for the script's operation.
+- **Project Cleanup Scripts**: Use the dedicated cleanup scripts for safe project maintenance:
+  - `cleanup.ps1` - PowerShell script for Windows environments (recommended for Windows users)
+  - `cleanup.py` - Python script for cross-platform cleanup (works on Windows, Linux, macOS)
+  - Both scripts follow the protection rules and will only remove truly unnecessary files
+  - Run cleanup scripts regularly to maintain project hygiene: `.\cleanup.ps1` or `python cleanup.py`
+  - Scripts automatically protect all critical files and folders listed below
+- **Critical Files Protection**: Never delete these essential testing files and folders. When a folder is protected, ALL files and subfolders within it are also protected:
+  - `test_batch.py` - Active batch testing script
+  - `tests/` directory - Complete pytest test suite (including ALL files inside: conftest.py, test_*.py, __pycache__/, etc.)
+  - `reference_orientations.csv` - Test data references
+  - `conftest.py` - Pytest configuration
+  - `test_*.py` files in tests/ - All unit and integration tests
+  - `.pre-commit-config.yaml` - Pre-commit hooks configuration
+  - `.vscode/` - VS Code workspace settings (including ALL files inside: settings.json, launch.json, etc.)
+  - `performance_baselines/` - Performance benchmark data (including ALL .txt files inside)
+  - `video_orientation_detector_old.py` - Previous version for reference
+  - `cleanup.ps1` - PowerShell cleanup script
+  - `cleanup.py` - Python cleanup script
+  - `C:\Users\boris\Videos` - **CRITICAL**: Primary test video directory (ALL video files inside)
+  - `C:\Users\boris\Bad_Examples` - **CRITICAL**: INCORRECT orientation test videos (ALL video files inside)
+  - `C:\Users\boris\Good_Examples` - **CRITICAL**: CORRECT orientation test videos (ALL video files inside)
 - **Pre-commit Checks**: Verify that no files or folders listed in `.gitignore` have been accidentally committed to the repository.
 
 ### Testing Strategy & Environment Management
-- **Cross-Platform Testing**: Always test the script on Linux (WSL), macOS (GitHub Actions), and Windows (virtual Python PowerShell) using files from `C:\Users\boris\Videos` with 5-second time limit.
 - **Testing Triggers**: Only run full test suite if there were changes to the script itself or project logic. Skip testing for documentation-only changes.
 - **Clean Test Environment**: Delete all downloaded files before running tests to ensure clean virtual environments. Only re-download when dependencies have changed.
 - **Selective Downloads**: Avoid re-downloading model files for every test run if only script logic (not dependencies) was modified.
+
+### Video Analysis Recommendations & Test Data Sources
+- **Rotation Recommendations**: Scripts must always display specific rotation recommendations (clockwise/counterclockwise) for every video analysis when file orientation is incorrect. Never show generic "rotate" messages - always specify direction (90° clockwise or 90° counterclockwise).
+- **Quick Test Data**: For short/quick tests, use video files from `C:\Users\boris\Videos`
+- **Comprehensive Test Data**: For full/comprehensive tests, use video files from:
+  - `C:\Users\boris\Bad_Examples` (INCORRECT orientation, needs corrections)
+  - `C:\Users\boris\Good_Examples` (CORRECT orientation, no corrections needed)
+- **Video Directory Discovery**: Always assume these video directories exist and contain test files:
+  - **NEVER** check if `C:\Users\boris\Videos` exists - it's a standard test directory
+  - **NEVER** search for video files with `Get-ChildItem` or similar discovery commands
+  - **NEVER** use `Get-ChildItem -Path "C:\Users\boris\Videos"` or any file listing commands
+  - **NEVER** use `Test-Path` commands on video directories
+  - **NEVER** use `os.path.exists()` or similar checks on video directories
+  - **NEVER** discover or enumerate video files - use known file paths directly
+  - **ALWAYS** use direct paths to known video directories
+  - **ALWAYS** refer to P2170127.mp4, P6160117.mp4, and other reference videos as real files
+- **Test Directory Usage Strategy**:
+  - `C:\Users\boris\Videos` - **MIXED**: Contains both correct and incorrect videos for general testing
+  - `C:\Users\boris\Bad_Examples` - **INCORRECT ONLY**: Videos that MUST be detected as INCORRECT (validation dataset)
+  - `C:\Users\boris\Good_Examples` - **CORRECT ONLY**: Videos that MUST be detected as CORRECT (validation dataset)
+  - Use Bad_Examples to validate that algorithm correctly identifies rotation issues
+  - Use Good_Examples to validate that algorithm doesn't give false positives
+  - Use Videos directory for general algorithm development and improvement testing
+- **Real Video Testing Protocol**:
+  - When testing P2170127.mp4 improvements, use the actual video file, not simulations
+  - When creating test scripts, always use `detector.process_video("C:\Users\boris\Videos\P2170127.mp4")`
+  - Never create mock frames with `np.zeros()` - use real video processing
+  - Test results must come from actual video file analysis, not artificial scenarios
 
 ### Commit & Push Workflow
 - **Pre-commit Validation**: Only push changes after all previous workflow points have been completed successfully.
@@ -372,6 +543,14 @@ The SVOD detection pipeline combines multiple computer vision techniques with a 
    - Combines results from all detection methods
    - Weighted voting based on confidence scores
    - Final orientation determination with uncertainty handling
+
+5. **Forced Decision Logic**
+   - **Pattern-Based Overrides**: Generic logic that triggers for specific detection patterns
+   - **Landscape Portrait Content**: Videos with aspect ratio > 1.3 and strong clockwise bias
+   - **Mobile Portrait Detection**: Videos with aspect ratio < 0.65 requiring rotation analysis
+   - **Frame-Level Forcing**: Individual frames can trigger INCORRECT decisions based on patterns
+   - **Video-Level Aggregation**: If ANY frame triggers a forced decision, entire video is marked INCORRECT
+   - **No File-Specific Logic**: All decisions based on content patterns, not filenames
 
 ### Face Detection Implementation
 ```python
@@ -693,75 +872,7 @@ def process_large_video(video_path: str, chunk_size_mb: int = 100):
 - **Modular Design**: Break down complex operations into smaller, testable units
 
 ### Development Tools Integration
-```python
-# Black configuration in pyproject.toml
-[tool.black]
-line-length = 100
-target-version = ['py311', 'py312']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | build
-  | dist
-  | __pycache__
-)/
-'''
-
-# Flake8 configuration in .flake8 or setup.cfg
-[flake8]
-max-line-length = 100
-extend-ignore = E203, W503
-exclude =
-    .git,
-    __pycache__,
-    build,
-    dist,
-    .venv,
-    .tox
-
-# MyPy configuration in mypy.ini
-[mypy]
-python_version = 3.11
-warn_return_any = True
-warn_unused_configs = True
-disallow_untyped_defs = True
-disallow_incomplete_defs = True
-check_untyped_defs = True
-disallow_untyped_decorators = True
-no_implicit_optional = True
-warn_redundant_casts = True
-warn_unused_ignores = True
-warn_no_return = True
-warn_unreachable = True
-strict_equality = True
-
-# Pre-commit hooks configuration in .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
-
-  - repo: https://github.com/psf/black
-    rev: 23.7.0
-    hooks:
-      - id: black
-        language_version: python3
-
-  - repo: https://github.com/pycqa/flake8
-    rev: 6.0.0
-    hooks:
-      - id: flake8
-```
+See the **Code Quality & Linting** section for complete tool configurations.
 
 ### Security Considerations
 ```python
@@ -1169,7 +1280,6 @@ def benchmark_detection_performance():
 - **Integration Tests**: Full pipeline testing
 - **Regression Tests**: Version comparison testing
 - **Performance Tests**: Speed and memory profiling
-- **Cross-platform Tests**: Windows, Linux, macOS validation
 - **Security Tests**: Input validation and vulnerability testing
 
 ### Test File Organization
@@ -1863,22 +1973,6 @@ dependencies = [
 svod = "video_orientation_detector:main"
 ```
 
-### Docker Deployment
-```dockerfile
-FROM python:3.12-slim
-
-WORKDIR /app
-COPY requirements.txt pyproject.toml ./
-RUN pip install -r requirements.txt
-
-COPY . .
-RUN python -m pip install -e .
-
-# Pre-download models
-RUN python -c "from video_orientation_detector import OrientationDetector; OrientationDetector()"
-
-CMD ["svod", "--help"]
-```
 
 ## Version History & Evolution
 
@@ -1907,6 +2001,309 @@ CMD ["svod", "--help"]
 - [ ] Performance impact assessed
 - [ ] Security review completed
 - [ ] Cross-platform testing done
+
+#### **1. Code Quality & Linting**
+**MANDATORY**: All code contributions must pass quality checks before being merged.
+
+- **Add Black** for automatic code formatting
+  - Automatically formats Python code according to PEP 8 standards
+  - Configured with line length 100 characters
+  - Integrated in pre-commit hooks for automatic checking
+
+- **Add Flake8** for linting and code style checks
+  - Checks for code style violations and potential errors
+  - Configured with `--max-line-length=100 --extend-ignore=E203,W503`
+  - Blocks commit if there are critical issues
+
+- **Add MyPy** for type checking
+  - Static analysis for type hints and type safety
+  - Helps with early detection of type-related errors
+  - Configured for Python 3.11+ with strict settings
+
+- **Pre-commit hooks** for automatic checking before commit
+  - Automatically runs Black, Flake8, and MyPy before every commit
+  - Prevents committing code with quality issues
+  - Configured in `.pre-commit-config.yaml`
+
+**Installation & Setup**:
+```bash
+# Install development tools
+pip install black flake8 mypy pre-commit pytest pytest-cov
+
+# Setup pre-commit hooks
+pre-commit install
+pre-commit run --all-files
+```
+
+**Manual Quality Checks**:
+```bash
+# Format code with Black
+make format
+# or
+python -m black .
+
+# Lint with Flake8
+make lint
+# or
+python -m flake8 . --max-line-length=100 --extend-ignore=E203,W503
+
+# Type check with MyPy
+python -m mypy . --python-version 3.11
+
+# Full quality check
+make check
+```
+
+**Pre-commit Configuration** (`.pre-commit-config.yaml`):
+```yaml
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: https://github.com/psf/black
+    rev: 23.7.0
+    hooks:
+      - id: black
+        language_version: python3
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.0.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=100, --extend-ignore=E203,W503]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.5.1
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-all]
+        args: [--python-version=3.11]
+```
+
+**Quality Gates**:
+- ❌ **FORBIDDEN**: Commit code that fails Black formatting
+- ❌ **FORBIDDEN**: Commit code with Flake8 violations
+- ❌ **FORBIDDEN**: Commit code with MyPy type errors
+- ✅ **REQUIRED**: All code must pass `make check` before commit
+- ✅ **REQUIRED**: Pre-commit hooks must pass for all commits
+
+#### **2. Performance Optimization**
+**CRITICAL**: Video processing requires efficient resource utilization and performance optimization.
+
+- **GPU acceleration** for YOLOv8 (when CUDA available)
+  - Automatic CUDA availability detection
+  - GPU utilization for YOLOv8 inference when available
+  - CPU fallback when GPU is not accessible
+
+- **Multiprocessing** for batch processing large video sets
+  - Parallel processing of multiple videos simultaneously
+  - Optimal worker count based on CPU cores
+  - Memory-aware processing to prevent resource exhaustion
+
+- **Memory optimization** for large video files
+  - Frame generators for efficient memory usage
+  - Batch processing with controlled memory limits
+  - Garbage collection to prevent memory leaks
+
+- **Model caching** for faster startup times
+  - Model preloading to reduce startup time
+  - Persistent model instances between video processing calls
+  - Efficient model switching based on video characteristics
+
+**Performance Monitoring**:
+```bash
+# Performance benchmarking
+python -m video_orientation_detector --benchmark
+
+# Memory profiling
+python -m memory_profiler video_orientation_detector.py
+
+# GPU monitoring (if available)
+nvidia-smi --query-gpu=utilization.gpu --format=csv
+```
+
+#### **3. Security Hardening**
+**MANDATORY**: All code must implement robust security measures for production use.
+
+- **Dependency scanning** with Safety or similar tools
+  - Automatic scanning for known vulnerabilities in Python packages
+  - Integration with CI/CD pipeline for automated security checks
+  - Regular updates of dependency vulnerability database
+
+- **Vulnerability checks** for Python packages
+  - Automated scanning of requirements.txt for security issues
+  - Version pinning for critical security dependencies
+  - Notification system for newly discovered vulnerabilities
+
+- **Input validation** for video files
+  - Comprehensive file format validation
+  - Path traversal prevention
+  - File size limits to prevent resource exhaustion
+  - Magic number verification for file type confirmation
+
+- **Sandbox execution** for suspicious files
+  - Isolated processing environment for untrusted video files
+  - Resource limits (CPU, memory, disk) in sandbox
+  - Cleanup procedures for temporary processing artifacts
+
+**Security Commands**:
+```bash
+# Dependency vulnerability scan
+safety check
+pip-audit
+
+# Security linting
+bandit -r .
+
+# File permission checks
+find . -type f -executable | grep -v .git
+```
+
+#### **4. Testing Framework**
+**COMPREHENSIVE**: Testing strategy covers all aspects of video processing pipeline.
+
+- **Unit tests** for individual functions
+  - Individual algorithm testing (face detection, body detection, etc.)
+  - Mock-based testing for isolated component validation
+  - Property-based testing for edge case discovery
+
+- **Integration tests** for entire pipeline
+  - End-to-end video processing validation
+  - Cross-platform compatibility testing
+  - Real video file processing with known expected results
+
+- **Performance regression tests**
+  - Automated benchmarking against previous versions
+  - Memory usage monitoring and leak detection
+  - Processing time validation within acceptable limits
+
+- **Cross-platform test automation**
+  - Windows, Linux, macOS compatibility validation
+  - Different Python versions (3.11, 3.12) testing
+  - CI/CD integration for automated cross-platform validation
+
+**Test Execution**:
+```bash
+# Full test suite
+make test-all
+
+# Performance regression tests
+make test-performance
+
+# Cross-platform tests
+make test-cross-platform
+
+# Security tests
+make test-security
+```
+
+#### **5. User Experience Enhancement**
+**FOCUS**: Providing excellent user experience through intuitive interfaces and clear feedback.
+
+- **Progress bars** with tqdm for long operations
+  - Real-time progress reporting for video processing
+  - Estimated time remaining calculations
+  - Cancel/interrupt support for long-running operations
+
+- **Rich console output** instead of plain text
+  - Colored output for different message types
+  - Structured tables for results presentation
+  - Interactive prompts for user configuration
+
+- **Interactive mode** for configuration
+  - Guided setup for first-time users
+  - Configuration validation and recommendations
+  - Save/load configuration profiles
+
+- **Better error messages** with suggestions
+  - Clear error descriptions with actionable solutions
+  - Common issue troubleshooting guides
+  - Help system integration for context-sensitive assistance
+
+**UX Commands**:
+```bash
+# Interactive setup
+python -m video_orientation_detector --setup
+
+# Configuration wizard
+python -m video_orientation_detector --config-wizard
+
+# Help system
+python -m video_orientation_detector --help-extended
+```
+
+#### **6. Advanced Features**
+**INNOVATIVE**: Cutting-edge capabilities for specialized use cases.
+
+- **Video compression** before analysis
+  - Automatic compression for faster processing without quality loss
+  - Format optimization for different analysis scenarios
+  - Temporary file management for compressed versions
+
+- **Real-time streaming** analysis
+  - Live video stream orientation detection
+  - Buffer management for smooth real-time processing
+  - Low-latency processing optimizations
+
+- **Machine learning model fine-tuning**
+  - Custom dataset training for improved accuracy
+  - Transfer learning from pre-trained models
+  - Model versioning and performance comparison
+
+- **Plugin system** for custom detectors
+  - Extensible architecture for third-party detection algorithms
+  - API for plugin development and integration
+  - Plugin marketplace or repository system
+
+- **MediaPipe Pose Integration** for enhanced human pose detection
+  - Advanced pose estimation for improved orientation detection
+  - Real-time pose landmark analysis (33 keypoints)
+  - Minimal performance overhead (~5.4% increase, ~1.4s for 21s video)
+  - Enhanced accuracy for complex pose scenarios
+  - Automatic fallback when MediaPipe is unavailable
+  - Performance benchmarking script for impact assessment
+
+**MediaPipe Performance Characteristics**:
+- **Processing Overhead**: ~5.4% time increase compared to core detection
+- **Memory Impact**: Minimal additional memory usage
+- **Detection Count**: ~40 pose detections per video (configurable)
+- **Accuracy Improvement**: Better handling of rotated and complex poses
+- **Compatibility**: Works with existing YOLOv8 and OpenCV pipeline
+
+#### **7. Monitoring & Observability**
+**PRODUCTION**: Comprehensive monitoring for production deployments.
+
+- **Metrics collection** (processing time, accuracy)
+  - Performance metrics aggregation and reporting
+  - Accuracy tracking against ground truth datasets
+  - Resource utilization monitoring
+
+- **Health checks** for dependencies
+  - Automated dependency availability verification
+  - System resource monitoring (CPU, memory, disk)
+  - Service health status reporting
+
+- **Performance dashboards**
+  - Real-time performance visualization
+  - Historical trend analysis
+  - Alert system for performance degradation
+
+**Monitoring Setup**:
+```bash
+# Start monitoring dashboard
+python -m video_orientation_detector --dashboard
+
+# Export metrics
+python -m video_orientation_detector --export-metrics
+
+# Health check
+python -m video_orientation_detector --health-check
+```
 
 ## Resources & References
 
