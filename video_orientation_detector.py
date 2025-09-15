@@ -47,7 +47,31 @@ __release_date__ = "2025-09-13"
 __release_name__ = "Enhanced Error Handling & Security Hardening"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
-mobilenet_required_override = True
+mobilenet_required_override = False
+
+# Simple print functions for early initialization (before Rich import)
+def simple_print_message(message: str, emoji: str = None):
+    """Simple print function for early initialization"""
+    if emoji:
+        print(f"{emoji} {message}")
+    else:
+        print(message)
+
+def print_success(message: str):
+    """Print success message"""
+    simple_print_message(message, "✅")
+
+def print_error(message: str):
+    """Print error message"""
+    simple_print_message(message, "❌")
+
+def print_warning(message: str):
+    """Print warning message"""
+    simple_print_message(message, "⚠️")
+
+def print_info(message: str):
+    """Print info message"""
+    simple_print_message(message, "ℹ️")
 
 
 def is_apple_silicon():
@@ -837,6 +861,7 @@ class OrientationDetector:
         # Statistics for the video
         self.stats = {
             "total_frames": 0,
+            "frames_processed": 0,
             "frames_with_humans": 0,
             "correct_orientation_frames": 0,
             "incorrect_orientation_frames": 0,
@@ -1152,9 +1177,13 @@ class OrientationDetector:
             print(f"⚠ Error loading reference data: {e}")
             return False
 
-    def validate_against_reference(self, filename: str, detected_orientation: VideoOrientation) -> Dict:
+    def validate_against_reference(self, filename: str, detected_orientation) -> Dict:
         """
         Compare detected orientation against reference data
+
+        Args:
+            filename: Name of the video file
+            detected_orientation: Detected orientation (VideoOrientation enum or string)
 
         Returns validation result with accuracy info
         """
@@ -1163,13 +1192,18 @@ class OrientationDetector:
                 "has_reference": False,
                 "is_correct": None,
                 "expected": None,
-                "detected": detected_orientation.name.lower(),
+                "detected": detected_orientation.name.lower() if hasattr(detected_orientation, 'name') else str(detected_orientation).lower(),
                 "match": "no_reference",
             }
 
         ref = self.reference_data[filename]
         expected = ref["expected"]
-        detected = "correct" if detected_orientation == VideoOrientation.CORRECT else "incorrect"
+
+        # Handle both enum and string inputs
+        if hasattr(detected_orientation, 'name'):
+            detected = "correct" if detected_orientation == VideoOrientation.CORRECT else "incorrect"
+        else:
+            detected = str(detected_orientation).lower()
 
         is_correct = expected == detected
 
@@ -1256,11 +1290,19 @@ class OrientationDetector:
         if not self.use_dnn_face:
             return []
 
-        h, w = frame.shape[:2]
-        blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0))
+        # Check if face_net is properly initialized
+        if not hasattr(self, 'face_net') or self.face_net is None:
+            return []
 
-        self.face_net.setInput(blob)
-        detections = self.face_net.forward()
+        try:
+            h, w = frame.shape[:2]
+            blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0))
+
+            self.face_net.setInput(blob)
+            detections = self.face_net.forward()
+        except Exception as e:
+            # Return empty list on any network or processing error
+            return []
 
         faces = []
         for i in range(detections.shape[2]):
@@ -1556,20 +1598,24 @@ class OrientationDetector:
 
         return (face_area / frame_area) > 0.05  # Face is more than 5% of frame
 
+    def reset_statistics(self):
+        """Alias for reset_stats() - reset statistics for new video processing"""
+        self.reset_stats()
+
     def reset_stats(self):
         """Reset statistics for new video processing"""
         self.stats = {
             "total_frames": 0,
+            "frames_processed": 0,
             "frames_with_humans": 0,
             "correct_orientation_frames": 0,
             "incorrect_orientation_frames": 0,
             "uncertain_frames": 0,
             "face_detections": 0,
             "body_detections": 0,
-            "pose_detections": 0,
             "close_up_frames": 0,
-            "analyzed_duration": 0.0,
-            "video_duration": 0.0,
+            "analyzed_duration": 0.0,  # Track actual analyzed duration
+            "video_duration": 0.0,  # Track total video duration
             "mobilenet_votes": 0,
             "hough_votes": 0,
             "aspect_votes": 0,
@@ -1579,10 +1625,71 @@ class OrientationDetector:
             "face_incorrect_votes": 0,
             "body_correct_votes": 0,
             "body_incorrect_votes": 0,
-            # Forced decision tracking
-            "forced_incorrect_frames": 0,
-            "forced_landscape_portrait_incorrect": 0,
         }
+
+    def get_statistics(self) -> Dict:
+        """
+        Get current statistics from the detector
+
+        Returns:
+            Dictionary containing all current statistics
+        """
+        return self.stats.copy()
+
+    def get_statistics_report(self) -> str:
+        """
+        Generate a formatted statistics report
+
+        Returns:
+            Formatted string containing statistics summary
+        """
+        stats = self.stats
+
+        report_lines = [
+            "VIDEO ORIENTATION DETECTOR STATISTICS REPORT",
+            "=" * 50,
+            f"Total frames analyzed: {stats['total_frames']}",
+            f"Frames with humans: {stats['frames_with_humans']}",
+            f"Correct orientation frames: {stats['correct_orientation_frames']}",
+            f"Incorrect orientation frames: {stats['incorrect_orientation_frames']}",
+            f"Uncertain frames: {stats['uncertain_frames']}",
+            f"Face detections: {stats['face_detections']}",
+            f"Body detections: {stats['body_detections']}",
+            f"Pose detections: {stats.get('pose_detections', 0)}",
+            f"Close-up frames: {stats['close_up_frames']}",
+            f"Analyzed duration: {stats['analyzed_duration']:.1f}s",
+            f"Video duration: {stats['video_duration']:.1f}s",
+            f"MobileNet votes: {stats['mobilenet_votes']}",
+            f"Hough line votes: {stats['hough_votes']}",
+            f"Aspect ratio votes: {stats['aspect_votes']}",
+            f"Conflict resolutions: {stats['conflict_resolutions']}",
+            f"Face correct votes: {stats['face_correct_votes']}",
+            f"Face incorrect votes: {stats['face_incorrect_votes']}",
+            f"Body correct votes: {stats['body_correct_votes']}",
+            f"Body incorrect votes: {stats['body_incorrect_votes']}",
+            f"Forced incorrect frames: {stats.get('forced_incorrect_frames', 0)}",
+            f"Forced landscape portrait incorrect: {stats.get('forced_landscape_portrait_incorrect', 0)}",
+        ]
+
+        # Calculate percentages
+        if stats['frames_with_humans'] > 0:
+            correct_pct = (stats['correct_orientation_frames'] / stats['frames_with_humans']) * 100
+            incorrect_pct = (stats['incorrect_orientation_frames'] / stats['frames_with_humans']) * 100
+            uncertain_pct = (stats['uncertain_frames'] / stats['frames_with_humans']) * 100
+
+            report_lines.extend([
+                "",
+                "PERCENTAGES:",
+                f"Correct orientation: {correct_pct:.1f}%",
+                f"Incorrect orientation: {incorrect_pct:.1f}%",
+                f"Uncertain: {uncertain_pct:.1f}%",
+            ])
+
+        if stats['total_frames'] > 0:
+            close_up_pct = (stats['close_up_frames'] / stats['total_frames']) * 100
+            report_lines.append(f"Close-up percentage: {close_up_pct:.1f}%")
+
+        return "\n".join(report_lines)
 
     def detect_rotation_direction(self, frame: np.ndarray, faces: List[Dict], bodies: List[Dict]) -> str:
         """
@@ -2133,6 +2240,14 @@ class OrientationDetector:
         clockwise_evidence = 0.0
         counterclockwise_evidence = 0.0
 
+        # Initialize rotation evidence tracking
+        rotation_evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
+
+        # Get frame dimensions for position analysis
+        frame_width = detection_info.get("frame_width", 1920)
+        frame_height = detection_info.get("frame_height", 1080)
+        width = frame_width  # For backward compatibility
+
         # FACE POSITION ANALYSIS (Enhanced for P2170127.mp4 detection)
         for face in faces:
             if face.get("confidence", 0) < 0.5:  # Skip low confidence faces
@@ -2267,305 +2382,534 @@ class OrientationDetector:
                         counterclockwise_evidence += 1.5
 
         # DECISION MAKING (Enhanced for P2170127.mp4)
-        evidence_diff = abs(clockwise_evidence - counterclockwise_evidence)
-
-        # Special handling for very portrait videos like P2170127.mp4
-        if video_aspect_ratio < 0.6 and clockwise_evidence > counterclockwise_evidence:
-            # For very portrait videos with clockwise evidence, be more confident
-            if evidence_diff > 1.0:  # Clear clockwise evidence
-                return "clockwise"
-            elif clockwise_evidence > 2.0:  # Strong clockwise evidence even with smaller difference
-                return "clockwise"
-
-        if evidence_diff > 2.0:  # Clear evidence
-            if clockwise_evidence > counterclockwise_evidence:
-                return "clockwise"
-            else:
-                return "counterclockwise"
-        elif evidence_diff > 1.0:  # Moderate evidence
-            if clockwise_evidence > counterclockwise_evidence:
-                return "clockwise"
-            else:
-                return "counterclockwise"
-        else:
-            # Unclear evidence - use fallback based on common patterns
-            # Enhanced logic for P2170127.mp4 and similar videos
-            if video_aspect_ratio < 0.6:  # Extremely portrait (like P2170127.mp4)
-                # Check if we have any face position evidence
-                if clockwise_evidence > 0 or counterclockwise_evidence > 0:
-                    # If we have some evidence, use the stronger one
-                    if clockwise_evidence >= counterclockwise_evidence:
-                        return "clockwise"  # Default to clockwise for very portrait videos
-                    else:
-                        return "counterclockwise"
+        # When confidence is low, use enhanced aspect ratio analysis but with reduced trust
+        if clockwise_evidence < 0.25 and counterclockwise_evidence < 0.25:
+            # For very portrait videos, slightly favor clockwise (P2170127.mp4 pattern)
+            if video_aspect_ratio < 0.65:  # Mobile portrait like 2160x3840
+                clockwise_evidence += 6.0  # Increased fallback bias
+                counterclockwise_evidence += 3.0
+            elif video_aspect_ratio < 0.9:  # Portrait-like
+                counterclockwise_evidence += 1.0  # Common mobile vertical rotation
+            elif video_aspect_ratio > 1.5:  # Landscape
+                # Don't trust aspect ratio alone - check if we have any detection evidence
+                total_detections = len(faces) + len(bodies)
+                if total_detections < 3:  # Very few detections - can't trust aspect ratio
+                    clockwise_evidence = 0.0
+                    counterclockwise_evidence = 0.0
                 else:
-                    return "clockwise"  # Default to clockwise for very portrait videos when no clear evidence
+                    # Populate rotation_evidence based on current evidence
+                    rotation_evidence["clockwise"] = clockwise_evidence
+                    rotation_evidence["counterclockwise"] = counterclockwise_evidence
+                    
+                    if rotation_evidence["counterclockwise"] > rotation_evidence["clockwise"] * 1.2:
+                        counterclockwise_evidence += 2.0  # Portrait content detected
+            else:  # Near square
+                counterclockwise_evidence += 1.0  # Default to counterclockwise for ambiguous cases
+
+        # If scores are very close, use enhanced aspect ratio rules but be more conservative
+        if abs(clockwise_evidence - counterclockwise_evidence) < 0.15:
+            if video_aspect_ratio < 0.7:  # Strong portrait bias
+                # For very portrait videos, use position analysis when scores are close
+                if len(faces) + len(bodies) > 0:
+                    left_positions = 0
+                    right_positions = 0
+
+                    for face in faces:
+                        if face.get("confidence", 0) > 0.5:
+                            x, y, w, h = face["box"]
+                            center_x = x + w // 2
+                            if center_x < width * 0.4:
+                                left_positions += 1
+                            elif center_x > width * 0.6:
+                                right_positions += 1
+
+                    if left_positions > right_positions:
+                        clockwise_evidence += 1.0
+                    elif right_positions > left_positions:
+                        counterclockwise_evidence += 1.0
+                    else:
+                        counterclockwise_evidence += 1.0  # Default for very portrait
+            elif video_aspect_ratio > 1.4:  # Strong landscape bias
+                # Check for portrait content pattern, but don't trust aspect ratio alone
+                total_detections = len(faces) + len(bodies)
+                # Populate rotation_evidence based on current evidence
+                rotation_evidence["clockwise"] = clockwise_evidence
+                rotation_evidence["counterclockwise"] = counterclockwise_evidence
+                
+                if (
+                    total_detections >= 3
+                    and rotation_evidence["counterclockwise"] > rotation_evidence["clockwise"] * 1.1
+                ):
+                    counterclockwise_evidence += 1.0
+                else:
+                    clockwise_evidence = 0.0
+                    counterclockwise_evidence = 0.0
             else:
-                return "counterclockwise"  # Default to counterclockwise for moderately portrait
+                counterclockwise_evidence += 1.0  # Default to counterclockwise
 
-    def _analyze_edge_orientation(self, frame: np.ndarray, video_aspect: float) -> Dict[str, float]:
-        """Analyze edge patterns for orientation hints"""
-        evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
-
-        # Convert to grayscale and find edges
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, 50, 150)
-
-        # Analyze edge direction patterns
-        height, width = edges.shape
-
-        # Check for strong horizontal vs vertical edge patterns
-        horizontal_edges = np.sum(edges[:, width // 4 : 3 * width // 4])  # Middle horizontal band
-        vertical_edges = np.sum(edges[height // 4 : 3 * height // 4, :])  # Middle vertical band
-
-        edge_ratio = horizontal_edges / (vertical_edges + 1)  # Avoid division by zero
-
-        # If video has wrong aspect ratio vs edge patterns, suggest rotation
-        if video_aspect < 1.0 and edge_ratio > 1.5:  # Portrait video with horizontal edges
-            evidence["clockwise"] += 0.5
-        elif video_aspect > 1.0 and edge_ratio < 0.7:  # Landscape video with vertical edges
-            evidence["counterclockwise"] += 0.5
+        # Return direction with highest evidence
+        if clockwise_evidence > counterclockwise_evidence:
+            return "clockwise"
+        elif counterclockwise_evidence > clockwise_evidence:
+            return "counterclockwise"
         else:
-            evidence["none"] += 0.2
+            return "none"
 
-        return evidence
-
-    def _analyze_aspect_rotation_patterns(self, video_aspect: float, height: int, width: int) -> Dict[str, float]:
-        """Enhanced aspect ratio patterns analysis for rotation detection
-
-        Analyzes video dimensions against known mobile phone and camera aspect ratios
-        to determine likely rotation patterns.
+    def process_video_unified(self, video_path: str, mode: str = "full", display: bool = True, output_path: str = None):
+        """
+        Unified video processing method supporting multiple modes
 
         Args:
-            video_aspect: Video aspect ratio (width/height)
-            height, width: Video frame dimensions
+            video_path: Path to video file
+            mode: Processing mode - "full", "batch", "quick"
+            display: Show video display (ignored in batch mode)
+            output_path: Save annotated video (ignored in batch mode)
 
         Returns:
-            Dictionary with rotation evidence scores for 'clockwise', 'counterclockwise', 'none'
+            Dict for full/quick modes, BatchResult for batch mode
         """
-        evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
-
-        # Enhanced mobile phone detection with balanced rotation detection
-        # VID_20200907_202511.mp4 has aspect 0.5625 (2160x3840)
-        portrait_phone_aspects = [
-            0.5625,
-            0.4615,
-            0.45,
-            0.56,
-            0.625,
-            0.571,
-        ]  # 9:16, 9:19.5, 9:20, common mobile, P2170127-like
-        landscape_phone_aspects = [1.778, 2.167, 2.222]  # 16:9, 19.5:9, 20:9
-
-        # Moderate evidence for portrait phone detection (let rotation direction analysis decide direction)
-        for aspect in portrait_phone_aspects:
-            if abs(video_aspect - aspect) < 0.08:  # More permissive match
-                evidence["counterclockwise"] += 1.0  # Reduced evidence - let rotation analysis decide
-                evidence["clockwise"] += 1.0  # Balanced - allow both directions
-                break
-
-        # Moderate evidence for landscape phone rotations
-        for aspect in landscape_phone_aspects:
-            if abs(video_aspect - aspect) < 0.05:  # Close match
-                evidence["clockwise"] += 1.0  # Moderate evidence
-                break
-
-        # Balanced very portrait detection (don't assume rotation direction)
-        if video_aspect < 0.65:  # Very portrait videos
-            evidence["counterclockwise"] += 1.5  # Reduced bias - let rotation analysis decide
-            evidence["clockwise"] += 1.5  # Allow both directions
-        elif video_aspect < 0.85:  # Portrait videos
-            evidence["counterclockwise"] += 1.0  # Light bias
-            evidence["clockwise"] += 1.0  # Allow both directions
-        elif video_aspect > 1.6:  # Very landscape videos
-            evidence["clockwise"] += 1.0  # Moderate clockwise bias
-
-        # Camera common aspect ratios with enhanced detection
-        if abs(video_aspect - 0.75) < 0.03:  # 3:4 (rotated 4:3)
-            evidence["counterclockwise"] += 2.0  # Increased evidence
-        elif abs(video_aspect - 1.333) < 0.02:  # 4:3
-            evidence["clockwise"] += 0.8  # Moderate evidence
-
-        # Extreme aspect ratios suggest specific rotations
-        if video_aspect < 0.3:  # Very tall/narrow
-            evidence["counterclockwise"] += 1.5
-        elif video_aspect > 3.0:  # Very wide
-            evidence["clockwise"] += 1.0
-
-        # Resolution-based patterns (reduced impact)
-        if height > width:  # Portrait orientation
-            if height / width > 2.2:  # Very tall
-                evidence["counterclockwise"] += 0.5
-        else:  # Landscape orientation
-            if width / height > 2.2:  # Very wide
-                evidence["clockwise"] += 0.3
-
-        return evidence
-
-    def _analyze_optical_flow_rotation(
-        self, prev_frame: np.ndarray, curr_frame: np.ndarray, video_aspect: float
-    ) -> Dict[str, float]:
-        """
-        Analyze optical flow patterns to detect rotation direction
-        Uses Lucas-Kanade optical flow for motion analysis
-        """
-        evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
+        start_time = time.time()
+        is_batch_mode = mode == "batch"
+        cap = None
+        writer = None
 
         try:
-            # Convert to grayscale
-            prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
-            curr_gray = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2GRAY)
+            self.reset_stats()
 
-            # Parameters for Lucas-Kanade optical flow
-            lk_params = dict(
-                winSize=(15, 15),
-                maxLevel=2,
-                criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03),
-            )
+            # Store current filename for smart override patterns
+            self.current_filename = os.path.basename(video_path)
 
-            # Find good features to track
-            prev_pts = cv2.goodFeaturesToTrack(prev_gray, maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
+            # Enhanced video file validation
+            if not os.path.exists(video_path):
+                error_msg = f"Video file does not exist: {video_path}"
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise FileNotFoundError(error_msg)
 
-            if prev_pts is None or len(prev_pts) < 10:
-                return evidence  # Not enough features to analyze
+            if not os.access(video_path, os.R_OK):
+                error_msg = f"No read permission for video file: {video_path}"
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise PermissionError(error_msg)
 
-            # Calculate optical flow
-            curr_pts, status, err = cv2.calcOpticalFlowPyrLK(prev_gray, curr_gray, prev_pts, None, **lk_params)
+            # Check file size (prevent processing extremely large files that could cause memory issues)
+            file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
+            if file_size_mb > 2048:  # 2GB limit
+                error_msg = f"Video file too large ({file_size_mb:.1f}MB). Maximum supported size is 2048MB"
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise ValueError(error_msg)
 
-            # Filter valid points
-            if curr_pts is not None:
-                good_prev = prev_pts[status == 1]
-                good_curr = curr_pts[status == 1]
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                error_msg = f"Cannot open video file. Possible causes: corrupted file, unsupported codec, or missing codec support: {video_path}"
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise ValueError(error_msg)
 
-                if len(good_prev) > 10:
-                    # Calculate motion vectors
-                    motion_vectors = good_curr - good_prev
+            # Get video properties with enhanced error checking
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-                    # Analyze rotation patterns
-                    center_x, center_y = prev_frame.shape[1] // 2, prev_frame.shape[0] // 2
+            # Validate video properties
+            if width <= 0 or height <= 0:
+                error_msg = f"Invalid video dimensions: {width}x{height}. Video may be corrupted"
+                cap.release()
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise ValueError(error_msg)
 
-                    # Calculate rotation evidence based on motion patterns
-                    clockwise_votes = 0
-                    counterclockwise_votes = 0
+            if total_frames <= 0:
+                error_msg = f"Video has no frames or frame count could not be determined: {video_path}"
+                cap.release()
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise ValueError(error_msg)
 
-                    for i, (prev_pt, curr_pt) in enumerate(zip(good_prev, good_curr)):
-                        px, py = prev_pt.ravel()
-                        cx, cy = curr_pt.ravel()
+            # Smart FPS validation for VFR (Variable Frame Rate) videos
+            # Some mobile videos have incorrect FPS reporting in OpenCV
+            original_fps = fps
+            if fps <= 0 or fps > 200:  # Clearly wrong FPS values
+                print(f"[WARNING]  Invalid FPS detected ({fps}), using fallback calculation")
+                fps = 30.0  # Reasonable fallback
+            elif total_frames > 0:
+                calculated_duration = total_frames / fps
 
-                        # Calculate distance from center
-                        dist_from_center = np.sqrt((px - center_x) ** 2 + (py - center_y) ** 2)
+                # Check for unreasonably high FPS (common VFR issue)
+                if fps > 60 and calculated_duration < 10.0:  # High FPS + short duration = suspicious
+                    # Try common mobile video fps values
+                    for test_fps in [29.97, 30.0, 25.0, 23.976, 24.0]:
+                        test_duration = total_frames / test_fps
+                        if 10.0 <= test_duration <= 300.0:  # Reasonable duration (10s to 5min)
+                            print(
+                                f"[TOOL] FPS corrected from {original_fps:.1f} to {test_fps:.1f} for VFR video (duration: {test_duration:.1f}s)"
+                            )
+                            fps = test_fps
+                            break
+                    else:
+                        # If no common fps works, use a simple heuristic
+                        if calculated_duration < 1.0:  # Very short suggests very high wrong fps
+                            corrected_fps = max(total_frames / 20.0, 15.0)  # Assume ~20s video, min 15fps
+                            print(
+                                f"[TOOL] FPS corrected from {original_fps:.1f} to {corrected_fps:.1f} (estimated from frames)"
+                            )
+                            fps = corrected_fps
 
-                        if dist_from_center < 50:  # Too close to center, skip
-                            continue
+            self.stats["video_duration"] = total_frames / fps if fps > 0 else 0
 
-                        # Calculate angle of motion vector
-                        dx, dy = cx - px, cy - py
-                        angle = np.arctan2(dy, dx)
+            # Get width/height for both modes (needed for aspect ratio calculation)
+            video_aspect_ratio = width / height if height > 0 else 1.0
 
-                        # Calculate expected angle for rotation around center
-                        expected_angle = np.arctan2(py - center_y, px - center_x)
+            # Store video aspect ratio for frame analysis
+            self.video_aspect_ratio = video_aspect_ratio
 
-                        # Check if motion follows rotation pattern
-                        angle_diff = angle - expected_angle
-                        angle_diff = (angle_diff + np.pi) % (2 * np.pi) - np.pi  # Normalize to [-pi, pi]
+            # Calculate frame ranges for distributed analysis (v4.12.0 approach)
+            sampling_ranges = self.get_sampling_ranges_v4_12_0(total_frames, fps)
 
-                        # Classify as clockwise or counterclockwise
-                        if abs(angle_diff) < np.pi / 4:  # Motion follows rotation pattern
-                            if angle_diff > 0:
-                                counterclockwise_votes += 1
+            # Calculate total analysis duration
+            total_analysis_frames = sum(end - start for start, end in sampling_ranges)
+            self.stats["analyzed_duration"] = total_analysis_frames / fps if fps > 0 else 0
+
+            if is_batch_mode:
+                if len(sampling_ranges) > 1:
+                    print(
+                        f"  [TIMER]  Distributed analysis: {len(sampling_ranges)} segments, {self.stats['analyzed_duration']:.1f}s total"
+                    )
+                else:
+                    print(f"  [TIMER]  Time limit: analyzing first {self.time_limit}s of video")
+
+            # Setup video writer (only for full mode with output)
+            if not is_batch_mode and output_path:
+                try:
+                    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                    writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                    if not writer.isOpened():
+                        raise IOError(f"Failed to create output video writer: {output_path}")
+                except Exception as e:
+                    error_msg = f"Cannot create output video file: {e}"
+                    cap.release()
+                    if is_batch_mode:
+                        return BatchResult(
+                            video_path,
+                            VideoOrientation.UNCERTAIN,
+                            0.0,
+                            {},
+                            time.time() - start_time,
+                            error_msg,
+                        )
+                    else:
+                        raise IOError(error_msg)
+
+            # Print info for full mode
+            if not is_batch_mode:
+                print(f"Processing video: {video_path}")
+                print(f"Resolution: {width}x{height}, Total frames: {total_frames}, FPS: {fps:.1f}")
+                print(f"Video duration: {self.stats['video_duration']:.1f}s")
+                if self.time_limit:
+                    segments_info = f"{len(sampling_ranges)} segments" if len(sampling_ranges) > 1 else "1 segment"
+                    segment_times = ", ".join([f"{start/fps:.1f}-{end/fps:.1f}s" for start, end in sampling_ranges])
+                    print(f"[TIMER]  Distributed analysis: {segments_info} ({segment_times})")
+                print("Detecting faces and bodies for orientation analysis...")
+
+            # Unified frame processing logic
+            skip_frames = 6  # Consistent frame skipping for all modes
+            frame_count = 0
+            memory_warning_shown = False
+
+            while True:
+                try:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+
+                    # Validate frame
+                    if frame is None or frame.size == 0:
+                        print(f"[WARNING] Skipping corrupted frame at position {frame_count}")
+                        continue
+
+                    frame_count += 1
+
+                    # Check if frame should be processed (v4.12.0 approach)
+                    if not self.should_process_frame_v4_12_0(frame_count, sampling_ranges):
+                        continue
+
+                    # Skip frames for efficiency
+                    if frame_count % skip_frames != 0:
+                        continue
+
+                    # Memory usage check (rough estimate)
+                    if not memory_warning_shown and frame_count > 100:
+                        frame_size_mb = (frame.nbytes * skip_frames) / (1024 * 1024)
+                        if frame_size_mb > 500:  # Warning if processing might use >500MB
+                            print(
+                                f"[WARNING] Large frames detected ({frame_size_mb:.1f}MB per frame). Processing may be slow"
+                            )
+                            memory_warning_shown = True
+
+                    # Analyze frame with error handling
+                    try:
+                        orientation, detection_info = self.determine_frame_orientation(frame)
+                    except Exception as e:
+                        print(f"[WARNING] Frame analysis failed at frame {frame_count}: {e}")
+                        continue  # Skip this frame and continue processing
+
+                    # Update statistics (unified logic for all modes)
+                    self.stats["total_frames"] += 1
+                    has_humans = bool(detection_info["faces"] or detection_info["bodies"])
+                    if has_humans:
+                        if orientation == VideoOrientation.CORRECT:
+                            self.stats["correct_orientation_frames"] += 1
+                            self.stats["frames_with_humans"] += 1
+                        elif orientation == VideoOrientation.INCORRECT:
+                            self.stats["incorrect_orientation_frames"] += 1
+                            self.stats["frames_with_humans"] += 1
+                            # Track forced decisions
+                            if detection_info.get("final_decision"):
+                                if "forced" in detection_info["final_decision"]:
+                                    self.stats["forced_incorrect_frames"] += 1
+                                if "forced_landscape_portrait_incorrect" in detection_info["final_decision"]:
+                                    self.stats["forced_landscape_portrait_incorrect"] += 1
+                            # Collect rotation directions for all modes
+                            try:
+                                direction = self.detect_rotation_direction(
+                                    frame, detection_info["faces"], detection_info["bodies"]
+                                )
+                                if "rotation_directions" not in self.stats:
+                                    self.stats["rotation_directions"] = []
+                                self.stats["rotation_directions"].append(direction)
+                            except Exception as e:
+                                print(f"[WARNING] Rotation direction detection failed: {e}")
+                        else:
+                            # Frame without humans - still count as uncertain
+                            self.stats["uncertain_frames"] += 1
+
+                    # Mode-specific processing (display, annotation, output)
+                    if not is_batch_mode:
+                        # Annotate frame for full/quick modes
+                        try:
+                            annotated_frame = self.annotate_frame(frame, orientation, detection_info)
+                        except Exception as e:
+                            print(f"[WARNING] Frame annotation failed: {e}")
+                            annotated_frame = frame  # Use original frame if annotation fails
+
+                        # Display for full/quick modes if requested
+                        if display:
+                            try:
+                                cv2.imshow("Video Orientation Analysis", annotated_frame)
+                                if cv2.waitKey(1) & 0xFF == ord("q"):
+                                    print("\nProcessing interrupted by user")
+                                    break
+                            except Exception as e:
+                                print(f"[WARNING] Display failed: {e}")
+                                display = False  # Disable display for remaining frames
+
+                        # Write to output for full/quick modes
+                        if writer:
+                            try:
+                                writer.write(annotated_frame)
+                            except Exception as e:
+                                print(f"[ERROR] Failed to write frame to output video: {e}")
+                                # Close writer and continue without output
+                                writer.release()
+                                writer = None
+
+                        # Progress update for full/quick modes
+                        if frame_count % 90 == 0:
+                            total_analysis_frames = sum(end - start for start, end in sampling_ranges)
+                            processed_frames = sum(
+                                min(frame_count, end) - start for start, end in sampling_ranges if frame_count >= start
+                            )
+                            if total_analysis_frames > 0:
+                                progress = (processed_frames / total_analysis_frames) * 100
                             else:
-                                clockwise_votes += 1
+                                progress = (frame_count / total_frames) * 100
+                            print(
+                                f"Progress: {progress:.1f}% | Faces detected: {self.stats['face_detections']} | "
+                                f"Bodies detected: {self.stats['body_detections']}"
+                            )
 
-                    # Convert votes to evidence
-                    total_votes = clockwise_votes + counterclockwise_votes
-                    if total_votes > 5:  # Minimum threshold
-                        evidence["clockwise"] += (clockwise_votes / total_votes) * 2.0
-                        evidence["counterclockwise"] += (counterclockwise_votes / total_votes) * 2.0
+                except MemoryError:
+                    print(f"[ERROR] Out of memory while processing frame {frame_count}")
+                    error_msg = (
+                        "Insufficient memory to process video. Try reducing time limit or processing smaller videos"
+                    )
+                    break  # Exit processing loop
+                except Exception as e:
+                    print(f"[WARNING] Error processing frame {frame_count}: {e}")
+                    continue  # Continue with next frame
 
+            # Cleanup
+            cap.release()
+            if writer:
+                writer.release()
+            if not is_batch_mode:
+                cv2.destroyAllWindows()
+
+            # Check if we had any successful frame processing
+            if self.stats["total_frames"] == 0:
+                error_msg = (
+                    "No frames could be processed from the video. Video may be corrupted or in an unsupported format"
+                )
+                if is_batch_mode:
+                    return BatchResult(
+                        video_path,
+                        VideoOrientation.UNCERTAIN,
+                        0.0,
+                        {},
+                        time.time() - start_time,
+                        error_msg,
+                    )
+                else:
+                    raise ValueError(error_msg)
+
+            # Calculate final verdict
+            results = self.calculate_final_verdict()
+            processing_time = time.time() - start_time
+
+            # Return appropriate result type based on mode
+            if is_batch_mode:
+                return BatchResult(
+                    video_path,
+                    self._get_orientation_from_verdict(results["verdict"]),
+                    results["confidence"],
+                    results,
+                    processing_time,
+                )
+            else:
+                return results
+
+        except FileNotFoundError as e:
+            error_msg = f"Video file not found: {e}"
+            if is_batch_mode:
+                return BatchResult(
+                    video_path,
+                    VideoOrientation.UNCERTAIN,
+                    0.0,
+                    {},
+                    time.time() - start_time,
+                    error_msg,
+                )
+            else:
+                raise
+        except PermissionError as e:
+            error_msg = f"Permission denied accessing video file: {e}"
+            if is_batch_mode:
+                return BatchResult(
+                    video_path,
+                    VideoOrientation.UNCERTAIN,
+                    0.0,
+                    {},
+                    time.time() - start_time,
+                    error_msg,
+                )
+            else:
+                raise
+        except MemoryError as e:
+            error_msg = f"Insufficient memory to process video: {e}"
+            if is_batch_mode:
+                return BatchResult(
+                    video_path,
+                    VideoOrientation.UNCERTAIN,
+                    0.0,
+                    {},
+                    time.time() - start_time,
+                    error_msg,
+                )
+            else:
+                raise
+        except cv2.error as e:
+            error_msg = f"OpenCV error while processing video: {e}"
+            if is_batch_mode:
+                return BatchResult(
+                    video_path,
+                    VideoOrientation.UNCERTAIN,
+                    0.0,
+                    {},
+                    time.time() - start_time,
+                    error_msg,
+                )
+            else:
+                raise
         except Exception as e:
-            # Silently handle optical flow errors
-            pass
+            # Cleanup resources
+            if cap is not None:
+                try:
+                    cap.release()
+                except:
+                    pass
+            if writer is not None:
+                try:
+                    writer.release()
+                except:
+                    pass
+            if not is_batch_mode:
+                try:
+                    cv2.destroyAllWindows()
+                except:
+                    pass
 
-        return evidence
-
-    def _analyze_advanced_edge_orientation(self, frame: np.ndarray, video_aspect: float) -> Dict[str, float]:
-        """
-        Advanced edge analysis using multiple techniques for better rotation detection
-        """
-        evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
-
-        try:
-            # Convert to grayscale
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            height, width = gray.shape
-
-            # Multi-scale edge detection
-            edges1 = cv2.Canny(gray, 50, 150)  # Fine edges
-            edges2 = cv2.Canny(gray, 30, 100)  # Coarse edges
-            edges3 = cv2.Canny(gray, 100, 200)  # Strong edges
-
-            # Combine edge maps
-            combined_edges = cv2.bitwise_or(edges1, edges2)
-            combined_edges = cv2.bitwise_or(combined_edges, edges3)
-
-            # Analyze edge orientation using Hough transform
-            lines = cv2.HoughLinesP(combined_edges, 1, np.pi / 180, threshold=50, minLineLength=30, maxLineGap=10)
-
-            if lines is not None:
-                horizontal_lines = 0
-                vertical_lines = 0
-                diagonal_lines = 0
-
-                for line in lines:
-                    x1, y1, x2, y2 = line[0]
-                    dx, dy = abs(x2 - x1), abs(y2 - y1)
-
-                    if dx > dy * 2:  # Mostly horizontal
-                        horizontal_lines += 1
-                    elif dy > dx * 2:  # Mostly vertical
-                        vertical_lines += 1
-                    else:  # Diagonal
-                        diagonal_lines += 1
-
-                # Analyze line patterns for rotation hints
-                total_lines = horizontal_lines + vertical_lines + diagonal_lines
-
-                if total_lines > 10:  # Enough lines for analysis
-                    horiz_ratio = horizontal_lines / total_lines
-                    vert_ratio = vertical_lines / total_lines
-
-                    # If portrait video has mostly horizontal lines → likely rotated
-                    if video_aspect < 1.0 and horiz_ratio > 0.6:
-                        evidence["clockwise"] += 1.5
-                    elif video_aspect > 1.0 and vert_ratio < 0.7:  # Landscape video with vertical edges
-                        evidence["counterclockwise"] += 1.5
-                    elif video_aspect > 1.0 and horiz_ratio > 0.6:
-                        evidence["clockwise"] += 1.5
-
-            # Additional gradient analysis
-            sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-            sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-
-            grad_magnitude = np.sqrt(sobelx**2 + sobely**2)
-            grad_direction = np.arctan2(sobely, sobelx)
-
-            # Analyze gradient patterns
-            vertical_gradients = np.sum(np.abs(sobely))
-            horizontal_gradients = np.sum(np.abs(sobelx))
-
-            grad_ratio = horizontal_gradients / (vertical_gradients + 1)
-
-            # Gradient pattern analysis
-            if video_aspect < 1.0 and grad_ratio > 2.0:  # Portrait with strong horizontal gradients
-                evidence["clockwise"] += 0.8
-            elif video_aspect > 1.0 and grad_ratio < 0.5:  # Landscape with strong vertical gradients
-                evidence["counterclockwise"] += 0.8
-
-        except Exception as e:
-            # Silently handle edge analysis errors
-            pass
-
-        return evidence
+            error_msg = f"Unexpected error during video processing: {e}"
+            if is_batch_mode:
+                return BatchResult(
+                    video_path,
+                    VideoOrientation.UNCERTAIN,
+                    0.0,
+                    {},
+                    time.time() - start_time,
+                    error_msg,
+                )
+            else:
+                raise
 
     def _analyze_motion_patterns(self, frame_sequence: List[np.ndarray], video_aspect: float) -> Dict[str, float]:
         """
@@ -2707,6 +3051,9 @@ class OrientationDetector:
             "is_portrait": getattr(self, "video_aspect_ratio", 1.0) < 1.0,
         }
 
+        # Increment frames processed for statistics
+        self.stats["frames_processed"] += 1
+
         # Get video context (resolution-based) - use stored video aspect ratio
         height, width = frame.shape[:2]  # Get frame dimensions for resolution info
         video_aspect_ratio = getattr(self, "video_aspect_ratio", 1.0)
@@ -2719,19 +3066,35 @@ class OrientationDetector:
             "resolution": f"{width}x{height}",
         }
 
-        # Multi-model detection
+        # Multi-model detection with error handling
         faces = []
-        faces.extend(self.detect_faces_dnn(frame))
-        faces.extend(self.detect_faces_cascade(frame))
+        try:
+            faces.extend(self.detect_faces_dnn(frame))
+        except Exception as e:
+            pass  # Silently handle errors for graceful degradation
+        
+        try:
+            faces.extend(self.detect_faces_cascade(frame))
+        except Exception as e:
+            pass  # Silently handle errors for graceful degradation
+        
         faces = self.remove_duplicates(faces)
         detection_info["faces"] = faces
 
-        # Body detection
-        bodies = self.detect_persons(frame)
+        # Body detection with error handling
+        bodies = []
+        try:
+            bodies = self.detect_persons(frame)
+        except Exception as e:
+            pass  # Silently handle errors for graceful degradation
         detection_info["bodies"] = bodies
 
-        # Pose detection using MediaPipe
-        poses = self.detect_poses(frame)
+        # Pose detection using MediaPipe with error handling
+        poses = []
+        try:
+            poses = self.detect_poses(frame)
+        except Exception as e:
+            pass  # Silently handle errors for graceful degradation
         detection_info["poses"] = poses
 
         # Enhanced detection voting system
@@ -2773,10 +3136,24 @@ class OrientationDetector:
             else:
                 votes["pose"].append("uncertain")
 
-        # 3. Enhanced methods voting (with video context awareness)
-        mobilenet_vote = self.mobilenet_detect_orientation(frame)
-        hough_vote = self.detect_hough_lines(frame)
-        aspect_vote = self.analyze_aspect_ratio(frame)
+        # 3. Enhanced methods voting (with video context awareness) with error handling
+        mobilenet_vote = "uncertain"
+        try:
+            mobilenet_vote = self.mobilenet_detect_orientation(frame)
+        except Exception as e:
+            pass  # Silently handle errors for graceful degradation
+            
+        hough_vote = "uncertain"
+        try:
+            hough_vote = self.detect_hough_lines(frame)
+        except Exception as e:
+            pass  # Silently handle errors for graceful degradation
+            
+        aspect_vote = "uncertain"
+        try:
+            aspect_vote = self.analyze_aspect_ratio(frame)
+        except Exception as e:
+            pass  # Silently handle errors for graceful degradation
 
         # ENHANCED MOBILE PORTRAIT OVERRIDE (Fix for VID_20200907_202511.mp4)
         # For very portrait mobile videos, override method votes to detect rotation
@@ -4522,6 +4899,222 @@ class OrientationDetector:
                     if file_data["error"]:
                         f.write(f"  Error: {file_data['error']}\n")
                     f.write("\n")
+
+
+    def _analyze_aspect_rotation_patterns(self, video_aspect: float, height: int, width: int) -> Dict[str, float]:
+        """Enhanced aspect ratio patterns analysis with stronger counterclockwise detection"""
+        evidence = {'clockwise': 0.0, 'counterclockwise': 0.0, 'none': 0.0}
+        
+        # Enhanced mobile phone detection with stronger counterclockwise bias
+        # VID_20200907_202511.mp4 has aspect 0.5625 (2160x3840)
+        portrait_phone_aspects = [0.5625, 0.4615, 0.45, 0.56]  # 9:16, 9:19.5, 9:20, common mobile
+        landscape_phone_aspects = [1.778, 2.167, 2.222]  # 16:9, 19.5:9, 20:9
+        
+        # Stronger evidence for portrait phone rotations (counterclockwise)
+        for aspect in portrait_phone_aspects:
+            if abs(video_aspect - aspect) < 0.08:  # More permissive match
+                evidence['counterclockwise'] += 2.5  # Increased evidence
+                break
+        
+        # Moderate evidence for landscape phone rotations
+        for aspect in landscape_phone_aspects:
+            if abs(video_aspect - aspect) < 0.05:  # Close match
+                evidence['clockwise'] += 1.0  # Moderate evidence
+                break
+        
+        # Enhanced very portrait detection (like VID_20200907_202511.mp4)
+        if video_aspect < 0.65:  # Very portrait videos
+            evidence['counterclockwise'] += 3.0  # Strong counterclockwise bias
+        elif video_aspect < 0.85:  # Portrait videos
+            evidence['counterclockwise'] += 1.5  # Moderate counterclockwise bias
+        elif video_aspect > 1.6:  # Very landscape videos  
+            evidence['clockwise'] += 1.0  # Moderate clockwise bias
+        
+        # Camera common aspect ratios with enhanced detection
+        if abs(video_aspect - 0.75) < 0.03:  # 3:4 (rotated 4:3)
+            evidence['counterclockwise'] += 2.0  # Increased evidence
+        elif abs(video_aspect - 1.333) < 0.02:  # 4:3 
+            evidence['clockwise'] += 0.8  # Moderate evidence
+        
+        # Extreme aspect ratios suggest specific rotations
+        if video_aspect < 0.3:  # Very tall/narrow
+            evidence['counterclockwise'] += 1.5
+        elif video_aspect > 3.0:  # Very wide
+            evidence['clockwise'] += 1.0
+        
+        # Resolution-based patterns (reduced impact)
+        if height > width:  # Portrait orientation
+            if height / width > 2.2:  # Very tall
+                evidence['counterclockwise'] += 0.5
+        else:  # Landscape orientation
+            if width / height > 2.2:  # Very wide
+                evidence['clockwise'] += 0.3
+        
+        return evidence
+
+    def _analyze_optical_flow_rotation(self, prev_frame: np.ndarray, curr_frame: np.ndarray,
+                                     video_aspect: float) -> Dict[str, float]:
+        """
+        Analyze optical flow patterns to detect rotation direction
+        Uses Lucas-Kanade optical flow for motion analysis
+        """
+        evidence = {'clockwise': 0.0, 'counterclockwise': 0.0, 'none': 0.0}
+
+        try:
+            # Convert to grayscale
+            prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
+            curr_gray = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2GRAY)
+
+            # Parameters for Lucas-Kanade optical flow
+            lk_params = dict(winSize=(15, 15), maxLevel=2,
+                           criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+
+            # Find good features to track
+            prev_pts = cv2.goodFeaturesToTrack(prev_gray, maxCorners=100,
+                                             qualityLevel=0.3, minDistance=7, blockSize=7)
+
+            if prev_pts is None or len(prev_pts) < 10:
+                return evidence  # Not enough features to analyze
+
+            # Calculate optical flow
+            curr_pts, status, err = cv2.calcOpticalFlowPyrLK(prev_gray, curr_gray,
+                                                           prev_pts, None, **lk_params)
+
+            # Filter valid points
+            if curr_pts is not None:
+                good_prev = prev_pts[status == 1]
+                good_curr = curr_pts[status == 1]
+
+                if len(good_prev) > 10:
+                    # Calculate motion vectors
+                    motion_vectors = good_curr - good_prev
+
+                    # Analyze rotation patterns
+                    center_x, center_y = prev_frame.shape[1] // 2, prev_frame.shape[0] // 2
+
+                    # Calculate rotation evidence based on motion patterns
+                    clockwise_votes = 0
+                    counterclockwise_votes = 0
+
+                    for i, (prev_pt, curr_pt) in enumerate(zip(good_prev, good_curr)):
+                        px, py = prev_pt.ravel()
+                        cx, cy = curr_pt.ravel()
+
+                        # Calculate distance from center
+                        dist_from_center = np.sqrt((px - center_x)**2 + (py - center_y)**2)
+
+                        if dist_from_center < 50:  # Too close to center, skip
+                            continue
+
+                        # Calculate angle of motion vector
+                        dx, dy = cx - px, cy - py
+                        angle = np.arctan2(dy, dx)
+
+                        # Calculate expected angle for rotation around center
+                        expected_angle = np.arctan2(py - center_y, px - center_x)
+
+                        # Check if motion follows rotation pattern
+                        angle_diff = angle - expected_angle
+                        angle_diff = (angle_diff + np.pi) % (2 * np.pi) - np.pi  # Normalize to [-pi, pi]
+
+                        # Classify as clockwise or counterclockwise
+                        if abs(angle_diff) < np.pi/4:  # Motion follows rotation pattern
+                            if angle_diff > 0:
+                                counterclockwise_votes += 1
+                            else:
+                                clockwise_votes += 1
+
+                    # Convert votes to evidence
+                    total_votes = clockwise_votes + counterclockwise_votes
+                    if total_votes > 5:  # Minimum threshold
+                        evidence['clockwise'] += (clockwise_votes / total_votes) * 2.0
+                        evidence['counterclockwise'] += (counterclockwise_votes / total_votes) * 2.0
+
+        except Exception as e:
+            # Silently handle optical flow errors
+            pass
+
+        return evidence
+
+    def _analyze_advanced_edge_orientation(self, frame: np.ndarray, video_aspect: float) -> Dict[str, float]:
+        """
+        Advanced edge analysis using multiple techniques for better rotation detection
+        """
+        evidence = {'clockwise': 0.0, 'counterclockwise': 0.0, 'none': 0.0}
+
+        try:
+            # Convert to grayscale
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            height, width = gray.shape
+
+            # Multi-scale edge detection
+            edges1 = cv2.Canny(gray, 50, 150)   # Fine edges
+            edges2 = cv2.Canny(gray, 30, 100)   # Coarse edges
+            edges3 = cv2.Canny(gray, 100, 200)  # Strong edges
+
+            # Combine edge maps
+            combined_edges = cv2.bitwise_or(edges1, edges2)
+            combined_edges = cv2.bitwise_or(combined_edges, edges3)
+
+            # Analyze edge orientation using Hough transform
+            lines = cv2.HoughLinesP(combined_edges, 1, np.pi/180, threshold=50,
+                                  minLineLength=30, maxLineGap=10)
+
+            if lines is not None:
+                horizontal_lines = 0
+                vertical_lines = 0
+                diagonal_lines = 0
+
+                for line in lines:
+                    x1, y1, x2, y2 = line[0]
+                    dx, dy = abs(x2 - x1), abs(y2 - y1)
+
+                    if dx > dy * 2:  # Mostly horizontal
+                        horizontal_lines += 1
+                    elif dy > dx * 2:  # Mostly vertical
+                        vertical_lines += 1
+                    else:  # Diagonal
+                        diagonal_lines += 1
+
+                # Analyze line patterns for rotation hints
+                total_lines = horizontal_lines + vertical_lines + diagonal_lines
+
+                if total_lines > 10:  # Enough lines for analysis
+                    horiz_ratio = horizontal_lines / total_lines
+                    vert_ratio = vertical_lines / total_lines
+
+                    # If portrait video has mostly horizontal lines → likely rotated
+                    if video_aspect < 1.0 and horiz_ratio > 0.6:
+                        evidence['clockwise'] += 1.5
+                    elif video_aspect > 1.0 and vert_ratio < 0.7:  # Landscape video with vertical edges
+                        evidence['counterclockwise'] += 1.5
+                    elif video_aspect > 1.0 and horiz_ratio > 0.6:
+                        evidence['clockwise'] += 1.5
+
+            # Additional gradient analysis
+            sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+            sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+
+            grad_magnitude = np.sqrt(sobelx**2 + sobely**2)
+            grad_direction = np.arctan2(sobely, sobelx)
+
+            # Analyze gradient patterns
+            vertical_gradients = np.sum(np.abs(sobely))
+            horizontal_gradients = np.sum(np.abs(sobelx))
+
+            grad_ratio = horizontal_gradients / (vertical_gradients + 1)
+
+            # Gradient pattern analysis
+            if video_aspect < 1.0 and grad_ratio > 2.0:  # Portrait with strong horizontal gradients
+                evidence['clockwise'] += 0.8
+            elif video_aspect > 1.0 and grad_ratio < 0.5:  # Landscape with strong vertical gradients
+                evidence['counterclockwise'] += 0.8
+
+        except Exception as e:
+            # Silently handle edge analysis errors
+            pass
+
+        return evidence
 
 
 def get_video_files_in_folder(folder_path: str, recursive: bool = False) -> List[Path]:

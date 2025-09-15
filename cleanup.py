@@ -32,6 +32,20 @@ def is_protected(path):
         "video_orientation_detector.py",
         "video_orientation_detector_old.py",
         "test_batch.py",
+        "test_single.py",                    # 🆕 ДОБАВЕНО
+        "test_comparison.py",                # 🆕 ДОБАВЕНО
+        "test_improved_detection.py",        # 🆕 ДОБАВЕНО
+        "test_logic_improvements.py",        # 🆕 ДОБАВЕНО
+        "test_p2170127_advanced.py",         # 🆕 ДОБАВЕНО
+        "test_p2170127_improvements.py",     # 🆕 ДОБАВЕНО
+        "test_p2170127_quick.py",            # 🆕 ДОБАВЕНО
+        "test_practical_improvements.py",    # 🆕 ДОБАВЕНО
+        "test_real_p2170127.py",             # 🆕 ДОБАВЕНО
+        "test_real_videos.py",               # 🆕 ДОБАВЕНО
+        "test_simple.py",                    # 🆕 ДОБАВЕНО
+        "debug_p2170127.py",                 # 🆕 ДОБАВЕНО
+        "performance_comparison.py",         # 🆕 ДОБАВЕНО
+        "TEST_README.md",                    # 🆕 ДОБАВЕНО
         "reference_orientations.csv",
         "pyproject.toml",
         "requirements.txt",
@@ -191,6 +205,20 @@ def main():
         "video_orientation_detector.py",
         "video_orientation_detector_old.py",
         "test_batch.py",
+        "test_single.py",                    # 🆕 ДОБАВЕНО
+        "test_comparison.py",                # 🆕 ДОБАВЕНО
+        "test_improved_detection.py",        # 🆕 ДОБАВЕНО
+        "test_logic_improvements.py",        # 🆕 ДОБАВЕНО
+        "test_p2170127_advanced.py",         # 🆕 ДОБАВЕНО
+        "test_p2170127_improvements.py",     # 🆕 ДОБАВЕНО
+        "test_p2170127_quick.py",            # 🆕 ДОБАВЕНО
+        "test_practical_improvements.py",    # 🆕 ДОБАВЕНО
+        "test_real_p2170127.py",             # 🆕 ДОБАВЕНО
+        "test_real_videos.py",               # 🆕 ДОБАВЕНО
+        "test_simple.py",                    # 🆕 ДОБАВЕНО
+        "debug_p2170127.py",                 # 🆕 ДОБАВЕНО
+        "performance_comparison.py",         # 🆕 ДОБАВЕНО
+        "TEST_README.md",                    # 🆕 ДОБАВЕНО
         "reference_orientations.csv",
         "pyproject.toml",
         "requirements.txt",

@@ -330,6 +330,43 @@ def test_orientation_detection():
   - `reference_orientations.csv` - Test data references
   - `conftest.py` - Pytest configuration
   - `test_*.py` files in tests/ - All unit and integration tests
+  - `test_single.py` - Single file testing
+  - `test_comparison.py` - Version comparison testing
+  - `test_improved_detection.py` - Improved detection testing
+  - `test_logic_improvements.py` - Logic improvements testing
+  - `test_p2170127_advanced.py` - Advanced P2170127 testing
+  - `test_p2170127_improvements.py` - P2170127 improvements testing
+  - `test_p2170127_quick.py` - Quick P2170127 testing
+  - `test_practical_improvements.py` - Practical improvements testing
+  - `test_real_p2170127.py` - Real P2170127 testing
+  - `test_real_videos.py` - Real videos testing
+  - `test_simple.py` - Simple testing
+  - `test_batch.py` - Batch testing
+  - `test_comparison.py` - Comparison testing
+  - `test_improved_detection.py` - Improved detection testing
+  - `test_logic_improvements.py` - Logic improvements testing
+  - `test_p2170127_advanced.py` - Advanced P2170127 testing
+  - `test_p2170127_improvements.py` - P2170127 improvements testing
+  - `test_p2170127_quick.py` - Quick P2170127 testing
+  - `test_practical_improvements.py` - Practical improvements testing
+  - `test_real_p2170127.py` - Real P2170127 testing
+  - `test_real_videos.py` - Real videos testing
+  - `test_simple.py` - Simple testing
+  - `test_single.py` - Single testing
+  - `debug_p2170127.py` - Debug script for P2170127
+  - `performance_comparison.py` - Performance comparison script
+  - `test_batch.py` - Batch testing script
+  - `test_comparison.py` - Comparison testing script
+  - `test_improved_detection.py` - Improved detection testing script
+  - `test_logic_improvements.py` - Logic improvements testing script
+  - `test_p2170127_advanced.py` - Advanced P2170127 testing script
+  - `test_p2170127_improvements.py` - P2170127 improvements testing script
+  - `test_p2170127_quick.py` - Quick P2170127 testing script
+  - `test_practical_improvements.py` - Practical improvements testing script
+  - `test_real_p2170127.py` - Real P2170127 testing script
+  - `test_real_videos.py` - Real videos testing script
+  - `test_simple.py` - Simple testing script
+  - `test_single.py` - Single testing script
   - `.pre-commit-config.yaml` - Pre-commit hooks configuration
   - `.vscode/` - VS Code workspace settings (including ALL files inside: settings.json, launch.json, etc.)
   - `performance_baselines/` - Performance benchmark data (including ALL .txt files inside)
