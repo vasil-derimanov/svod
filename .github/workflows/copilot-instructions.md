@@ -338,20 +338,11 @@ def test_orientation_detection():
   - `test_p2170127_improvements.py` - P2170127 improvements testing
   - `test_p2170127_quick.py` - Quick P2170127 testing
   - `test_practical_improvements.py` - Practical improvements testing
-  - `test_real_p2170127.py` - Real P2170127 testing
-  - `test_real_videos.py` - Real videos testing
-  - `test_simple.py` - Simple testing
-  - `test_batch.py` - Batch testing
-  - `test_comparison.py` - Comparison testing
-  - `test_improved_detection.py` - Improved detection testing
-  - `test_logic_improvements.py` - Logic improvements testing
-  - `test_p2170127_advanced.py` - Advanced P2170127 testing
-  - `test_p2170127_improvements.py` - P2170127 improvements testing
-  - `test_p2170127_quick.py` - Quick P2170127 testing
-  - `test_practical_improvements.py` - Practical improvements testing
-  - `test_real_p2170127.py` - Real P2170127 testing
-  - `test_real_videos.py` - Real videos testing
-  - `test_simple.py` - Simple testing
+  - `test_core_detection.py` - Core detection algorithm tests
+  - `test_model_integration.py` - Model integration and loading tests
+  - `test_utility_functions.py` - Utility functions and helper tests
+  - `test_advanced_features.py` - Advanced features and edge cases tests
+  - `test_statistics_error_handling.py` - Statistics and error handling tests
   - `test_single.py` - Single testing
   - `debug_p2170127.py` - Debug script for P2170127
   - `performance_comparison.py` - Performance comparison script
