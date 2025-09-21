@@ -1717,10 +1717,6 @@ class OrientationDetector:
             Special handling for mobile portrait videos (aspect < 0.65) which
             are almost always rotated counterclockwise.
         """
-        # SPECIAL CASE: P7210301.mp4 should be rotated counterclockwise (reference data correction)
-        if hasattr(self, 'current_filename') and 'P7210301' in self.current_filename:
-            return "counterclockwise"
-
         height, width = frame.shape[:2]
         video_aspect_ratio = width / height
 
@@ -1728,6 +1724,27 @@ class OrientationDetector:
         rotation_evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
 
         # 1. Enhanced face analysis with improved counterclockwise detection
+        if len(faces) > 0:
+            for face in faces:
+                if face.get("confidence", 0) > 0.3:  # Lower threshold for more detections
+                    bbox = face["bbox"]
+                    x, y, w, h = bbox
+                    face_center_x = x + w // 2
+                    face_center_y = y + h // 2
+                    
+                    # Face position analysis - improved logic for counterclockwise detection
+                    frame_center_x = width // 2
+                    frame_center_y = height // 2
+                    
+                    # Analyze face orientation based on position patterns
+                    if face_center_x > width * 0.7:  # Face on far right side
+                        rotation_evidence["counterclockwise"] += 2.0
+                    elif face_center_x < width * 0.3:  # Face on far left side  
+                        rotation_evidence["clockwise"] += 2.0
+                    elif face_center_y < height * 0.3:  # Face at very top
+                        rotation_evidence["counterclockwise"] += 1.5
+                    elif face_center_y > height * 0.7:  # Face at very bottom
+                        rotation_evidence["clockwise"] += 1.5
         # Filter low confidence faces to reduce false positives (conservative threshold)
         high_confidence_faces = [f for f in faces if f.get("confidence", 0.5) > 0.6]
 
@@ -1895,17 +1912,30 @@ class OrientationDetector:
                 total_right = right_side_faces + right_side_bodies
                 total_analyzed = total_faces_analyzed + total_bodies_analyzed
 
-                # VERY restrictive conditions for P2170127.mp4 pattern:
-                # - Most detections must be on far left side (not just left)
-                # - Very high wide ratio (>0.7 instead of >0.5)
-                # - At least 2 detections total
-                # - Strong left bias (>60% on left side)
-                if total_analyzed >= 2 and total_left > total_right:
+                # Enhanced pattern detection for both clockwise and counterclockwise scenarios:
+                # - Clockwise pattern: Most detections on far left side (sideways portrait shot from left)
+                # - Counterclockwise pattern: Most detections on far right side (sideways portrait shot from right)
+                # - At least 2 detections total for statistical significance
+                # - Strong bias threshold (>50%) to improve detection sensitivity
+                
+                if total_analyzed >= 2:
                     left_ratio = total_left / total_analyzed
-                    if left_ratio >= 0.6:  # Higher threshold - at least 60% on far left side
-                        rotation_evidence["clockwise"] += 12.0  # Very strong clockwise bias for P2170127.mp4 pattern
+                    right_ratio = total_right / total_analyzed
+                    
+                    print(f"[DEBUG] Position analysis: {total_left} left, {total_right} right out of {total_analyzed} total (left_ratio={left_ratio:.3f}, right_ratio={right_ratio:.3f})")
+                    
+                    # Clockwise bias: Most faces/bodies on far left side
+                    if total_left > total_right and left_ratio >= 0.5:  # Lowered from 0.6 to 0.5
+                        rotation_evidence["clockwise"] += 12.0  # Strong clockwise bias
                         print(
-                            f"[DEBUG] P2170127.mp4 pattern detected: {total_left}/{total_analyzed} detections on far left side, applying strong clockwise bias"
+                            f"[DEBUG] Clockwise rotation pattern detected: {total_left}/{total_analyzed} detections on far left side, applying strong clockwise bias"
+                        )
+                    
+                    # Counterclockwise bias: Most faces/bodies on far right side  
+                    elif total_right > total_left and right_ratio >= 0.5:  # Lowered from 0.6 to 0.5
+                        rotation_evidence["counterclockwise"] += 12.0  # Strong counterclockwise bias
+                        print(
+                            f"[DEBUG] Counterclockwise rotation pattern detected: {total_right}/{total_analyzed} detections on far right side, applying strong counterclockwise bias"
                         )
 
         # Determine best direction with improved logic

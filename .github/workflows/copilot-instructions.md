@@ -44,7 +44,7 @@
 ### Issue Resolution Status ✅ RESOLVED
 - **Good_Examples Directory**: 100% success rate (7/7 videos correctly classified as CORRECT)
 - **Bad_Examples Directory**: 50% success rate (3/6 INCORRECT, 3/6 UNCERTAIN)
-- **P7210301.mp4**: Fixed with special-case override for 90° counterclockwise rotation
+- **P7210301.mp4**: FIXED with enhanced pattern recognition (removed hardcoded override, improved generic counterclockwise detection)
 - **System Stability**: No crashes, graceful error handling
 
 ## Project Overview
