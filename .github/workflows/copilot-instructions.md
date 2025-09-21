@@ -463,6 +463,7 @@ def test_orientation_detection():
   - `C:\Users\boris\Videos` - **MIXED**: Contains both correct and incorrect videos for general testing
   - `C:\Users\boris\Bad_Examples` - **INCORRECT ONLY**: Videos that MUST be detected as INCORRECT (validation dataset)
   - `C:\Users\boris\Good_Examples` - **CORRECT ONLY**: Videos that MUST be detected as CORRECT (validation dataset)
+  - **MANDATORY REQUIREMENT**: Always test ALL video files in Bad_Examples and Good_Examples directories, not just a subset (e.g., not just 5 or 7 files)
   - Use Bad_Examples to validate that algorithm correctly identifies rotation issues
   - Use Good_Examples to validate that algorithm doesn't give false positives
   - **CRITICAL VALIDATION REQUIREMENT**: Good_Examples videos MUST be classified as CORRECT, not INCORRECT ✅ ACHIEVED
@@ -1412,7 +1413,14 @@ def test_with_real_video_files():
         if os.path.exists(directory):
             video_files = glob.glob(os.path.join(directory, "*.mp4"))
 
-            for video_path in video_files[:5]:  # Test first 5 files
+            # MANDATORY: Test ALL files in validation directories (Good_Examples, Bad_Examples)
+            # For quick tests, use Videos directory instead
+            if category in ["comprehensive_test", "edge_cases"]:
+                files_to_test = video_files  # Test ALL files
+            else:
+                files_to_test = video_files[:5]  # Quick test: first 5 files only
+
+            for video_path in files_to_test:
                 result = detector.process_video(video_path, display=False)
                 assert result is not None
                 assert "orientation" in result
