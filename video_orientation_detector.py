@@ -1942,6 +1942,16 @@ class OrientationDetector:
         max_score = max(rotation_evidence.values())
         confidence_threshold = 0.25  # More permissive threshold
 
+        # CRITICAL: Strong pattern detection should override other decisions
+        # If we have very strong counterclockwise evidence (>= 12.0), prioritize it
+        if rotation_evidence["counterclockwise"] >= 12.0:
+            print(f"[DEBUG] Strong counterclockwise pattern detected (score: {rotation_evidence['counterclockwise']:.1f}), forcing counterclockwise decision")
+            return "counterclockwise"
+        # If we have very strong clockwise evidence (>= 12.0), prioritize it  
+        elif rotation_evidence["clockwise"] >= 12.0:
+            print(f"[DEBUG] Strong clockwise pattern detected (score: {rotation_evidence['clockwise']:.1f}), forcing clockwise decision")
+            return "clockwise"
+
         # Check if we have a clear winner with better decision making
         sorted_evidence = sorted(rotation_evidence.items(), key=lambda x: x[1], reverse=True)
         best_direction, best_score = sorted_evidence[0]
@@ -4359,7 +4369,10 @@ class OrientationDetector:
                     from collections import Counter
 
                     direction_counts = Counter(self.stats["rotation_directions"])
+                    print(f"[DEBUG] Final rotation direction counts: {dict(direction_counts)}")
+                    print(f"[DEBUG] All rotation directions: {self.stats['rotation_directions']}")
                     most_common_direction = direction_counts.most_common(1)[0][0]
+                    print(f"[DEBUG] Most common direction: {most_common_direction}")
                     if most_common_direction != "none":
                         recommendation = f"Rotate 90° {most_common_direction}"
                     else:
