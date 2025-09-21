@@ -9,6 +9,7 @@ import sys
 import time
 import argparse
 from pathlib import Path
+import importlib
 
 def find_video_files(directory: str) -> list:
     """Find all video files in directory"""
@@ -26,11 +27,12 @@ def test_video_with_detector(detector_script: str, video_path: str) -> tuple:
     """Test a video using direct import instead of subprocess"""
     start_time = time.time()
     try:
-        # Import the detector module
-        if detector_script == "video_orientation_detector_old.py":
-            import video_orientation_detector_old as detector_module
+        # Dynamically import and reload the detector module
+        module_name = Path(detector_script).stem
+        if module_name in sys.modules:
+            detector_module = importlib.reload(sys.modules[module_name])
         else:
-            import video_orientation_detector as detector_module
+            detector_module = importlib.import_module(module_name)
 
         # Create detector instance
         detector = detector_module.OrientationDetector(time_limit=30)
