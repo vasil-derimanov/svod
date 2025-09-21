@@ -148,3 +148,7 @@ htmlcov/
 # Documentation builds
 docs/_build/
 site/
+
+# Backup files
+*-original-backup.md
+*-backup.md
