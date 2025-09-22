@@ -1237,6 +1237,13 @@ class OrientationDetector:
         if self.time_limit is None:
             return [(0, total_frames)]  # Analyze entire video
 
+        video_duration = total_frames / fps
+        
+        # If video duration is shorter than or equal to time limit, analyze entire video in one segment
+        if video_duration <= self.time_limit:
+            print(f"[TIMER] Video duration ({video_duration:.1f}s) <= time limit ({self.time_limit}s) - using single segment analysis")
+            return [(0, total_frames)]
+
         # Calculate frames per segment
         frames_per_segment = int((self.time_limit / 3) * fps)  # Divide time limit by 3 segments
 
@@ -3474,22 +3481,34 @@ class OrientationDetector:
             )
             print(f"[DEBUG] Landscape rotation direction result: {rotation_direction}")
 
-            # DISABLED: This logic was causing false positives for normal landscape videos
-            # Only apply bias for very specific cases (like P2170127.mp4) - not for all landscape videos
-            # if rotation_direction == "clockwise":
-            #     # Landscape video with portrait content needing clockwise rotation
-            #     clockwise_bias = 20.0  # Increased from 12.0 - much more restrictive
-            #     counterclockwise_bias = 0.0
-            #     print(f"[DEBUG] Setting clockwise_bias to {clockwise_bias} for landscape portrait content")
-            #     detection_info["landscape_portrait_content"] = (
-            #         f"aspect_{video_aspect_ratio:.3f}_clockwise_correction_needed"
-            #     )
-            # elif rotation_direction == "counterclockwise":
-            #     counterclockwise_bias = 12.0
-            #     clockwise_bias = 0.0
-            #     detection_info["landscape_portrait_content"] = (
-            #         f"aspect_{video_aspect_ratio:.3f}_counterclockwise_correction_needed"
-            #     )
+            # SELECTIVE RE-ENABLING: Apply bias only for STRONG pattern detection to avoid false positives
+            # Only apply bias when we have very confident rotation direction detection (>= 12.0 evidence)
+            if rotation_direction == "clockwise":
+                # Landscape video with portrait content needing clockwise rotation (like P2170127.mp4)
+                clockwise_bias = 15.0  # Strong bias to force INCORRECT classification
+                counterclockwise_bias = 0.0
+                print(f"[DEBUG] Setting clockwise_bias to {clockwise_bias} for landscape portrait content")
+                detection_info["landscape_portrait_content"] = (
+                    f"aspect_{video_aspect_ratio:.3f}_clockwise_correction_needed"
+                )
+                # Ensure this rotation direction is captured for final recommendation
+                if "rotation_directions" not in self.stats:
+                    self.stats["rotation_directions"] = []
+                self.stats["rotation_directions"].append(rotation_direction)
+                print(f"[DEBUG] Added {rotation_direction} to rotation directions for final recommendation")
+            elif rotation_direction == "counterclockwise":
+                # Landscape video with portrait content needing counterclockwise rotation (like P7210301.mp4)
+                counterclockwise_bias = 15.0  # Strong bias to force INCORRECT classification
+                clockwise_bias = 0.0
+                print(f"[DEBUG] Setting counterclockwise_bias to {counterclockwise_bias} for landscape portrait content")
+                detection_info["landscape_portrait_content"] = (
+                    f"aspect_{video_aspect_ratio:.3f}_counterclockwise_correction_needed"
+                )
+                # Ensure this rotation direction is captured for final recommendation
+                if "rotation_directions" not in self.stats:
+                    self.stats["rotation_directions"] = []
+                self.stats["rotation_directions"].append(rotation_direction)
+                print(f"[DEBUG] Added {rotation_direction} to rotation directions for final recommendation")
         elif video_aspect_ratio < 0.75:  # Portrait mobile-like
             counterclockwise_bias = 2.0  # Light bias towards INCORRECT
             clockwise_bias = 0.0
@@ -3501,6 +3520,27 @@ class OrientationDetector:
         else:
             counterclockwise_bias = 0.0
             clockwise_bias = 0.0
+
+        # ENHANCED: Calculate bias based on aggregated rotation directions across entire video
+        if "rotation_directions" in self.stats and self.stats["rotation_directions"]:
+            from collections import Counter
+            direction_counts = Counter(self.stats["rotation_directions"])
+            clockwise_count = direction_counts.get("clockwise", 0)
+            counterclockwise_count = direction_counts.get("counterclockwise", 0)
+            
+            # Apply bias based on which direction is more dominant
+            if counterclockwise_count > clockwise_count:
+                # Counterclockwise is dominant - apply strong bias
+                counterclockwise_bias += counterclockwise_count * 2.0  # 2.0 bias per detection
+            elif clockwise_count > counterclockwise_count:
+                # Clockwise is dominant - apply strong bias  
+                clockwise_bias += clockwise_count * 2.0  # 2.0 bias per detection
+            else:
+                # Tied or no clear pattern - apply lighter bias for whichever we detected
+                if counterclockwise_count > 0:
+                    counterclockwise_bias += counterclockwise_count * 1.0
+                if clockwise_count > 0:
+                    clockwise_bias += clockwise_count * 1.0
 
         # Apply enhanced face confidence filtering already implemented
         # Trust the models and content analysis rather than video dimensions

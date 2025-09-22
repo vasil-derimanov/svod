@@ -8,3 +8,10 @@ P8170377.mp4,correct,medium,proper landscape orientation - no rotation needed
 VID_20200907_202511.mp4,incorrect,high,needs 90° counterclockwise rotation - sideways landscape video
 20150911_221520.mp4,incorrect,high,needs 90° counterclockwise rotation - sideways landscape video
 P7210301.mp4,incorrect,high,needs 90° counterclockwise rotation - sideways portrait video
+P2270220.mp4,incorrect,medium,needs 90° clockwise rotation - landscape video with rotation patterns
+P7061239.mp4,incorrect,medium,needs 90° counterclockwise rotation - sideways portrait video
+P7061440.mp4,incorrect,high,needs 90° counterclockwise rotation - sideways portrait video
+P7100048.mp4,incorrect,medium,needs 90° counterclockwise rotation - sideways portrait video
+P7210294.mp4,incorrect,medium,needs 90° counterclockwise rotation - sideways portrait video
+P7212121.mp4,incorrect,medium,needs 90° clockwise rotation - borderline case with rotation patterns
+P7232269.mp4,incorrect,medium,needs 90° clockwise rotation - orientation issues requiring correction
