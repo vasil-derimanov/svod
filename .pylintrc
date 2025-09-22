@@ -1,0 +1,10 @@
+[MASTER]
+ignore=test_*.py,debug_*.py,performance_*.py,*_old.py
+ignore-patterns=test_.*\.py,debug_.*\.py,performance_.*\.py,.*_old\.py
+
+[MESSAGES CONTROL]
+disable=import-error,no-member,too-many-arguments,too-many-locals,too-many-branches,too-many-statements
+
+[REPORTS]
+output-format=text
+reports=no

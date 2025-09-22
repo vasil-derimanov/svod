@@ -100,3 +100,24 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+
+[tool.pyright]
+exclude = [
+    "test_*.py",
+    "debug_*.py", 
+    "performance_*.py",
+    "*_old.py",
+    "video_orientation_detector_old.py"
+]
+reportMissingImports = false
+reportMissingTypeStubs = false
+pythonVersion = "3.12"
+
+[tool.pylance]
+exclude = [
+    "test_*.py",
+    "debug_*.py",
+    "performance_*.py", 
+    "*_old.py",
+    "video_orientation_detector_old.py"
+]

@@ -57,20 +57,20 @@ def simple_print_message(message: str, emoji: Optional[str] = None):
     else:
         print(message)
 
-def print_success(message: str):
-    """Print success message"""
+def early_print_success(message: str):
+    """Early print success function for initialization"""
     simple_print_message(message, "✅")
 
-def print_error(message: str):
-    """Print error message"""
+def early_print_error(message: str):
+    """Early print error function for initialization"""
     simple_print_message(message, "❌")
 
-def print_warning(message: str):
-    """Print warning message"""
+def early_print_warning(message: str):
+    """Early print warning function for initialization"""
     simple_print_message(message, "⚠️")
 
-def print_info(message: str):
-    """Print info message"""
+def early_print_info(message: str):
+    """Early print info function for initialization"""
     simple_print_message(message, "ℹ️")
 
 
@@ -125,7 +125,10 @@ def install_required_packages():
             if module_name == "cv2":
                 try:
                     # Test DNN functionality that SVOD requires
-                    hasattr(module, "dnn") and hasattr(module.dnn, "readNet")  # Check DNN module exists
+                    # Verify OpenCV DNN support
+                    dnn_support = hasattr(module, "dnn") and hasattr(module.dnn, "readNet")
+                    if not dnn_support:
+                        print("[WARNING] OpenCV DNN support not available")
                     hasattr(module.dnn, "readNetFromCaffe")  # Check Caffe support
                     print_success(f"{package_name}: Already installed with full DNN support")
                 except:
@@ -284,8 +287,15 @@ def print_message(message: str, style: Optional[str] = None, emoji: Optional[str
 def print_panel(title: str, content: str, border_style: str = "blue"):
     """Print content in a Rich panel"""
     if RICH_AVAILABLE and console:
-        panel = Panel(content, title=title, border_style=border_style)
-        console.print(panel)
+        try:
+            from rich.panel import Panel
+            panel = Panel(content, title=title, border_style=border_style)
+            console.print(panel)
+        except ImportError:
+            print(f"\n{title}")
+            print("=" * len(title))
+            print(content)
+            print("=" * len(title))
     else:
         print(f"\n{title}")
         print("=" * len(title))
@@ -316,9 +326,14 @@ def print_info(message: str):
 def print_header(title: str):
     """Print a header with Rich styling"""
     if RICH_AVAILABLE and console:
-        header = Text(title, style="bold magenta")
-        console.print(header)
-        console.print("=" * len(title), style="magenta")
+        try:
+            from rich.text import Text
+            header = Text(title, style="bold magenta")
+            console.print(header)
+            console.print("=" * len(title), style="magenta")
+        except ImportError:
+            print(f"\n{title}")
+            print("=" * len(title))
     else:
         print(f"\n{title}")
         print("=" * len(title))
