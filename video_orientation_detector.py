@@ -2,8 +2,8 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.19.1 - YOLOv8 Required (macOS Fix)
-Date: September 13, 2025
+Version: 4.21.0 - Enhanced Counterclockwise Detection & Comprehensive Testing
+Date: September 22, 2025
 Author: Enhanced with AI assistance
 
 Features:
@@ -42,9 +42,9 @@ import io
 from contextlib import contextmanager
 
 # Version information
-__version__ = "4.20.0"
-__release_date__ = "2025-09-13"
-__release_name__ = "Enhanced Error Handling & Security Hardening"
+__version__ = "4.21.0"
+__release_date__ = "2025-09-22"
+__release_name__ = "Enhanced Counterclockwise Detection & Comprehensive Testing"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = False

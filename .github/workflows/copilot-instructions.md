@@ -79,10 +79,20 @@ pyproject.toml                     # Project configuration
 4. **Security**: Validate input handling
 
 ### Version Updates (when changing video_orientation_detector.py)
-1. Update version in `pyproject.toml`
-2. Test with both Good_Examples and Bad_Examples
-3. Update performance baselines if needed
-4. Document any breaking changes
+1. **Update version in BOTH places**:
+   - Update docstring header: `Version: X.Y.Z - Description`
+   - Update `__version__ = "X.Y.Z"` variable
+   - Update `__release_date__` and `__release_name__`
+2. **Update version in `pyproject.toml`**
+3. **Test with both Good_Examples and Bad_Examples** 
+4. **Update performance baselines if needed**
+5. **Document any breaking changes**
+6. **Commit with version number in commit message**
+
+### Current Version Status
+- **Video Detector**: v4.21.0 (Enhanced Counterclockwise Detection & Comprehensive Testing)
+- **Last Updated**: September 22, 2025
+- **Major Changes**: Enhanced aggregated bias calculation, segmentation logic fix, 100% success rate achieved
 
 ## Testing Strategy
 
