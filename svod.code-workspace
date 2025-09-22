@@ -13,6 +13,13 @@
         "python.analysis.typeCheckingMode": "standard",
         "python.analysis.inlayHints.functionReturnTypes": true,
         "python.analysis.inlayHints.variableTypes": true,
+        "python.analysis.exclude": [
+            "**/video_orientation_detector_old.py",
+            "**/test_*.py",
+            "**/*_old.py",
+            "**/performance_*.py",
+            "**/debug_*.py"
+        ],
         "files.associations": {
             "*.py": "python"
         },
