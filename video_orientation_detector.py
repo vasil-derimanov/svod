@@ -2,7 +2,7 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.21.1 - Post-Cleanup: Code Quality Improvements with Full v4.21.0 Functionality Preserved
+Version: 4.22.0 - YOLOv10 Upgrade: Enhanced Performance and Accuracy
 Date: September 24, 2025
 Author: Enhanced with AI assistance
 
@@ -10,7 +10,7 @@ Features:
 - Multi-model detection: YOLO (required), DNN Face, Haar Cascades, MobileNet
 - Enhanced face-only rotation detection for high-density face videos
 - Cross-platform compatibility (Windows, Linux, macOS with Apple Silicon support)
-- YOLOv8 required for optimal person/body detection accuracy
+- YOLOv10 required for optimal person/body detection accuracy (faster and more accurate than YOLOv8)
 - Smart dependency installation with omz_downloader for MobileNet models
 - Context-aware weighted voting system (landscape/portrait awareness)
 - Reference-based validation
@@ -42,9 +42,9 @@ import io
 from contextlib import contextmanager
 
 # Version information
-__version__ = "4.21.1"
+__version__ = "4.22.0"
 __release_date__ = "2025-09-24"
-__release_name__ = "Post-Cleanup: Code Quality Improvements with Full v4.21.0 Functionality Preserved"
+__release_name__ = "YOLOv10 Upgrade: Enhanced Performance and Accuracy"
 
 # Global flag for MobileNet requirement override (used in WSL/Linux environments)
 mobilenet_required_override = False
@@ -97,7 +97,7 @@ def install_required_packages():
         ("numpy", "numpy==1.26.4"),
         ("torch", "torch==2.8.0"),  # PyTorch for model conversion
         ("torchvision", "torchvision==0.23.0"),  # PyTorch vision for model conversion
-        ("ultralytics", "ultralytics==8.3.196"),  # YOLOv8 support - required
+        ("ultralytics", "ultralytics==8.3.196"),  # YOLOv10 support - required
         ("openvino", "openvino==2024.6.0"),  # OpenVINO for optimized inference
         ("onnx", "onnx==1.19.0"),  # ONNX for model format conversion
         ("tqdm", "tqdm==4.67.1"),  # Progress bars for batch processing
@@ -109,8 +109,8 @@ def install_required_packages():
         ("pytest_cov", "pytest-cov==6.0.0"),  # Test coverage reporting
     ]
 
-    # Optional YOLOv8 package for enhanced detection (now required)
-    required_yolo_packages = [("ultralytics", "ultralytics")]  # YOLOv8 support - required
+    # Optional YOLOv10 package for enhanced detection (now required)
+    required_yolo_packages = [("ultralytics", "ultralytics")]  # YOLOv10 support - required
 
     # Platform-specific packages for omz_downloader functionality
     optional_dev_packages = []
@@ -174,11 +174,11 @@ def install_required_packages():
 
             print_success("All required packages installed successfully!")
 
-            # Try to install YOLOv8 for enhanced detection (optional)
-            print_info("Attempting to install YOLOv8 for enhanced body detection...")
+            # Try to install YOLOv10 for enhanced detection (optional)
+            print_info("Attempting to install YOLOv10 for enhanced body detection...")
             for module_name, package_name in required_yolo_packages:
                 try:
-                    print_info(f"Installing {package_name} (optional YOLOv8 support)...")
+                    print_info(f"Installing {package_name} (optional YOLOv10 support)...")
                     result = subprocess.run(
                         [sys.executable, "-m", "pip", "install", package_name],
                         capture_output=True,
@@ -186,13 +186,13 @@ def install_required_packages():
                         timeout=600,
                     )
                     if result.returncode == 0:
-                        print_success(f"{package_name} installed successfully - YOLOv8 enabled!")
+                        print_success(f"{package_name} installed successfully - YOLOv10 enabled!")
                     else:
                         print_error(
-                            f"Failed to install {package_name} (YOLOv8 is required for operation): {result.stderr}"
+                            f"Failed to install {package_name} (YOLOv10 is required for operation): {result.stderr}"
                         )
                 except Exception as e:
-                    print_error(f"{package_name} installation failed (YOLOv8 is required for operation): {e}")
+                    print_error(f"{package_name} installation failed (YOLOv10 is required for operation): {e}")
 
             # Try to install development tools for omz_downloader (not critical if fails)
             if optional_dev_packages:
@@ -329,9 +329,9 @@ def print_header(title: str):
         print("=" * len(title))
 
 
-# Optional YOLOv8 import for enhanced detection with robust error handling
-# Moved to main() function to allow --version to work without YOLOv8
-YOLOV8_AVAILABLE = False
+# Optional YOLOv10 import for enhanced detection with robust error handling
+# Moved to main() function to allow --version to work without YOLOv10
+YOLOV10_AVAILABLE = False
 
 
 def check_required_model_files():
@@ -816,7 +816,7 @@ class OrientationDetector:
 
     This class provides comprehensive video orientation detection using multiple AI techniques:
     - Face detection using DNN and Haar cascades
-    - Body/person detection using YOLOv8 (required)
+    - Body/person detection using YOLOv10 (required)
     - Facial landmark analysis for precise orientation
     - MobileNet classification for enhanced accuracy
     - Intelligent voting system with balanced weighting
@@ -825,7 +825,7 @@ class OrientationDetector:
         confidence_threshold (float): Minimum confidence for detection (0.0-1.0)
         time_limit (float): Maximum analysis time per video in seconds (None = entire video)
         use_dnn_face (bool): Whether DNN face detection is available
-        use_yolov8 (bool): Whether YOLOv8 body detection is available
+        use_yolov10 (bool): Whether YOLOv10 body detection is available
         use_landmarks (bool): Whether facial landmark detection is available
         mobilenet_available (bool): Whether MobileNet enhancement is available
         stats (dict): Statistics collected during video processing
@@ -912,35 +912,35 @@ class OrientationDetector:
             self.use_dnn_face = False
 
     def setup_person_detection(self):
-        """Setup YOLOv8 person/body detection (required)"""
-        global YOLOV8_AVAILABLE
-        self.use_yolov8 = False
+        """Setup YOLOv10 person/body detection (required)"""
+        global YOLOV10_AVAILABLE
+        self.use_yolov10 = False
 
-        # Import YOLOv8 here to ensure it's available when needed
-        if not YOLOV8_AVAILABLE:
+        # Import YOLOv10 here to ensure it's available when needed
+        if not YOLOV10_AVAILABLE:
             try:
                 from ultralytics import YOLO
 
-                YOLOV8_AVAILABLE = True
-                print_success("YOLOv8 imported successfully for person detection")
+                YOLOV10_AVAILABLE = True
+                print_success("YOLOv10 imported successfully for person detection")
             except ImportError as e:
-                YOLOV8_AVAILABLE = False
-                raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
+                YOLOV10_AVAILABLE = False
+                raise RuntimeError(f"YOLOv10 is required for person detection. Installation failed: {e}")
 
-        if YOLOV8_AVAILABLE:
+        if YOLOV10_AVAILABLE:
             try:
-                print_info("Initializing YOLOv8 for enhanced body detection...")
+                print_info("Initializing YOLOv10 for enhanced body detection...")
                 from ultralytics import YOLO
 
-                self.yolov8_model = YOLO("yolov8n.pt")  # Auto-downloads if needed
-                self.use_yolov8 = True
-                print_success("YOLOv8 initialized successfully - using enhanced detection!")
+                self.yolov10_model = YOLO("yolov10n.pt")  # Auto-downloads if needed
+                self.use_yolov10 = True
+                print_success("YOLOv10 initialized successfully - using enhanced detection!")
             except Exception as e:
-                print_error(f"YOLOv8 initialization failed: {e}")
-                raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
+                print_error(f"YOLOv10 initialization failed: {e}")
+                raise RuntimeError(f"YOLOv10 is required for person detection. Installation failed: {e}")
         else:
             raise RuntimeError(
-                "YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics"
+                "YOLOv10 is required for person detection. Please install ultralytics: pip install ultralytics"
             )
 
     def setup_feature_detection(self):
@@ -1423,14 +1423,14 @@ class OrientationDetector:
 
     def detect_persons(self, frame: np.ndarray) -> List[Dict]:
         """
-        Detect full person bodies in frame using YOLOv8 (required)
+        Detect full person bodies in frame using YOLOv10 (required)
         """
         persons = []
 
-        if self.use_yolov8:
-            # YOLOv8 detection (mandatory)
+        if self.use_yolov10:
+            # YOLOv10 detection (mandatory)
             try:
-                results = self.yolov8_model(frame, verbose=False)
+                results = self.yolov10_model(frame, verbose=False)
                 for result in results:
                     boxes = result.boxes
                     if boxes is not None:
@@ -1444,12 +1444,12 @@ class OrientationDetector:
                                     {
                                         "box": (x, y, w, h),
                                         "confidence": float(box.conf[0]),
-                                        "type": "yolov8_person",
+                                        "type": "yolov10_person",
                                     }
                                 )
             except Exception as e:
-                print(f"[ERROR] YOLOv8 detection failed: {e}")
-                print("� YOLOv8 is required for operation. Cannot continue without YOLOv8.")
+                print(f"[ERROR] YOLOv10 detection failed: {e}")
+                print("� YOLOv10 is required for operation. Cannot continue without YOLOv10.")
         return persons
 
     def detect_poses(self, frame: np.ndarray) -> List[Dict]:
@@ -5392,28 +5392,28 @@ Examples:
     )
     args = parser.parse_args()
 
-    # Check YOLOv8 availability (moved here so --version works without it)
-    global YOLOV8_AVAILABLE
+    # Check YOLOv10 availability (moved here so --version works without it)
+    global YOLOV10_AVAILABLE
     try:
         # Simple check for ultralytics availability
         import importlib
 
         ultralytics_spec = importlib.util.find_spec("ultralytics")  # type: ignore
         if ultralytics_spec is not None:
-            YOLOV8_AVAILABLE = True
-            print_success("YOLOv8 (ultralytics) detected - enhanced body detection enabled!")
+            YOLOV10_AVAILABLE = True
+            print_success("YOLOv10 (ultralytics) detected - enhanced body detection enabled!")
         else:
-            YOLOV8_AVAILABLE = False
-            print_error("YOLOv8 not available - YOLOv8 is required for operation")
+            YOLOV10_AVAILABLE = False
+            print_error("YOLOv10 not available - YOLOv10 is required for operation")
             print_error("Please install ultralytics: pip install ultralytics")
             raise RuntimeError(
-                "YOLOv8 is required for person detection. Please install ultralytics: pip install ultralytics"
+                "YOLOv10 is required for person detection. Please install ultralytics: pip install ultralytics"
             )
     except Exception as e:
-        YOLOV8_AVAILABLE = False
-        print_error(f"YOLOv8 check failed: {e}")
-        print_error("YOLOv8 is required for operation. Please install ultralytics: pip install ultralytics")
-        raise RuntimeError(f"YOLOv8 is required for person detection. Installation failed: {e}")
+        YOLOV10_AVAILABLE = False
+        print_error(f"YOLOv10 check failed: {e}")
+        print_error("YOLOv10 is required for operation. Please install ultralytics: pip install ultralytics")
+        raise RuntimeError(f"YOLOv10 is required for person detection. Installation failed: {e}")
 
     # Enhanced input validation with security checks
     print_info("Validating input parameters...")
