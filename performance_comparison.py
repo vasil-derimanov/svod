@@ -1,4 +1,10 @@
 import time
+import sys
+import os
+
+# Add current directory to Python path for imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from video_orientation_detector import OrientationDetector
 
 print('=== PERFORMANCE COMPARISON: MediaPipe Impact ===')

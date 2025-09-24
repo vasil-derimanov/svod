@@ -7,25 +7,21 @@
     "settings": {
         "python.defaultInterpreterPath": "C:\\Users\\boris\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
         "python.pythonPath": "C:\\Users\\boris\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
-        "python.terminal.activateEnvironment": false,
+        "python.terminal.activateEnvironment": true,
         "python.linting.enabled": true,
         "python.analysis.autoImportCompletions": true,
         "python.analysis.typeCheckingMode": "standard",
         "python.analysis.inlayHints.functionReturnTypes": true,
         "python.analysis.inlayHints.variableTypes": true,
-        "python.analysis.exclude": [
-            "**/video_orientation_detector_old.py",
-            "**/test_*.py",
-            "**/*_old.py",
-            "**/performance_*.py",
-            "**/debug_*.py"
-        ],
         "files.associations": {
             "*.py": "python"
         },
         "python.analysis.extraPaths": [
-            "."
-        ]
+            ".",
+            "C:\\Users\\boris\\svod"
+        ],
+        "python.envFile": "${workspaceFolder}/.env",
+        "python.terminal.activateEnvironment": true
     },
     "extensions": {
         "recommendations": [

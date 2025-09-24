@@ -11,8 +11,7 @@ import numpy as np
 import cv2
 
 # Add the project root to Python path
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
+sys.path.append('.')
 
 from video_orientation_detector import OrientationDetector
 
@@ -23,7 +22,17 @@ def simulate_real_p2170127_test():
     print("=" * 60)
 
     # Load reference data
-    reference_file = project_root / "reference_orientations.csv"
+    # Add the project root to Python path
+sys.path.append('.')
+
+from video_orientation_detector import OrientationDetector, VideoOrientation
+
+def load_reference_data():
+    """Load reference orientation data from CSV"""
+    import pandas as pd
+    
+    # Use current directory for reference file
+    reference_file = Path(".") / "reference_orientations.csv"
     p2170127_data = None
 
     if reference_file.exists():

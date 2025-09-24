@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "svod"
-version = "4.22.0"
+version = "4.23.0"
 description = "Smart Video Orientation Detector - Detects video rotation using AI"
 readme = "README.md"
 license = {file = "LICENSE"}

@@ -5,7 +5,7 @@ Test the improved sideways portrait detection logic
 
 import sys
 import os
-sys.path.append(os.path.dirname(__file__))
+sys.path.append('.')
 
 from video_orientation_detector import OrientationDetector
 
@@ -40,7 +40,8 @@ def test_sideways_portrait_detection():
                 try:
                     result = detector.process_video_quick(video_path)
 
-                    detected = "incorrect" if result.orientation == detector.VideoOrientation.INCORRECT else "correct"
+                    from video_orientation_detector import VideoOrientation
+                    detected = "incorrect" if result.orientation == VideoOrientation.INCORRECT.value else "correct"
                     match = detected == expected.lower()
 
                     status_icon = "✅" if match else "❌"

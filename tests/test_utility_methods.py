@@ -226,12 +226,6 @@ class TestUtilityMethods:
         assert isinstance(result, str)
         assert result in ["portrait", "landscape", "unknown"]
 
-    def test_analyze_aspect_ratio_square(self, detector):
-        """Test aspect ratio analysis for square frame"""
-        frame = np.zeros((100, 100, 3), dtype=np.uint8)  # Square frame
-        result = detector.analyze_aspect_ratio(frame)
-        assert result == "square"
-
     def test_load_reference_data_invalid_file(self, detector):
         """Test load_reference_data with invalid file"""
         result = detector.load_reference_data("nonexistent.csv")

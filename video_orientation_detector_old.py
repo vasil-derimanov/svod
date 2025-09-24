@@ -87,7 +87,7 @@ def install_required_packages():
             if module_name == 'cv2':
                 try:
                     # Test DNN functionality that SVOD requires
-                    hasattr(module, 'dnn') and hasattr(module.dnn, 'readNet')  # Check DNN module exists
+                    _ = hasattr(module, 'dnn') and hasattr(module.dnn, 'readNet')  # Check DNN module exists
                     hasattr(module.dnn, 'readNetFromCaffe')  # Check Caffe support
                     print(f"✅ {package_name}: Already installed with full DNN support")
                 except:
@@ -126,6 +126,7 @@ def install_required_packages():
             
             # Try to install YOLOv8 for enhanced detection (optional)
             print("\n🚀 Attempting to install YOLOv8 for enhanced body detection...")
+            optional_yolo_packages = [('ultralytics', 'ultralytics')]  # Define the missing variable
             for module_name, package_name in optional_yolo_packages:
                 try:
                     print(f"⬇️ Installing {package_name} (optional YOLOv8 support)...")
@@ -284,7 +285,7 @@ def check_system_requirements():
             total, used, free = shutil.disk_usage(current_dir)
             free_gb = free / (1024**3)
         else:
-            statvfs = os.statvfs(current_dir)
+            statvfs = os.statvfs(current_dir)  # type: ignore
             free_gb = (statvfs.f_frsize * statvfs.f_bavail) / (1024**3)
         
         if free_gb < 1:
@@ -496,7 +497,7 @@ def download_model_files():
                 print(f"❌ Converted model not found in expected location: {model_path}")
                 return False
                 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired:  # type: ignore
             print("❌ Download/conversion timed out")
             return False
         except Exception as e:
@@ -564,7 +565,7 @@ class BatchResult:
     """Data class for batch processing results"""
 
     def __init__(self, filepath: str, orientation: VideoOrientation, confidence: float,
-                 detection_info: Dict, processing_time: float, error: str = None):
+                 detection_info: Dict, processing_time: float, error: Optional[str] = None):
         self.filepath = filepath
         self.filename = Path(filepath).name
         self.orientation = orientation
@@ -637,10 +638,10 @@ class OrientationDetector:
         """Setup multiple face detection methods for robustness"""
         # Haar Cascade for face detection
         self.face_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'  # type: ignore
         )
         self.profile_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_profileface.xml'
+            cv2.data.haarcascades + 'haarcascade_profileface.xml'  # type: ignore
         )
 
         # DNN-based face detection (more robust)
@@ -944,7 +945,7 @@ class OrientationDetector:
         frames_per_segment = int((self.time_limit / 3) * fps)  # Divide time limit by 3 segments
         
         if frames_per_segment <= 0:
-            return [(0, min(30 * fps, total_frames))]  # Fallback: first 30s
+            return [(0, min(int(30 * fps), total_frames))]  # Fallback: first 30s
         
         ranges = []
         
@@ -1049,13 +1050,13 @@ class OrientationDetector:
         Detect eyes within a face region to determine orientation
         """
         eye_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_eye.xml'
+            cv2.data.haarcascades + 'haarcascade_eye.xml'  # type: ignore
         )
 
         gray = cv2.cvtColor(face_region, cv2.COLOR_BGR2GRAY) if len(face_region.shape) == 3 else face_region
         eyes = eye_cascade.detectMultiScale(gray, 1.05, 3)
 
-        return eyes
+        return eyes  # type: ignore
 
     def analyze_face_orientation(self, frame: np.ndarray, face_box: Tuple[int, int, int, int]) -> str:
         """
@@ -1148,7 +1149,7 @@ class OrientationDetector:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Full body detection
-        bodies = self.body_cascade.detectMultiScale(gray, 1.1, 3)
+        bodies = self.body_cascade.detectMultiScale(gray, 1.1, 3)  # type: ignore
         for (x, y, w, h) in bodies:
             persons.append({
                 'box': (x, y, w, h),
@@ -1157,7 +1158,7 @@ class OrientationDetector:
             })
 
         # Upper body detection
-        upper_bodies = self.upper_body_cascade.detectMultiScale(gray, 1.1, 3)
+        upper_bodies = self.upper_body_cascade.detectMultiScale(gray, 1.1, 3)  # type: ignore
         for (x, y, w, h) in upper_bodies:
             persons.append({
                 'box': (x, y, w, h),
@@ -1295,8 +1296,8 @@ class OrientationDetector:
             rotation_evidence[direction] += score * 0.4  # Moderate weight
         
         # 7. Motion pattern analysis (if we have frame history)
-        if hasattr(self, '_frame_history') and len(self._frame_history) > 2:
-            motion_hint = self._analyze_motion_patterns(self._frame_history[-3:], video_aspect_ratio)
+        if hasattr(self, '_frame_history') and len(self._frame_history) > 2:  # type: ignore
+            motion_hint = self._analyze_motion_patterns(self._frame_history[-3:], video_aspect_ratio)  # type: ignore
             for direction, score in motion_hint.items():
                 rotation_evidence[direction] += score * 0.7  # Good weight for motion
         
@@ -1623,8 +1624,8 @@ class OrientationDetector:
                 return evidence  # Not enough features to analyze
 
             # Calculate optical flow
-            curr_pts, status, err = cv2.calcOpticalFlowPyrLK(prev_gray, curr_gray,
-                                                           prev_pts, None, **lk_params)
+            curr_pts, status, err = cv2.calcOpticalFlowPyrLK(  # type: ignore
+                prev_gray, curr_gray, prev_pts, None, **lk_params)
 
             # Filter valid points
             if curr_pts is not None:
@@ -1738,10 +1739,10 @@ class OrientationDetector:
                         evidence['clockwise'] += 1.5
 
             # Additional gradient analysis
-            sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-            sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+            sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)  # type: ignore
+            sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)  # type: ignore
 
-            grad_magnitude = np.sqrt(sobelx**2 + sobely**2)
+            grad_magnitude = np.sqrt(sobelx**2 + sobely**2)  # type: ignore
             grad_direction = np.arctan2(sobely, sobelx)
 
             # Analyze gradient patterns
@@ -1835,12 +1836,12 @@ class OrientationDetector:
             gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
 
             # Calculate basic image features
-            mean_intensity = np.mean(gray)
-            std_intensity = np.std(gray)
+            mean_intensity = np.mean(gray)  # type: ignore
+            std_intensity = np.std(gray)  # type: ignore
 
             # Calculate edge density
             edges = cv2.Canny(gray, 50, 150)
-            edge_density = np.sum(edges) / (224 * 224)
+            edge_density = np.sum(edges) / (224 * 224)  # type: ignore
 
             # Simple heuristic based on image features
             # This would be replaced with actual CNN predictions
@@ -1995,7 +1996,7 @@ class OrientationDetector:
         # Reference data is only used for post-processing validation
 
         # Advanced ensemble approach with adaptive weighting
-        weighted_scores = {'correct': 0, 'incorrect': 0, 'uncertain': 0}
+        weighted_scores = {'correct': 0.0, 'incorrect': 0.0, 'uncertain': 0.0}
 
         # Get model confidences for adaptive weighting
         face_count = len(high_confidence_faces) if 'high_confidence_faces' in locals() else len(faces)
@@ -2077,7 +2078,7 @@ class OrientationDetector:
         # Apply consensus bonus
         max_agreement = max(agreement_counts.values())
         if max_agreement >= 3:  # 3+ models agree
-            consensus_vote = max(agreement_counts, key=agreement_counts.get)
+            consensus_vote = max(agreement_counts, key=agreement_counts.get)  # type: ignore
             weighted_scores[consensus_vote] += 2.0  # Consensus bonus
             detection_info['ensemble_consensus'] = f"{max_agreement}_models_agree_{consensus_vote}"
 
@@ -2317,7 +2318,7 @@ class OrientationDetector:
         return annotated
 
     def process_video_unified(self, video_path: str, mode: str = "full", 
-                              display: bool = True, output_path: str = None):
+                              display: bool = True, output_path: Optional[str] = None):
         """
         Unified video processing method supporting multiple modes
         
@@ -2403,7 +2404,7 @@ class OrientationDetector:
             # Setup video writer (only for full mode with output)
             writer = None
             if not is_batch_mode and output_path:
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # type: ignore
                 writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
             # Print info for full mode
@@ -2532,11 +2533,11 @@ class OrientationDetector:
     # Legacy wrapper methods for backward compatibility
     def process_video_quick(self, video_path: str) -> BatchResult:
         """Legacy wrapper for batch processing"""
-        return self.process_video_unified(video_path, mode="batch")
+        return self.process_video_unified(video_path, mode="batch")  # type: ignore
     
-    def process_video(self, video_path: str, display: bool = True, output_path: str = None) -> Dict:
+    def process_video(self, video_path: str, display: bool = True, output_path: Optional[str] = None) -> Dict:
         """Legacy wrapper for full processing"""
-        return self.process_video_unified(video_path, mode="full", display=display, output_path=output_path)
+        return self.process_video_unified(video_path, mode="full", display=display, output_path=output_path)  # type: ignore
 
     def calculate_final_verdict(self) -> Dict:
         """
@@ -2787,7 +2788,7 @@ class OrientationDetector:
         print("=" * 60)
 
     def process_folder(self, folder_path: str, recursive: bool = False,
-                       output_file: str = None) -> List[BatchResult]:
+                       output_file: Optional[str] = None) -> List[BatchResult]:
         """
         Process all video files in a folder and generate summary report
         """
@@ -3118,7 +3119,7 @@ Examples:
     try:
         # Try importing YOLOv8 after OpenCV to avoid conflicts
         import importlib
-        ultralytics_spec = importlib.util.find_spec("ultralytics")
+        ultralytics_spec = importlib.util.find_spec("ultralytics")  # type: ignore
         if ultralytics_spec is not None:
             from ultralytics import YOLO
             YOLOV8_AVAILABLE = True

@@ -21,6 +21,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 # Add project root to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -69,7 +70,7 @@ def get_video_files_from_directory(directory_path: str, max_files: int = 5) -> l
 
     return video_files
 
-def test_video_orientation(detector: OrientationDetector, video_path: str, expected_orientation: str = None) -> dict:
+def test_video_orientation(detector: OrientationDetector, video_path: str, expected_orientation: Optional[str] = None) -> dict:
     """Test a single video file with real processing (NO SIMULATION!)."""
     print(f"\n🎬 Testing: {os.path.basename(video_path)}")
 

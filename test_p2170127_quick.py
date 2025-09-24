@@ -6,17 +6,22 @@ Quick test of video orientation detection with configurable video path
 import os
 import sys
 import argparse
+
+# Add current directory to Python path for imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from video_orientation_detector import OrientationDetector
 
 def test_video_orientation(video_path=None):
+    # Define common locations for P2170127.mp4
+    video_paths = [
+        r'C:\Users\boris\Videos\P2170127.mp4',
+        r'C:\Users\boris\Bad_Examples\P2170127.mp4',
+        r'C:\Users\boris\Good_Examples\P2170127.mp4'
+    ]
+    
     # If no path provided, check for P2170127.mp4 in common locations
     if not video_path:
-        video_paths = [
-            r'C:\Users\boris\Videos\P2170127.mp4',
-            r'C:\Users\boris\Bad_Examples\P2170127.mp4',
-            r'C:\Users\boris\Good_Examples\P2170127.mp4'
-        ]
-
         video_path = None
         for path in video_paths:
             if os.path.exists(path):

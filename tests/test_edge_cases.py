@@ -1,6 +1,12 @@
 import pytest
 import numpy as np
+import sys
+import os
 from unittest.mock import patch
+
+# Add parent directory to Python path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from video_orientation_detector import OrientationDetector
 
 class TestEdgeCases:

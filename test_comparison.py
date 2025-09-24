@@ -11,10 +11,10 @@ import time
 import json
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import argparse
 
-def run_detector_version(script_path: str, video_path: str, args: List[str] = None) -> Dict:
+def run_detector_version(script_path: str, video_path: str, args: Optional[List[str]] = None) -> Dict:
     """
     Run a specific version of the detector on a video file
 
