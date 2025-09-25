@@ -1739,8 +1739,8 @@ class OrientationDetector:
         if len(faces) > 0:
             for face in faces:
                 if face.get("confidence", 0) > 0.3:  # Lower threshold for more detections
-                    bbox = face["bbox"]
-                    x, y, w, h = bbox
+                    box = face["box"]
+                    x, y, w, h = box
                     face_center_x = x + w // 2
                     face_center_y = y + h // 2
                     
