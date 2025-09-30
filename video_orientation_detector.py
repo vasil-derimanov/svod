@@ -2553,22 +2553,11 @@ class OrientationDetector:
                 #         is_sideways_portrait = True
                 #         print(f"[DEBUG] 80% faces clustered on left side: {left_faces}/{total_confident_faces}")
 
-                # Only rely on aspect ratios and filename patterns for now
+                # Only rely on aspect ratios for sideways portrait detection
                 # This prevents false positives for normal landscape videos
 
-                # Indicator 3: Check filename patterns for known sideways portrait videos
-                if not is_sideways_portrait and hasattr(self, "current_filename"):
-                    sideways_patterns = ["P2170127", "sideways", "portrait_landscape"]
-                    for pattern in sideways_patterns:
-                        if pattern.lower() in self.current_filename.lower():
-                            is_sideways_portrait = True
-                            print(
-                                f"[DEBUG] Filename pattern indicates sideways portrait: {self.current_filename}"
-                            )
-                            break
-
                 # DISABLED: Body position analysis was also causing false positives
-                # Only use aspect ratios and filename patterns to identify true sideways portrait videos
+                # Only use aspect ratios to identify true sideways portrait videos
 
                 # ONLY apply clockwise bias for confirmed sideways portrait cases
                 if is_sideways_portrait:
