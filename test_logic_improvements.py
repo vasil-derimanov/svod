@@ -5,7 +5,9 @@ Test the improved sideways portrait detection logic
 
 import sys
 import os
+
 sys.path.append(os.path.dirname(__file__))
+
 
 def test_sideways_portrait_detection():
     """Test the improved sideways portrait detection logic"""
@@ -76,6 +78,7 @@ def test_sideways_portrait_detection():
     print("   5. ✅ Better handling of mobile portrait videos")
 
     return True
+
 
 if __name__ == "__main__":
     success = test_sideways_portrait_detection()

@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from video_orientation_detector import OrientationDetector
 
+
 class TestConfiguration:
     """Test different configuration options"""
 
@@ -18,7 +19,7 @@ class TestConfiguration:
 
         assert detector.confidence_threshold == 0.5
         assert detector.time_limit is None
-        assert hasattr(detector, 'stats')
+        assert hasattr(detector, "stats")
         assert isinstance(detector.stats, dict)
 
     def test_custom_confidence_threshold(self):
@@ -32,13 +33,13 @@ class TestConfiguration:
         # Test that they work with frames
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        with patch.object(detector_low, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector_low, 'detect_persons', return_value=[]):
+        with patch.object(detector_low, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector_low, "detect_persons", return_value=[]):
                 result_low = detector_low.determine_frame_orientation(frame)
                 assert result_low is not None
 
-        with patch.object(detector_high, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector_high, 'detect_persons', return_value=[]):
+        with patch.object(detector_high, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector_high, "detect_persons", return_value=[]):
                 result_high = detector_high.determine_frame_orientation(frame)
                 assert result_high is not None
 
@@ -54,18 +55,15 @@ class TestConfiguration:
 
     def test_combined_configuration(self):
         """Test combined configuration settings"""
-        detector = OrientationDetector(
-            confidence_threshold=0.7,
-            time_limit=30
-        )
+        detector = OrientationDetector(confidence_threshold=0.7, time_limit=30)
 
         assert detector.confidence_threshold == 0.7
         assert detector.time_limit == 30
 
         # Test that it works
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(frame)
                 assert result is not None
 
@@ -95,8 +93,8 @@ class TestConfiguration:
         assert detector.time_limit == 10
 
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 detector.determine_frame_orientation(frame)
                 assert detector.confidence_threshold == 0.6
                 assert detector.time_limit == 10
@@ -107,9 +105,9 @@ class TestConfiguration:
         detector2 = OrientationDetector(confidence_threshold=0.9)
 
         # Both should have same stats structure
-        assert 'total_frames' in detector1.stats
-        assert 'total_frames' in detector2.stats
-        assert detector1.stats['total_frames'] == detector2.stats['total_frames'] == 0
+        assert "total_frames" in detector1.stats
+        assert "total_frames" in detector2.stats
+        assert detector1.stats["total_frames"] == detector2.stats["total_frames"] == 0
 
         # But different confidence thresholds
         assert detector1.confidence_threshold == 0.4

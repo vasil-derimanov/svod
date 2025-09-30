@@ -5,9 +5,11 @@ Test the improved sideways portrait detection logic
 
 import sys
 import os
-sys.path.append('.')
+
+sys.path.append(".")
 
 from video_orientation_detector import OrientationDetector
+
 
 def test_sideways_portrait_detection():
     """Test the improved sideways portrait detection"""
@@ -41,7 +43,12 @@ def test_sideways_portrait_detection():
                     result = detector.process_video_quick(video_path)
 
                     from video_orientation_detector import VideoOrientation
-                    detected = "incorrect" if result.orientation == VideoOrientation.INCORRECT.value else "correct"
+
+                    detected = (
+                        "incorrect"
+                        if result.orientation == VideoOrientation.INCORRECT.value
+                        else "correct"
+                    )
                     match = detected == expected.lower()
 
                     status_icon = "✅" if match else "❌"
@@ -49,25 +56,29 @@ def test_sideways_portrait_detection():
                     print(f"Confidence: {result.confidence:.1%}")
                     print(f"Match: {'YES' if match else 'NO'}")
 
-                    test_results.append({
-                        'filename': filename,
-                        'expected': expected,
-                        'detected': detected,
-                        'confidence': result.confidence,
-                        'match': match,
-                        'processing_time': result.processing_time
-                    })
+                    test_results.append(
+                        {
+                            "filename": filename,
+                            "expected": expected,
+                            "detected": detected,
+                            "confidence": result.confidence,
+                            "match": match,
+                            "processing_time": result.processing_time,
+                        }
+                    )
 
                 except Exception as e:
                     print(f"❌ Error processing {filename}: {e}")
-                    test_results.append({
-                        'filename': filename,
-                        'expected': expected,
-                        'detected': 'error',
-                        'confidence': 0.0,
-                        'match': False,
-                        'processing_time': 0.0
-                    })
+                    test_results.append(
+                        {
+                            "filename": filename,
+                            "expected": expected,
+                            "detected": "error",
+                            "confidence": 0.0,
+                            "match": False,
+                            "processing_time": 0.0,
+                        }
+                    )
             else:
                 print(f"⚠️  Video not found: {filename}")
 
@@ -77,7 +88,7 @@ def test_sideways_portrait_detection():
         print("=" * 60)
 
         total_tests = len(test_results)
-        successful_tests = sum(1 for r in test_results if r['match'])
+        successful_tests = sum(1 for r in test_results if r["match"])
         accuracy = (successful_tests / total_tests * 100) if total_tests > 0 else 0
 
         print(f"Total tests: {total_tests}")
@@ -85,11 +96,13 @@ def test_sideways_portrait_detection():
         print(f"Accuracy: {accuracy:.1f}%")
 
         # Show details for failed tests
-        failed_tests = [r for r in test_results if not r['match']]
+        failed_tests = [r for r in test_results if not r["match"]]
         if failed_tests:
             print(f"\n❌ Failed tests ({len(failed_tests)}):")
             for test in failed_tests:
-                print(f"   {test['filename']}: Expected {test['expected']}, Detected {test['detected']}")
+                print(
+                    f"   {test['filename']}: Expected {test['expected']}, Detected {test['detected']}"
+                )
 
         return accuracy >= 80.0  # Consider test successful if accuracy >= 80%
 
@@ -97,6 +110,7 @@ def test_sideways_portrait_detection():
         print(f"⚠️  Reference file not found: {reference_file}")
         print("Cannot run automated tests without reference data")
         return False
+
 
 if __name__ == "__main__":
     success = test_sideways_portrait_detection()

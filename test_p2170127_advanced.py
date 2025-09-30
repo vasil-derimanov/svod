@@ -10,9 +10,10 @@ from pathlib import Path
 import numpy as np
 
 # Add the project root to Python path
-sys.path.append('.')
+sys.path.append(".")
 
 from video_orientation_detector import OrientationDetector
+
 
 def simulate_p2170127_detection():
     """Simulate detection of P2170127.mp4 with realistic face/body positions"""
@@ -44,29 +45,14 @@ def simulate_p2170127_detection():
     # In P2170127.mp4, faces appear on the left side, indicating clockwise rotation needed
 
     mock_faces = [
-        {
-            "box": [200, 800, 300, 400],  # Face on left side (x=200, width=300)
-            "confidence": 0.85
-        },
-        {
-            "box": [150, 1200, 280, 380],  # Another face on left side
-            "confidence": 0.78
-        },
-        {
-            "box": [180, 1600, 320, 420],  # Third face on left side
-            "confidence": 0.82
-        }
+        {"box": [200, 800, 300, 400], "confidence": 0.85},  # Face on left side (x=200, width=300)
+        {"box": [150, 1200, 280, 380], "confidence": 0.78},  # Another face on left side
+        {"box": [180, 1600, 320, 420], "confidence": 0.82},  # Third face on left side
     ]
 
     mock_bodies = [
-        {
-            "box": [100, 750, 450, 600],  # Body corresponding to first face
-            "confidence": 0.72
-        },
-        {
-            "box": [80, 1150, 420, 550],  # Body corresponding to second face
-            "confidence": 0.68
-        }
+        {"box": [100, 750, 450, 600], "confidence": 0.72},  # Body corresponding to first face
+        {"box": [80, 1150, 420, 550], "confidence": 0.68},  # Body corresponding to second face
     ]
 
     print("\n👥 Simulated Detections:")
@@ -74,13 +60,21 @@ def simulate_p2170127_detection():
     for i, face in enumerate(mock_faces):
         x, y, w, h = face["box"]
         center_x = x + w // 2
-        position = "LEFT" if center_x < frame_width * 0.4 else "CENTER" if center_x < frame_width * 0.6 else "RIGHT"
+        position = (
+            "LEFT"
+            if center_x < frame_width * 0.4
+            else "CENTER" if center_x < frame_width * 0.6 else "RIGHT"
+        )
         print(f"      Face {i+1}: center_x={center_x} ({position})")
     print(f"   Bodies: {len(mock_bodies)} detected")
     for i, body in enumerate(mock_bodies):
         x, y, w, h = body["box"]
         center_x = x + w // 2
-        position = "LEFT" if center_x < frame_width * 0.4 else "CENTER" if center_x < frame_width * 0.6 else "RIGHT"
+        position = (
+            "LEFT"
+            if center_x < frame_width * 0.4
+            else "CENTER" if center_x < frame_width * 0.6 else "RIGHT"
+        )
         print(f"      Body {i+1}: center_x={center_x} ({position})")
     # Test the new rotation direction analysis
     detection_info = {
@@ -91,8 +85,8 @@ def simulate_p2170127_detection():
         "video_context": {
             "aspect_ratio": 0.5625,
             "is_portrait": True,
-            "resolution": f"{frame_width}x{frame_height}"
-        }
+            "resolution": f"{frame_width}x{frame_height}",
+        },
     }
 
     votes = {"face": [], "yolo": [], "mobilenet": [], "hough": [], "aspect": []}
@@ -145,6 +139,7 @@ def simulate_p2170127_detection():
     print("3. Wide face ratio analysis for portrait content detection")
     print("4. Vertical distribution analysis as secondary indicator")
     print("5. Smart fallback for unclear cases")
+
 
 if __name__ == "__main__":
     simulate_p2170127_detection()

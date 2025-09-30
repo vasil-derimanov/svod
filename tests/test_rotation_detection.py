@@ -111,7 +111,7 @@ class TestRotationDetection:
         frame_sequence = [
             np.zeros((100, 100, 3), dtype=np.uint8),
             np.zeros((100, 100, 3), dtype=np.uint8),
-            np.zeros((100, 100, 3), dtype=np.uint8)
+            np.zeros((100, 100, 3), dtype=np.uint8),
         ]
 
         evidence = detector._analyze_motion_patterns(frame_sequence, 1.0)

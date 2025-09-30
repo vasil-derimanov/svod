@@ -5,9 +5,11 @@ Practical test for the improved sideways portrait detection
 
 import sys
 import os
-sys.path.append('.')
+
+sys.path.append(".")
 
 from video_orientation_detector import OrientationDetector, VideoOrientation
+
 
 def test_bias_logic():
     """Test the bias calculation logic directly"""
@@ -44,6 +46,7 @@ def test_bias_logic():
         print(f"   Bias towards INCORRECT: +{counterclockwise_bias}")
         print()
 
+
 def test_face_density_logic():
     """Test the face density detection logic"""
     print("🧪 Testing Face Density Logic")
@@ -61,7 +64,7 @@ def test_face_density_logic():
 
     for face_density, body_count, description in scenarios:
         # Simulate the face-only detection logic
-        has_only_faces = (body_count == 0 and face_density > 0)
+        has_only_faces = body_count == 0 and face_density > 0
 
         if has_only_faces and face_density > 2.5:
             result = "TRIGGER: Force INCORRECT (face-only rotation suspicion)"
@@ -77,6 +80,7 @@ def test_face_density_logic():
         if confidence > 0:
             print(f"   Confidence: {confidence:.1%}")
         print()
+
 
 def test_aspect_ratio_bias():
     """Test the aspect ratio bias in final verdict"""
@@ -113,6 +117,7 @@ def test_aspect_ratio_bias():
         print(f"   Total bias towards INCORRECT: +{total_incorrect}")
         print()
 
+
 def test_threshold_changes():
     """Test the changed thresholds"""
     print("🧪 Testing Changed Thresholds")
@@ -137,6 +142,7 @@ def test_threshold_changes():
     print("   • New: +4 for mobile portrait")
     print("   • Impact: Stronger bias towards INCORRECT for portrait videos")
     print()
+
 
 def create_mock_test():
     """Create a mock test that simulates the detection process"""
@@ -166,7 +172,7 @@ def create_mock_test():
     print(f"Step 1 - Bias calculation: +{counterclockwise_bias} towards INCORRECT")
 
     # Step 2: Face-only detection
-    has_only_faces = (body_count == 0 and face_density > 0)
+    has_only_faces = body_count == 0 and face_density > 0
     face_only_trigger = has_only_faces and face_density > 2.5
 
     if face_only_trigger:
@@ -195,6 +201,7 @@ def create_mock_test():
     print(f"\n🎯 Final Result: {final_result}")
     print("✅ This should correctly detect P2170127.mp4 as INCORRECT!")
 
+
 def main():
     """Run all tests"""
     print("🚀 SVOD Improved Detection Logic Test Suite")
@@ -214,6 +221,7 @@ def main():
     print("   3. ✅ Enhanced aspect ratio bias in final verdict")
     print("   4. ✅ Better handling of mobile portrait videos")
     print("   5. ✅ No hardcoded overrides (complies with strict rules)")
+
 
 if __name__ == "__main__":
     main()

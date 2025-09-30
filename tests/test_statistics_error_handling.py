@@ -20,18 +20,18 @@ class TestStatisticsAndErrorHandling:
         # Process some frames
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
                         for _ in range(5):
                             detector.determine_frame_orientation(frame)
 
         # Check statistics
         stats = detector.get_statistics()
         assert isinstance(stats, dict)
-        assert 'frames_processed' in stats
-        assert stats['frames_processed'] == 5
+        assert "frames_processed" in stats
+        assert stats["frames_processed"] == 5
 
     def test_statistics_reporting(self, detector):
         """Test statistics reporting functionality"""
@@ -39,10 +39,10 @@ class TestStatisticsAndErrorHandling:
 
         # Generate some stats
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
                         detector.determine_frame_orientation(frame)
 
         # Test reporting
@@ -54,16 +54,16 @@ class TestStatisticsAndErrorHandling:
         """Test statistics reset functionality"""
         # Generate some stats
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
                         detector.determine_frame_orientation(frame)
 
         # Reset and check
         detector.reset_stats()
         stats = detector.get_statistics()
-        assert stats['frames_processed'] == 0
+        assert stats["frames_processed"] == 0
 
     def test_error_handling_invalid_input(self, detector):
         """Test error handling for invalid inputs"""
@@ -83,7 +83,7 @@ class TestStatisticsAndErrorHandling:
     def test_error_handling_model_loading_failures(self, detector):
         """Test error handling when model loading fails"""
         # Mock model loading failure
-        with patch('cv2.dnn.readNetFromCaffe', side_effect=Exception("Model load failed")):
+        with patch("cv2.dnn.readNetFromCaffe", side_effect=Exception("Model load failed")):
             # Should not crash, should continue with other methods
             frame = np.zeros((100, 100, 3), dtype=np.uint8)
             result = detector.determine_frame_orientation(frame)
@@ -94,10 +94,12 @@ class TestStatisticsAndErrorHandling:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Mock timeout in face detection
-        with patch.object(detector, 'detect_faces_dnn', side_effect=TimeoutError("Network timeout")):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
+        with patch.object(
+            detector, "detect_faces_dnn", side_effect=TimeoutError("Network timeout")
+        ):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
                         result = detector.determine_frame_orientation(frame)
                         assert result is not None  # Should continue with other methods
 
@@ -106,17 +108,19 @@ class TestStatisticsAndErrorHandling:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Mock memory error
-        with patch.object(detector, 'detect_faces_dnn', side_effect=MemoryError("Out of memory")):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", side_effect=MemoryError("Out of memory")):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
                         result = detector.determine_frame_orientation(frame)
                         assert result is not None  # Should continue with other methods
 
     def test_error_handling_corrupted_frames(self, detector):
         """Test error handling for corrupted frame data"""
         # Create corrupted frame data - use proper uint8 dtype
-        corrupted_frame = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8).astype(np.float32)
+        corrupted_frame = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8).astype(
+            np.float32
+        )
         corrupted_frame[50, 50] = np.nan  # Add NaN values
 
         # Should handle gracefully
@@ -127,20 +131,22 @@ class TestStatisticsAndErrorHandling:
         """Test error handling when all detections return empty"""
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
-                        with patch.object(detector, 'mobilenet_detect_orientation', return_value=None):
-                            with patch.object(detector, 'detect_hough_lines', return_value=None):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
+                        with patch.object(
+                            detector, "mobilenet_detect_orientation", return_value=None
+                        ):
+                            with patch.object(detector, "detect_hough_lines", return_value=None):
                                 result = detector.determine_frame_orientation(frame)
                                 assert result is not None  # Should fall back to aspect ratio
 
     def test_error_handling_file_io_errors(self, detector):
         """Test error handling for file I/O errors"""
         # Mock file I/O error during model loading
-        with patch('builtins.open', side_effect=IOError("File not found")):
-            with patch('cv2.dnn.readNetFromCaffe', side_effect=IOError("Model file missing")):
+        with patch("builtins.open", side_effect=IOError("File not found")):
+            with patch("cv2.dnn.readNetFromCaffe", side_effect=IOError("Model file missing")):
                 frame = np.zeros((100, 100, 3), dtype=np.uint8)
                 result = detector.determine_frame_orientation(frame)
                 assert result is not None  # Should continue without model
@@ -155,10 +161,10 @@ class TestStatisticsAndErrorHandling:
 
         def process_frame():
             try:
-                with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-                    with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                        with patch.object(detector, 'detect_persons', return_value=[]):
-                            with patch.object(detector, 'detect_poses', return_value=[]):
+                with patch.object(detector, "detect_faces_dnn", return_value=[]):
+                    with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                        with patch.object(detector, "detect_persons", return_value=[]):
+                            with patch.object(detector, "detect_poses", return_value=[]):
                                 result = detector.determine_frame_orientation(frame)
                                 results.append(result)
             except Exception as e:
@@ -183,6 +189,7 @@ class TestStatisticsAndErrorHandling:
 
         # First call fails, second succeeds
         call_count = 0
+
         def failing_detection(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -190,10 +197,10 @@ class TestStatisticsAndErrorHandling:
                 raise Exception("Temporary failure")
             return []
 
-        with patch.object(detector, 'detect_faces_dnn', side_effect=failing_detection):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", side_effect=failing_detection):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
                         # First call should handle error
                         result1 = detector.determine_frame_orientation(frame)
                         # Second call should work normally
@@ -207,12 +214,18 @@ class TestStatisticsAndErrorHandling:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Disable all advanced features
-        with patch.object(detector, 'detect_faces_dnn', side_effect=Exception("Disabled")):
-            with patch.object(detector, 'detect_faces_cascade', side_effect=Exception("Disabled")):
-                with patch.object(detector, 'detect_persons', side_effect=Exception("Disabled")):
-                    with patch.object(detector, 'detect_poses', side_effect=Exception("Disabled")):
-                        with patch.object(detector, 'mobilenet_detect_orientation', side_effect=Exception("Disabled")):
-                            with patch.object(detector, 'detect_hough_lines', side_effect=Exception("Disabled")):
+        with patch.object(detector, "detect_faces_dnn", side_effect=Exception("Disabled")):
+            with patch.object(detector, "detect_faces_cascade", side_effect=Exception("Disabled")):
+                with patch.object(detector, "detect_persons", side_effect=Exception("Disabled")):
+                    with patch.object(detector, "detect_poses", side_effect=Exception("Disabled")):
+                        with patch.object(
+                            detector,
+                            "mobilenet_detect_orientation",
+                            side_effect=Exception("Disabled"),
+                        ):
+                            with patch.object(
+                                detector, "detect_hough_lines", side_effect=Exception("Disabled")
+                            ):
                                 # Should still work with basic aspect ratio analysis
                                 result = detector.determine_frame_orientation(frame)
                                 assert result is not None
@@ -222,12 +235,12 @@ class TestStatisticsAndErrorHandling:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Trigger an error condition - should handle gracefully
-        with patch.object(detector, 'detect_faces_dnn', side_effect=Exception("Test error")):
+        with patch.object(detector, "detect_faces_dnn", side_effect=Exception("Test error")):
             result = detector.determine_frame_orientation(frame)
-            
+
         # Should return a valid result even with errors
         assert isinstance(result, tuple)
         assert len(result) == 2
         orientation, info = result
-        assert hasattr(orientation, 'name')  # VideoOrientation enum
+        assert hasattr(orientation, "name")  # VideoOrientation enum
         assert isinstance(info, dict)

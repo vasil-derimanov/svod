@@ -4,24 +4,26 @@ Comprehensive orientation matches summary for SVOD testing
 """
 import os
 
-print("="*80)
+print("=" * 80)
 print("COMPREHENSIVE VIDEO ORIENTATION DETECTION TEST RESULTS")
-print("="*80)
+print("=" * 80)
 print()
 
 # Directory counts
 bad_examples_dir = r"C:\Users\boris\Bad_Examples"
 good_examples_dir = r"C:\Users\boris\Good_Examples"
 
+
 def count_video_files(directory):
     if not os.path.exists(directory):
         return 0
-    video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v'}
+    video_extensions = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm", ".m4v"}
     count = 0
     for file in os.listdir(directory):
         if any(file.lower().endswith(ext) for ext in video_extensions):
             count += 1
     return count
+
 
 bad_count = count_video_files(bad_examples_dir)
 good_count = count_video_files(good_examples_dir)
@@ -37,11 +39,31 @@ print("-" * 70)
 
 # Reference videos with expected vs actual results
 reference_matches = [
-    ("P7210301.mp4", "incorrect (90° counterclockwise)", "INCORRECT - Rotate 90° counterclockwise", "✅ FIXED!"),
+    (
+        "P7210301.mp4",
+        "incorrect (90° counterclockwise)",
+        "INCORRECT - Rotate 90° counterclockwise",
+        "✅ FIXED!",
+    ),
     ("P2170127.mp4", "incorrect (90° clockwise)", "INCORRECT - Rotate 90° clockwise", "✅ CORRECT"),
-    ("P9080828.mp4", "incorrect (90° counterclockwise)", "INCORRECT - Rotate 90° counterclockwise", "✅ CORRECT"),
-    ("P6160117.mp4", "incorrect (90° clockwise)", "INCORRECT - Detected pattern-based rotation", "✅ DETECTED"),
-    ("VID_20200907_202511.mp4", "incorrect (90° counterclockwise)", "INCORRECT - Rotate 90° counterclockwise (mobile)", "✅ CORRECT"),
+    (
+        "P9080828.mp4",
+        "incorrect (90° counterclockwise)",
+        "INCORRECT - Rotate 90° counterclockwise",
+        "✅ CORRECT",
+    ),
+    (
+        "P6160117.mp4",
+        "incorrect (90° clockwise)",
+        "INCORRECT - Detected pattern-based rotation",
+        "✅ DETECTED",
+    ),
+    (
+        "VID_20200907_202511.mp4",
+        "incorrect (90° counterclockwise)",
+        "INCORRECT - Rotate 90° counterclockwise (mobile)",
+        "✅ CORRECT",
+    ),
     ("P5051162.mp4", "correct (no rotation)", "CORRECT - No action needed", "✅ CORRECT"),
     ("P8150092.mp4", "correct (no rotation)", "CORRECT - No action needed", "✅ CORRECT"),
     ("P8170377.mp4", "correct (no rotation)", "CORRECT - No action needed", "✅ CORRECT"),
@@ -69,4 +91,4 @@ print(f"Good_Examples: 22/22 videos ✅ (100% orientation matches)")
 print(f"Bad_Examples:  13/13 videos ✅ (100% orientation matches)")
 print(f"Total Success: 35/35 videos ✅ (100% accuracy)")
 print()
-print("="*80)
+print("=" * 80)

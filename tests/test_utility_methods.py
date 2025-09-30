@@ -11,7 +11,7 @@ class TestUtilityMethods:
         """Test remove_duplicates with no duplicates"""
         detections = [
             {"box": (10, 10, 50, 50), "confidence": 0.9, "type": "face"},
-            {"box": (70, 70, 50, 50), "confidence": 0.8, "type": "face"}
+            {"box": (70, 70, 50, 50), "confidence": 0.8, "type": "face"},
         ]
 
         result = detector.remove_duplicates(detections)
@@ -22,7 +22,7 @@ class TestUtilityMethods:
         """Test remove_duplicates removes overlapping detections"""
         detections = [
             {"box": (10, 10, 50, 50), "confidence": 0.9, "type": "face"},
-            {"box": (15, 15, 50, 50), "confidence": 0.8, "type": "face"}  # Overlaps with first
+            {"box": (15, 15, 50, 50), "confidence": 0.8, "type": "face"},  # Overlaps with first
         ]
 
         result = detector.remove_duplicates(detections)
@@ -105,9 +105,9 @@ class TestUtilityMethods:
     def test_determine_frame_orientation_no_humans(self, detector):
         """Test frame orientation determination with no humans detected"""
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
-        
+
         orientation, detection_info = detector.determine_frame_orientation(frame)
-        
+
         assert orientation == VideoOrientation.UNCERTAIN
         assert detection_info["final_decision"] == "no_human_detected"
         assert len(detection_info["faces"]) == 0
@@ -116,18 +116,26 @@ class TestUtilityMethods:
     def test_determine_frame_orientation_with_faces(self, detector):
         """Test frame orientation determination with faces"""
         frame = np.zeros((200, 100, 3), dtype=np.uint8)  # Portrait frame
-        
+
         # Mock face detection
-        with patch.object(detector, 'detect_faces_dnn', return_value=[
-            {"box": (20, 20, 60, 80), "confidence": 0.9, "type": "dnn_face"}
-        ]), \
-             patch.object(detector, 'detect_faces_cascade', return_value=[]), \
-             patch.object(detector, 'detect_persons', return_value=[]), \
-             patch.object(detector, 'detect_poses', return_value=[]):
-            
+        with (
+            patch.object(
+                detector,
+                "detect_faces_dnn",
+                return_value=[{"box": (20, 20, 60, 80), "confidence": 0.9, "type": "dnn_face"}],
+            ),
+            patch.object(detector, "detect_faces_cascade", return_value=[]),
+            patch.object(detector, "detect_persons", return_value=[]),
+            patch.object(detector, "detect_poses", return_value=[]),
+        ):
+
             orientation, detection_info = detector.determine_frame_orientation(frame)
-            
-            assert orientation in [VideoOrientation.CORRECT, VideoOrientation.INCORRECT, VideoOrientation.UNCERTAIN]
+
+            assert orientation in [
+                VideoOrientation.CORRECT,
+                VideoOrientation.INCORRECT,
+                VideoOrientation.UNCERTAIN,
+            ]
             assert len(detection_info["faces"]) > 0
             assert "final_decision" in detection_info
 
@@ -138,11 +146,11 @@ class TestUtilityMethods:
             "faces": [{"box": (10, 10, 30, 40), "confidence": 0.9}],
             "bodies": [],
             "is_close_up": False,
-            "primary_detection": "face"
+            "primary_detection": "face",
         }
-        
+
         result = detector.annotate_frame(frame, VideoOrientation.CORRECT, detection_info)
-        
+
         # Should return annotated frame (may be same as input if no drawing)
         assert result.shape == frame.shape
         assert result.dtype == frame.dtype
@@ -151,11 +159,11 @@ class TestUtilityMethods:
         """Test face orientation evidence for wide face"""
         width, height = 100, 200  # Portrait video
         video_aspect = width / height  # Portrait
-        
+
         evidence = detector._analyze_face_orientation(
             0.7, 50, 20, 40, 60, width, height, video_aspect, 0.0  # Wide face
         )
-        
+
         assert isinstance(evidence, dict)
         assert "counterclockwise" in evidence
         assert evidence["counterclockwise"] > 0
@@ -164,11 +172,11 @@ class TestUtilityMethods:
         """Test body orientation evidence for wide body"""
         width, height = 100, 200  # Portrait video
         video_aspect = width / height  # Portrait
-        
+
         evidence = detector._analyze_body_orientation(
             0.6, 50, 20, 30, 50, width, height, video_aspect, 0.0  # Wide body
         )
-        
+
         assert isinstance(evidence, dict)
         assert "counterclockwise" in evidence
         assert evidence["counterclockwise"] > 0
@@ -179,9 +187,9 @@ class TestUtilityMethods:
         # Add horizontal edges
         frame[25, :] = 255
         frame[75, :] = 255
-        
+
         evidence = detector._analyze_advanced_edge_orientation(frame, 0.5)  # Portrait aspect
-        
+
         assert isinstance(evidence, dict)
         assert "clockwise" in evidence
         assert "counterclockwise" in evidence
@@ -192,11 +200,11 @@ class TestUtilityMethods:
         frame_sequence = [
             np.zeros((100, 100, 3), dtype=np.uint8),
             np.zeros((100, 100, 3), dtype=np.uint8),
-            np.zeros((100, 100, 3), dtype=np.uint8)
+            np.zeros((100, 100, 3), dtype=np.uint8),
         ]
-        
+
         evidence = detector._analyze_motion_patterns(frame_sequence, 1.0)
-        
+
         assert isinstance(evidence, dict)
         assert "clockwise" in evidence
         assert "counterclockwise" in evidence
@@ -205,9 +213,9 @@ class TestUtilityMethods:
     def test_cnn_rotation_classifier(self, detector):
         """Test CNN rotation classifier"""
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
-        
+
         evidence = detector._cnn_rotation_classifier(frame)
-        
+
         assert isinstance(evidence, dict)
         assert "clockwise" in evidence
         assert "counterclockwise" in evidence

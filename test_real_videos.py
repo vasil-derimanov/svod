@@ -11,7 +11,7 @@
 #
 # Test Data Sources (protected directories):
 # - Quick tests: C:\\Users\\boris\\Videos
-# - Good examples: C:\\Users\\boris\\Good_Examples  
+# - Good examples: C:\\Users\\boris\\Good_Examples
 # - Bad examples: C:\\Users\\boris\\Bad_Examples
 #
 # Version: 1.1.0 (Fixed to comply with NO DIRECTORY DISCOVERY rules)
@@ -28,32 +28,33 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from video_orientation_detector import OrientationDetector
 
+
 def get_video_files_from_directory(directory_path: str, max_files: int = 5) -> list:
     """Get known video files from protected directories (NO directory discovery!)."""
     # NEVER check if directory exists - always assume protected directories exist
     # Use known video files directly as per copilot-instructions.md rules
-    
+
     known_video_files = {
         r"C:\Users\boris\Videos": [
             "P2170127.mp4",
-            "P6160117.mp4", 
+            "P6160117.mp4",
             "sample_video.mp4",
             "test_video.mp4",
-            "rotation_test.mp4"
+            "rotation_test.mp4",
         ],
         r"C:\Users\boris\Bad_Examples": [
             "needs_rotation_cw.mp4",
             "needs_rotation_ccw.mp4",
-            "sideways_portrait.mp4"
+            "sideways_portrait.mp4",
         ],
         r"C:\Users\boris\Good_Examples": [
             "correct_orientation.mp4",
             "proper_landscape.mp4",
-            "good_portrait.mp4"
-        ]
+            "good_portrait.mp4",
+        ],
     }
-    
-    directory_path = directory_path.rstrip('\\')
+
+    directory_path = directory_path.rstrip("\\")
     if directory_path in known_video_files:
         # Return direct paths to known files (limit by max_files)
         video_files = []
@@ -70,7 +71,10 @@ def get_video_files_from_directory(directory_path: str, max_files: int = 5) -> l
 
     return video_files
 
-def test_video_orientation(detector: OrientationDetector, video_path: str, expected_orientation: Optional[str] = None) -> dict:
+
+def test_video_orientation(
+    detector: OrientationDetector, video_path: str, expected_orientation: Optional[str] = None
+) -> dict:
     """Test a single video file with real processing (NO SIMULATION!)."""
     print(f"\n🎬 Testing: {os.path.basename(video_path)}")
 
@@ -84,15 +88,15 @@ def test_video_orientation(detector: OrientationDetector, video_path: str, expec
 
         if result:
             # Extract orientation from verdict
-            verdict = result.get('verdict', 'UNKNOWN')
-            if 'INCORRECT' in verdict:
-                orientation = 'INCORRECT'
-            elif 'CORRECT' in verdict:
-                orientation = 'CORRECT'
+            verdict = result.get("verdict", "UNKNOWN")
+            if "INCORRECT" in verdict:
+                orientation = "INCORRECT"
+            elif "CORRECT" in verdict:
+                orientation = "CORRECT"
             else:
-                orientation = 'UNKNOWN'
-            
-            confidence = result.get('confidence', 0.0)
+                orientation = "UNKNOWN"
+
+            confidence = result.get("confidence", 0.0)
 
             print(".2f")
             print(f"   📊 Orientation: {orientation}")
@@ -105,30 +109,31 @@ def test_video_orientation(detector: OrientationDetector, video_path: str, expec
                     print(f"   ❌ MISMATCH: Expected {expected_orientation}, got {orientation}")
 
             return {
-                'success': True,
-                'orientation': orientation,
-                'confidence': confidence,
-                'processing_time': processing_time,
-                'path': video_path
+                "success": True,
+                "orientation": orientation,
+                "confidence": confidence,
+                "processing_time": processing_time,
+                "path": video_path,
             }
         else:
             print("   ❌ FAILED: No result returned")
             return {
-                'success': False,
-                'error': 'No result',
-                'processing_time': processing_time,
-                'path': video_path
+                "success": False,
+                "error": "No result",
+                "processing_time": processing_time,
+                "path": video_path,
             }
 
     except Exception as e:
         processing_time = time.time() - start_time
         print(f"   ❌ ERROR: {str(e)}")
         return {
-            'success': False,
-            'error': str(e),
-            'processing_time': processing_time,
-            'path': video_path
+            "success": False,
+            "error": str(e),
+            "processing_time": processing_time,
+            "path": video_path,
         }
+
 
 def run_comprehensive_real_video_tests():
     """Run comprehensive tests with REAL video files from all test directories."""
@@ -142,16 +147,13 @@ def run_comprehensive_real_video_tests():
     print()
 
     # Initialize detector with reasonable settings
-    detector = OrientationDetector(
-        time_limit=30,  # 30 seconds per video
-        confidence_threshold=0.5
-    )
+    detector = OrientationDetector(time_limit=30, confidence_threshold=0.5)  # 30 seconds per video
 
     # Test directories and expected orientations
     test_directories = [
         ("C:\\Users\\boris\\Videos", None, "Quick Test Videos"),
         ("C:\\Users\\boris\\Good_Examples", "CORRECT", "Good Examples (Should be CORRECT)"),
-        ("C:\\Users\\boris\\Bad_Examples", "INCORRECT", "Bad Examples (Should be INCORRECT)")
+        ("C:\\Users\\boris\\Bad_Examples", "INCORRECT", "Bad Examples (Should be INCORRECT)"),
     ]
 
     all_results = []
@@ -177,7 +179,7 @@ def run_comprehensive_real_video_tests():
             total_files_tested += 1
 
         # Directory summary
-        successful_tests = sum(1 for r in directory_results if r['success'])
+        successful_tests = sum(1 for r in directory_results if r["success"])
         print(f"\n📊 {description} Summary:")
         print(f"   • Files tested: {len(directory_results)}")
         print(f"   • Successful: {successful_tests}")
@@ -188,8 +190,8 @@ def run_comprehensive_real_video_tests():
     print("=" * 50)
 
     if all_results:
-        successful_tests = sum(1 for r in all_results if r['success'])
-        total_processing_time = sum(r.get('processing_time', 0) for r in all_results)
+        successful_tests = sum(1 for r in all_results if r["success"])
+        total_processing_time = sum(r.get("processing_time", 0) for r in all_results)
 
         print(f"📊 Total files tested: {total_files_tested}")
         print(f"✅ Successful tests: {successful_tests}")
@@ -198,8 +200,8 @@ def run_comprehensive_real_video_tests():
         # Orientation distribution
         orientation_counts = {}
         for result in all_results:
-            if result['success'] and 'orientation' in result:
-                orientation = result['orientation']
+            if result["success"] and "orientation" in result:
+                orientation = result["orientation"]
                 orientation_counts[orientation] = orientation_counts.get(orientation, 0) + 1
 
         print("\n📈 Orientation Distribution:")
@@ -207,14 +209,14 @@ def run_comprehensive_real_video_tests():
             print(f"   • {orientation}: {count} files")
 
         # Check for P2170127.mp4 specifically
-        p2170127_results = [r for r in all_results if 'P2170127.mp4' in r.get('path', '')]
+        p2170127_results = [r for r in all_results if "P2170127.mp4" in r.get("path", "")]
         if p2170127_results:
             result = p2170127_results[0]
             print("\n🎯 P2170127.mp4 Results:")
-            if result['success']:
+            if result["success"]:
                 print(f"   • Orientation: {result['orientation']}")
                 print(".1f")
-                if result['orientation'] == 'INCORRECT':
+                if result["orientation"] == "INCORRECT":
                     print("   ✅ SUCCESS: P2170127.mp4 correctly detected as INCORRECT!")
                 else:
                     print("   ❌ ISSUE: P2170127.mp4 should be INCORRECT!")
@@ -229,6 +231,7 @@ def run_comprehensive_real_video_tests():
 
     print("\n🏁 Real video testing completed!")
     print("📋 Remember: This used REAL video files, not simulations!")
+
 
 if __name__ == "__main__":
     run_comprehensive_real_video_tests()

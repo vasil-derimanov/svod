@@ -9,9 +9,10 @@ import os
 from pathlib import Path
 
 # Add the project root to Python path
-sys.path.append('.')
+sys.path.append(".")
 
 from video_orientation_detector import OrientationDetector
+
 
 def test_p2170127_detection():
     """Test detection of P2170127.mp4 with improved logic"""
@@ -32,22 +33,22 @@ def test_p2170127_detection():
             "aspect_ratio": 0.56,
             "expected": "INCORRECT",
             "rotation_direction": "clockwise",
-            "description": "Mobile portrait video needing 90° clockwise rotation"
+            "description": "Mobile portrait video needing 90° clockwise rotation",
         },
         {
             "name": "VID_20200907_202511.mp4-like (portrait, counterclockwise needed)",
             "aspect_ratio": 0.56,
             "expected": "INCORRECT",
             "rotation_direction": "counterclockwise",
-            "description": "Mobile portrait video needing 90° counterclockwise rotation"
+            "description": "Mobile portrait video needing 90° counterclockwise rotation",
         },
         {
             "name": "P6160117.mp4-like (portrait, clockwise needed)",
             "aspect_ratio": 0.62,
             "expected": "INCORRECT",
             "rotation_direction": "clockwise",
-            "description": "Another mobile portrait video needing clockwise rotation"
-        }
+            "description": "Another mobile portrait video needing clockwise rotation",
+        },
     ]
 
     for test_case in test_cases:
@@ -64,7 +65,9 @@ def test_p2170127_detection():
         print("   ✅ Smart bias application based on detection patterns")
         print("   ✅ Support for both clockwise and counterclockwise rotation")
 
-        print(f"   🎯 Result: Should detect as {test_case['expected']} with {test_case['rotation_direction']} rotation")
+        print(
+            f"   🎯 Result: Should detect as {test_case['expected']} with {test_case['rotation_direction']} rotation"
+        )
 
     print("\n" + "=" * 60)
     print("🎉 Enhanced Detection Logic Summary:")
@@ -80,6 +83,7 @@ def test_p2170127_detection():
     print("3. Vertical distribution analysis as secondary indicator")
     print("4. Smart bias application based on evidence strength")
     print("5. Fallback logic for unclear cases")
+
 
 if __name__ == "__main__":
     test_p2170127_detection()

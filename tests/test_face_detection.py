@@ -61,7 +61,7 @@ class TestFaceDetection:
         mock_eye_cascade = MagicMock()
         mock_eye_cascade.detectMultiScale.return_value = [(10, 15, 8, 6), (25, 15, 8, 6)]
 
-        with patch('cv2.CascadeClassifier', return_value=mock_eye_cascade):
+        with patch("cv2.CascadeClassifier", return_value=mock_eye_cascade):
             # Create a face region (grayscale)
             face_region = np.zeros((50, 50), dtype=np.uint8)
             result = detector.detect_eyes_in_face(face_region)
@@ -73,7 +73,7 @@ class TestFaceDetection:
     def test_analyze_face_orientation_upright(self, detector):
         """Test face orientation analysis for upright face"""
         # Mock eye detection to return horizontal eyes
-        with patch.object(detector, 'detect_eyes_in_face') as mock_detect:
+        with patch.object(detector, "detect_eyes_in_face") as mock_detect:
             mock_detect.return_value = [(10, 20, 5, 3), (25, 20, 5, 3)]  # Eyes at same Y level
 
             frame = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -85,7 +85,7 @@ class TestFaceDetection:
     def test_analyze_face_orientation_sideways(self, detector):
         """Test face orientation analysis for sideways face"""
         # Mock eye detection to return no eyes (fallback to aspect ratio)
-        with patch.object(detector, 'detect_eyes_in_face') as mock_detect:
+        with patch.object(detector, "detect_eyes_in_face") as mock_detect:
             mock_detect.return_value = []
 
             frame = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -97,7 +97,7 @@ class TestFaceDetection:
     def test_analyze_face_orientation_uncertain(self, detector):
         """Test face orientation analysis for uncertain case"""
         # Mock eye detection to return no eyes
-        with patch.object(detector, 'detect_eyes_in_face') as mock_detect:
+        with patch.object(detector, "detect_eyes_in_face") as mock_detect:
             mock_detect.return_value = []
 
             frame = np.zeros((100, 100, 3), dtype=np.uint8)

@@ -16,9 +16,9 @@ class TestAdvancedFeatures:
 
         result = detector._cnn_rotation_classifier(frame)
         assert isinstance(result, dict)
-        assert 'clockwise' in result
-        assert 'counterclockwise' in result
-        assert 'none' in result
+        assert "clockwise" in result
+        assert "counterclockwise" in result
+        assert "none" in result
 
     def test_optical_flow_analysis(self, detector):
         """Test optical flow rotation analysis"""
@@ -27,9 +27,9 @@ class TestAdvancedFeatures:
 
         result = detector._analyze_optical_flow_rotation(prev_frame, curr_frame, 1.5)
         assert isinstance(result, dict)
-        assert 'clockwise' in result
-        assert 'counterclockwise' in result
-        assert 'none' in result
+        assert "clockwise" in result
+        assert "counterclockwise" in result
+        assert "none" in result
 
     def test_advanced_edge_orientation(self, detector):
         """Test advanced edge orientation analysis"""
@@ -39,59 +39,61 @@ class TestAdvancedFeatures:
 
         result = detector._analyze_advanced_edge_orientation(frame, 1.0)
         assert isinstance(result, dict)
-        assert 'clockwise' in result
-        assert 'counterclockwise' in result
-        assert 'none' in result
+        assert "clockwise" in result
+        assert "counterclockwise" in result
+        assert "none" in result
 
     def test_motion_patterns_analysis(self, detector):
         """Test motion pattern analysis"""
         frame_sequence = [
             np.zeros((100, 100, 3), dtype=np.uint8),
             np.zeros((100, 100, 3), dtype=np.uint8),
-            np.zeros((100, 100, 3), dtype=np.uint8)
+            np.zeros((100, 100, 3), dtype=np.uint8),
         ]
 
         result = detector._analyze_motion_patterns(frame_sequence, 1.0)
         assert isinstance(result, dict)
-        assert 'clockwise' in result
-        assert 'counterclockwise' in result
-        assert 'none' in result
+        assert "clockwise" in result
+        assert "counterclockwise" in result
+        assert "none" in result
 
     def test_ensemble_voting_system(self, detector):
         """Test ensemble voting system"""
         votes = {
-            'face': ['correct'],
-            'yolo': ['correct'],
-            'pose': ['correct'],
-            'mobilenet': ['correct'],
-            'hough': ['correct'],
-            'aspect': ['correct']
+            "face": ["correct"],
+            "yolo": ["correct"],
+            "pose": ["correct"],
+            "mobilenet": ["correct"],
+            "hough": ["correct"],
+            "aspect": ["correct"],
         }
         detection_info = {
-            'faces': [{'box': [20, 20, 60, 60], 'confidence': 0.9}],
-            'bodies': [{'box': [10, 10, 80, 90], 'confidence': 0.8}],
-            'is_close_up': False
+            "faces": [{"box": [20, 20, 60, 60], "confidence": 0.9}],
+            "bodies": [{"box": [10, 10, 80, 90], "confidence": 0.8}],
+            "is_close_up": False,
         }
 
         # Test the voting logic indirectly through determine_frame_orientation
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
-        with patch.object(detector, 'detect_faces_dnn', return_value=detection_info['faces']):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=detection_info['bodies']):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=detection_info["faces"]):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(
+                    detector, "detect_persons", return_value=detection_info["bodies"]
+                ):
+                    with patch.object(detector, "detect_poses", return_value=[]):
                         result = detector.determine_frame_orientation(frame)
                         assert result is not None
 
     def test_adaptive_weighting(self, detector):
         """Test adaptive weighting in ensemble voting"""
         # Test with high confidence detections
-        high_conf_faces = [{'box': [20, 20, 60, 60], 'confidence': 0.95}] * 10
+        high_conf_faces = [{"box": [20, 20, 60, 60], "confidence": 0.95}] * 10
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=high_conf_faces):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=high_conf_faces):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
                         result = detector.determine_frame_orientation(frame)
                         assert result is not None
 
@@ -100,13 +102,19 @@ class TestAdvancedFeatures:
         # Create conflicting votes
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
-                        with patch.object(detector, 'mobilenet_detect_orientation', return_value='portrait'):
-                            with patch.object(detector, 'detect_hough_lines', return_value='landscape'):
-                                with patch.object(detector, 'analyze_aspect_ratio', return_value='portrait'):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
+                        with patch.object(
+                            detector, "mobilenet_detect_orientation", return_value="portrait"
+                        ):
+                            with patch.object(
+                                detector, "detect_hough_lines", return_value="landscape"
+                            ):
+                                with patch.object(
+                                    detector, "analyze_aspect_ratio", return_value="portrait"
+                                ):
                                     result = detector.determine_frame_orientation(frame)
                                     assert result is not None
 
@@ -117,10 +125,10 @@ class TestAdvancedFeatures:
         # Process multiple frames
         results = []
         for frame in frames:
-            with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-                with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                    with patch.object(detector, 'detect_persons', return_value=[]):
-                        with patch.object(detector, 'detect_poses', return_value=[]):
+            with patch.object(detector, "detect_faces_dnn", return_value=[]):
+                with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                    with patch.object(detector, "detect_persons", return_value=[]):
+                        with patch.object(detector, "detect_poses", return_value=[]):
                             result = detector.determine_frame_orientation(frame)
                             results.append(result)
 
@@ -144,13 +152,19 @@ class TestAdvancedFeatures:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # All models agree
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
-                        with patch.object(detector, 'mobilenet_detect_orientation', return_value='portrait'):
-                            with patch.object(detector, 'detect_hough_lines', return_value='portrait'):
-                                with patch.object(detector, 'analyze_aspect_ratio', return_value='portrait'):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
+                        with patch.object(
+                            detector, "mobilenet_detect_orientation", return_value="portrait"
+                        ):
+                            with patch.object(
+                                detector, "detect_hough_lines", return_value="portrait"
+                            ):
+                                with patch.object(
+                                    detector, "analyze_aspect_ratio", return_value="portrait"
+                                ):
                                     result = detector.determine_frame_orientation(frame)
                                     assert result is not None
 
@@ -159,10 +173,10 @@ class TestAdvancedFeatures:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # All detections fail, should fall back to aspect ratio
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
                         result = detector.determine_frame_orientation(frame)
                         assert result is not None
 
@@ -174,10 +188,10 @@ class TestAdvancedFeatures:
         start_time = time.time()
 
         # Process with time limit
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_faces_cascade', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
-                    with patch.object(detector, 'detect_poses', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_faces_cascade", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
+                    with patch.object(detector, "detect_poses", return_value=[]):
                         result = detector.determine_frame_orientation(frame)
 
         processing_time = time.time() - start_time

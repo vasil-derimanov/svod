@@ -14,7 +14,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import argparse
 
-def run_detector_version(script_path: str, video_path: str, args: Optional[List[str]] = None) -> Dict:
+
+def run_detector_version(
+    script_path: str, video_path: str, args: Optional[List[str]] = None
+) -> Dict:
     """
     Run a specific version of the detector on a video file
 
@@ -42,8 +45,8 @@ def run_detector_version(script_path: str, video_path: str, args: Optional[List[
             text=True,
             timeout=300,  # 5 minute timeout
             cwd=os.path.dirname(script_path),
-            encoding='utf-8',
-            errors='replace'
+            encoding="utf-8",
+            errors="replace",
         )
 
         processing_time = time.time() - start_time
@@ -55,19 +58,19 @@ def run_detector_version(script_path: str, video_path: str, args: Optional[List[
         orientation = "UNKNOWN"
         confidence = 0.0
 
-        lines = output.split('\n')
+        lines = output.split("\n")
         for line in lines:
             line = line.strip()
-            if 'CORRECT' in line and 'INCORRECT' not in line:
+            if "CORRECT" in line and "INCORRECT" not in line:
                 orientation = "CORRECT"
-            elif 'INCORRECT' in line:
+            elif "INCORRECT" in line:
                 orientation = "INCORRECT"
-            elif 'UNCERTAIN' in line:
+            elif "UNCERTAIN" in line:
                 orientation = "UNCERTAIN"
-            elif 'Confidence:' in line:
+            elif "Confidence:" in line:
                 try:
-                    confidence_text = line.split('Confidence:')[1].strip()
-                    confidence = float(confidence_text.rstrip('%')) / 100.0
+                    confidence_text = line.split("Confidence:")[1].strip()
+                    confidence = float(confidence_text.rstrip("%")) / 100.0
                 except:
                     pass
 
@@ -77,7 +80,7 @@ def run_detector_version(script_path: str, video_path: str, args: Optional[List[
             "confidence": confidence,
             "processing_time": processing_time,
             "output": output,
-            "error": result.stderr if result.returncode != 0 else None
+            "error": result.stderr if result.returncode != 0 else None,
         }
 
     except subprocess.TimeoutExpired:
@@ -87,7 +90,7 @@ def run_detector_version(script_path: str, video_path: str, args: Optional[List[
             "confidence": 0.0,
             "processing_time": time.time() - start_time,
             "output": "",
-            "error": "Process timed out after 5 minutes"
+            "error": "Process timed out after 5 minutes",
         }
     except Exception as e:
         return {
@@ -96,8 +99,9 @@ def run_detector_version(script_path: str, video_path: str, args: Optional[List[
             "confidence": 0.0,
             "processing_time": time.time() - start_time,
             "output": "",
-            "error": str(e)
+            "error": str(e),
         }
+
 
 def compare_results(old_result: Dict, new_result: Dict) -> Dict:
     """
@@ -113,7 +117,7 @@ def compare_results(old_result: Dict, new_result: Dict) -> Dict:
         "time_difference": new_result["processing_time"] - old_result["processing_time"],
         "time_improvement": False,
         "old_result": old_result,
-        "new_result": new_result
+        "new_result": new_result,
     }
 
     if old_result["success"] and new_result["success"]:
@@ -128,6 +132,7 @@ def compare_results(old_result: Dict, new_result: Dict) -> Dict:
             comparison["time_improvement"] = True
 
     return comparison
+
 
 def run_comparison_test(video_files: List[str], old_script: str, new_script: str) -> Dict:
     """
@@ -148,7 +153,7 @@ def run_comparison_test(video_files: List[str], old_script: str, new_script: str
         "orientation_matches": 0,
         "time_improvements": 0,
         "average_time_difference": 0.0,
-        "average_confidence_difference": 0.0
+        "average_confidence_difference": 0.0,
     }
 
     print("🚀 Starting Video Orientation Detector Comparison Test")
@@ -188,7 +193,9 @@ def run_comparison_test(video_files: List[str], old_script: str, new_script: str
             match_icon = "✅" if comparison["orientation_match"] else "❌"
             time_icon = "⚡" if comparison["time_improvement"] else "🐌"
 
-            print(f"  {match_icon} Orientation: {old_result['orientation']} → {new_result['orientation']}")
+            print(
+                f"  {match_icon} Orientation: {old_result['orientation']} → {new_result['orientation']}"
+            )
             print(".1f")
             print(".1f")
             print(".1f")
@@ -199,10 +206,7 @@ def run_comparison_test(video_files: List[str], old_script: str, new_script: str
             if new_result["error"]:
                 print(f"    New version error: {new_result['error']}")
 
-        results.append({
-            "video_path": video_path,
-            "comparison": comparison
-        })
+        results.append({"video_path": video_path, "comparison": comparison})
 
         print()
 
@@ -227,27 +231,30 @@ def run_comparison_test(video_files: List[str], old_script: str, new_script: str
         print(".3f")
         print()
 
-    return {
-        "results": results,
-        "summary": summary
-    }
+    return {"results": results, "summary": summary}
+
 
 def save_results_to_file(results: Dict, output_file: str):
     """Save test results to JSON file"""
     try:
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
         print(f"✅ Results saved to: {output_file}")
     except Exception as e:
         print(f"❌ Failed to save results: {e}")
 
+
 def main():
     parser = argparse.ArgumentParser(description="Compare old vs new video orientation detector")
     parser.add_argument("videos", nargs="+", help="Video files to test")
-    parser.add_argument("--old-script", default="video_orientation_detector_old.py",
-                       help="Path to old version script")
-    parser.add_argument("--new-script", default="video_orientation_detector.py",
-                       help="Path to new version script")
+    parser.add_argument(
+        "--old-script",
+        default="video_orientation_detector_old.py",
+        help="Path to old version script",
+    )
+    parser.add_argument(
+        "--new-script", default="video_orientation_detector.py", help="Path to new version script"
+    )
     parser.add_argument("--output", help="Save results to JSON file")
 
     args = parser.parse_args()
@@ -281,6 +288,7 @@ def main():
         save_results_to_file(results, args.output)
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

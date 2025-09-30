@@ -21,13 +21,13 @@ class TestPersonDetection:
         # Mock YOLOv8 model
         mock_model = MagicMock()
         mock_result = MagicMock()
-        
+
         # Create a mock box
         mock_box = MagicMock()
         mock_box.cls = [0]  # Person class
         mock_box.conf = [0.85]
         mock_box.xyxy = [np.array([10, 10, 60, 110])]  # Box coordinates as numpy array
-        
+
         mock_boxes = [mock_box]  # Make it iterable
         mock_result.boxes = mock_boxes
         mock_model.return_value = [mock_result]

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "svod"
 version = "4.23.0"
-description = "Smart Video Orientation Detector - Detects video rotation using AI"
+description = "Smart Video Orientation Detector - YOLOv10 primary detector with enhanced verdict alignment"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
@@ -15,7 +15,7 @@ authors = [
 maintainers = [
     {name = "Boris", email = "boris@example.com"},
 ]
-keywords = ["video", "orientation", "detection", "ai", "computer-vision", "opencv", "yolov8"]
+keywords = ["video", "orientation", "detection", "ai", "computer-vision", "opencv", "yolov10", "yolov8"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",

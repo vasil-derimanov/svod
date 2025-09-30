@@ -11,6 +11,7 @@ import shutil
 import glob
 from pathlib import Path
 
+
 def print_colored(text, color="white"):
     """Print colored text (simplified for cross-platform compatibility)"""
     colors = {
@@ -21,9 +22,10 @@ def print_colored(text, color="white"):
         "gray": "\033[90m",
         "white": "\033[97m",
         "red": "\033[91m",
-        "reset": "\033[0m"
+        "reset": "\033[0m",
     }
     print(f"{colors.get(color, '')}{text}{colors['reset']}")
+
 
 def is_protected(path):
     """Check if path is protected according to copilot-instructions.md"""
@@ -32,35 +34,31 @@ def is_protected(path):
         "video_orientation_detector.py",
         "video_orientation_detector_old.py",
         "test_batch.py",
-        "test_single.py",                    # 🆕 ДОБАВЕНО
-        "test_comparison.py",                # 🆕 ДОБАВЕНО
-        "test_improved_detection.py",        # 🆕 ДОБАВЕНО
-        "test_logic_improvements.py",        # 🆕 ДОБАВЕНО
-        "test_p2170127_advanced.py",         # 🆕 ДОБАВЕНО
-        "test_p2170127_improvements.py",     # 🆕 ДОБАВЕНО
-        "test_p2170127_quick.py",            # 🆕 ДОБАВЕНО
-        "test_practical_improvements.py",    # 🆕 ДОБАВЕНО
-        "test_real_p2170127.py",             # 🆕 ДОБАВЕНО
-        "test_real_videos.py",               # 🆕 ДОБАВЕНО
-        "test_simple.py",                    # 🆕 ДОБАВЕНО
-        "debug_p2170127.py",                 # 🆕 ДОБАВЕНО
-        "performance_comparison.py",         # 🆕 ДОБАВЕНО
-        "TEST_README.md",                    # 🆕 ДОБАВЕНО
+        "test_single.py",  # 🆕 ДОБАВЕНО
+        "test_comparison.py",  # 🆕 ДОБАВЕНО
+        "test_improved_detection.py",  # 🆕 ДОБАВЕНО
+        "test_logic_improvements.py",  # 🆕 ДОБАВЕНО
+        "test_p2170127_advanced.py",  # 🆕 ДОБАВЕНО
+        "test_p2170127_improvements.py",  # 🆕 ДОБАВЕНО
+        "test_p2170127_quick.py",  # 🆕 ДОБАВЕНО
+        "test_practical_improvements.py",  # 🆕 ДОБАВЕНО
+        "test_real_p2170127.py",  # 🆕 ДОБАВЕНО
+        "test_real_videos.py",  # 🆕 ДОБАВЕНО
+        "test_simple.py",  # 🆕 ДОБАВЕНО
+        "debug_p2170127.py",  # 🆕 ДОБАВЕНО
+        "performance_comparison.py",  # 🆕 ДОБАВЕНО
+        "TEST_README.md",  # 🆕 ДОБАВЕНО
         "reference_orientations.csv",
         "pyproject.toml",
         "requirements.txt",
         "Makefile",
         "cleanup.ps1",
         "cleanup.py",
-        ".pre-commit-config.yaml"
+        ".pre-commit-config.yaml",
     ]
 
     # Critical folders that MUST NOT be deleted (including all contents)
-    protected_folders = [
-        "tests",
-        ".vscode",
-        "performance_baselines"
-    ]
+    protected_folders = ["tests", ".vscode", "performance_baselines"]
 
     # Normalize path separators
     path = path.replace("\\", "/")
@@ -76,6 +74,7 @@ def is_protected(path):
             return True
 
     return False
+
 
 def safe_remove(path, description=""):
     """Safely remove a file or directory with protection checks"""
@@ -98,20 +97,21 @@ def safe_remove(path, description=""):
         print_colored(f"❌ Failed to remove {path}: {e}", "red")
         return False
 
+
 def main():
-    print_colored("🧹 SVOD Cleanup Script v1.0.0 - Safe project cleanup following copilot-instructions.md", "cyan")
+    print_colored(
+        "🧹 SVOD Cleanup Script v1.0.0 - Safe project cleanup following copilot-instructions.md",
+        "cyan",
+    )
     print_colored("⚠️  This script will only remove truly unnecessary files and folders", "yellow")
     print_colored("✅ All critical files and folders will be preserved", "green")
 
     removed_count = 0
 
-    # Remove unnecessary model files (keeping only essential ones for current setup)
+    # Remove legacy model files (retain current YOLOv10 assets)
     unnecessary_model_files = [
-        "coco.names",           # Not needed for current YOLOv8 setup
-        "mobilenet-v2.bin",     # Old OpenVINO model
-        "mobilenet-v2.xml",     # Old OpenVINO model
-        "yolov4.cfg",           # Old YOLOv4 config
-        "yolov4.weights"        # Old YOLOv4 weights
+        "yolov4.cfg",  # Old YOLOv4 config
+        "yolov4.weights",  # Old YOLOv4 weights
     ]
 
     print_colored("\n📂 Removing unnecessary model files...", "yellow")
@@ -136,7 +136,7 @@ def main():
         ".venv-final-test",
         ".venv-comprehensive-test",
         ".venv-accuracy-test",
-        ".venv-rotation-test"
+        ".venv-rotation-test",
     ]
 
     print_colored("\n🗂️ Removing old test virtual environments...", "yellow")
@@ -187,14 +187,19 @@ def main():
     deployment_files = ["Dockerfile", "docker-compose.yml", "deploy.sh", "deploy.prototxt"]
     for deploy_file in deployment_files:
         if os.path.exists(deploy_file):
-            print_colored(f"⚠️  Review needed: {deploy_file} (marked for potential removal)", "yellow")
+            print_colored(
+                f"⚠️  Review needed: {deploy_file} (marked for potential removal)", "yellow"
+            )
 
     # Check for duplicate test files outside tests/ folder
     print_colored("\n🧪 Checking for duplicate test files...", "yellow")
     duplicate_test_files = ["test_single.py", "test_comparison.py"]
     for test_file in duplicate_test_files:
         if os.path.exists(test_file):
-            print_colored(f"⚠️  Duplicate test file found: {test_file} (consider moving to tests/ folder)", "yellow")
+            print_colored(
+                f"⚠️  Duplicate test file found: {test_file} (consider moving to tests/ folder)",
+                "yellow",
+            )
 
     # Summary
     print_colored(f"\n✨ Safe cleanup completed! Removed {removed_count} items", "green")
@@ -205,27 +210,27 @@ def main():
         "video_orientation_detector.py",
         "video_orientation_detector_old.py",
         "test_batch.py",
-        "test_single.py",                    # 🆕 ДОБАВЕНО
-        "test_comparison.py",                # 🆕 ДОБАВЕНО
-        "test_improved_detection.py",        # 🆕 ДОБАВЕНО
-        "test_logic_improvements.py",        # 🆕 ДОБАВЕНО
-        "test_p2170127_advanced.py",         # 🆕 ДОБАВЕНО
-        "test_p2170127_improvements.py",     # 🆕 ДОБАВЕНО
-        "test_p2170127_quick.py",            # 🆕 ДОБАВЕНО
-        "test_practical_improvements.py",    # 🆕 ДОБАВЕНО
-        "test_real_p2170127.py",             # 🆕 ДОБАВЕНО
-        "test_real_videos.py",               # 🆕 ДОБАВЕНО
-        "test_simple.py",                    # 🆕 ДОБАВЕНО
-        "debug_p2170127.py",                 # 🆕 ДОБАВЕНО
-        "performance_comparison.py",         # 🆕 ДОБАВЕНО
-        "TEST_README.md",                    # 🆕 ДОБАВЕНО
+        "test_single.py",  # 🆕 ДОБАВЕНО
+        "test_comparison.py",  # 🆕 ДОБАВЕНО
+        "test_improved_detection.py",  # 🆕 ДОБАВЕНО
+        "test_logic_improvements.py",  # 🆕 ДОБАВЕНО
+        "test_p2170127_advanced.py",  # 🆕 ДОБАВЕНО
+        "test_p2170127_improvements.py",  # 🆕 ДОБАВЕНО
+        "test_p2170127_quick.py",  # 🆕 ДОБАВЕНО
+        "test_practical_improvements.py",  # 🆕 ДОБАВЕНО
+        "test_real_p2170127.py",  # 🆕 ДОБАВЕНО
+        "test_real_videos.py",  # 🆕 ДОБАВЕНО
+        "test_simple.py",  # 🆕 ДОБАВЕНО
+        "debug_p2170127.py",  # 🆕 ДОБАВЕНО
+        "performance_comparison.py",  # 🆕 ДОБАВЕНО
+        "TEST_README.md",  # 🆕 ДОБАВЕНО
         "reference_orientations.csv",
         "pyproject.toml",
         "requirements.txt",
         "Makefile",
         "cleanup.ps1",
         "cleanup.py",
-        ".pre-commit-config.yaml"
+        ".pre-commit-config.yaml",
     ]
     protected_folders = ["tests", ".vscode", "performance_baselines"]
 
@@ -236,7 +241,7 @@ def main():
 
     print_colored("\n📂 Current project structure:", "cyan")
     try:
-        items = sorted([f for f in os.listdir('.') if os.path.exists(f)])
+        items = sorted([f for f in os.listdir(".") if os.path.exists(f)])
         for item in items:
             if item in protected_files or item in protected_folders:
                 print_colored(f"   • {item} 🛡️", "green")
@@ -244,6 +249,7 @@ def main():
                 print_colored(f"   • {item}", "white")
     except Exception as e:
         print_colored(f"Could not list directory contents: {e}", "red")
+
 
 if __name__ == "__main__":
     main()

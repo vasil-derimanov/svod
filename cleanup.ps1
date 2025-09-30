@@ -62,11 +62,8 @@ function Test-ProtectedPath {
     return $false
 }
 
-# Remove unnecessary model files (keeping only essential ones)
+# Remove legacy model files (leave current YOLOv10 assets intact)
 $unnecessaryModelFiles = @(
-    "coco.names",
-    "mobilenet-v2.bin",
-    "mobilenet-v2.xml",
     "yolov4.cfg",
     "yolov4.weights"
 )

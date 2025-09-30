@@ -3,6 +3,7 @@ import numpy as np
 from unittest.mock import patch
 from video_orientation_detector import OrientationDetector
 
+
 class TestSimpleCoverage:
     """Simple tests for quick coverage boost"""
 
@@ -21,8 +22,8 @@ class TestSimpleCoverage:
         _ = detector.pose  # MediaPipe pose detector
 
         # Access stats properties
-        assert hasattr(detector.stats, '__getitem__')
-        assert 'total_frames' in detector.stats
+        assert hasattr(detector.stats, "__getitem__")
+        assert "total_frames" in detector.stats
 
     def test_basic_method_calls(self, detector):
         """Test calling basic methods without parameters"""
@@ -70,7 +71,7 @@ class TestSimpleCoverage:
         # Test format rotation hint
         result = detector._get_format_rotation_hint(0.56)  # P2170127.mp4 aspect
         assert isinstance(result, dict)
-        assert 'clockwise' in result
+        assert "clockwise" in result
 
         # Test with different aspect ratios
         result = detector._get_format_rotation_hint(1.0)  # Square
@@ -85,9 +86,14 @@ class TestSimpleCoverage:
 
         # Check that all expected stats keys exist
         expected_keys = [
-            'total_frames', 'frames_with_humans', 'correct_orientation_frames',
-            'incorrect_orientation_frames', 'face_detections', 'body_detections',
-            'analyzed_duration', 'video_duration'
+            "total_frames",
+            "frames_with_humans",
+            "correct_orientation_frames",
+            "incorrect_orientation_frames",
+            "face_detections",
+            "body_detections",
+            "analyzed_duration",
+            "video_duration",
         ]
 
         for key in expected_keys:
@@ -99,8 +105,8 @@ class TestSimpleCoverage:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Mock empty detections
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(frame)
                 assert result is not None
                 assert isinstance(result, tuple)
@@ -110,8 +116,8 @@ class TestSimpleCoverage:
         """Test with very small frame"""
         tiny_frame = np.zeros((10, 10, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(tiny_frame)
                 assert result is not None
 
@@ -119,7 +125,7 @@ class TestSimpleCoverage:
         """Test with larger frame (but not too large)"""
         large_frame = np.zeros((300, 300, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(large_frame)
                 assert result is not None

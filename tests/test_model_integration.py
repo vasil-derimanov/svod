@@ -15,8 +15,8 @@ class TestModelIntegration:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Mock successful face detection
-        with patch('cv2.dnn.blobFromImage') as mock_blob:
-            with patch.object(detector, 'face_net') as mock_net:
+        with patch("cv2.dnn.blobFromImage") as mock_blob:
+            with patch.object(detector, "face_net") as mock_net:
                 mock_blob.return_value = np.random.rand(1, 3, 300, 300)
                 mock_net.forward.return_value = np.random.rand(1, 1, 1, 7)
                 mock_net.setInput.return_value = None
@@ -29,7 +29,7 @@ class TestModelIntegration:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Mock YOLO model
-        with patch('ultralytics.YOLO') as mock_yolo:
+        with patch("ultralytics.YOLO") as mock_yolo:
             mock_model = MagicMock()
             mock_results = MagicMock()
             mock_boxes = MagicMock()
@@ -48,8 +48,8 @@ class TestModelIntegration:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Mock OpenCV DNN
-        with patch('cv2.dnn.readNetFromCaffe', return_value=MagicMock()):
-            with patch('cv2.dnn.blobFromImage', return_value=np.random.rand(1, 3, 100, 100)):
+        with patch("cv2.dnn.readNetFromCaffe", return_value=MagicMock()):
+            with patch("cv2.dnn.blobFromImage", return_value=np.random.rand(1, 3, 100, 100)):
                 detector.setup_mobilenet()
                 # Should not raise exception
                 assert True
@@ -59,7 +59,7 @@ class TestModelIntegration:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Mock MediaPipe
-        with patch('mediapipe.solutions.pose.Pose') as mock_pose_class:
+        with patch("mediapipe.solutions.pose.Pose") as mock_pose_class:
             mock_pose = MagicMock()
             mock_results = MagicMock()
             mock_results.pose_landmarks = None
@@ -75,7 +75,7 @@ class TestModelIntegration:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Mock cascade classifiers
-        with patch('cv2.CascadeClassifier') as mock_cascade:
+        with patch("cv2.CascadeClassifier") as mock_cascade:
             mock_classifier = MagicMock()
             mock_classifier.detectMultiScale.return_value = [(10, 10, 50, 50)]
             mock_cascade.return_value = mock_classifier
@@ -88,12 +88,12 @@ class TestModelIntegration:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Test face detection with missing model
-        with patch.object(detector, 'face_net', None):
+        with patch.object(detector, "face_net", None):
             result = detector.detect_faces_dnn(frame)
             assert result == []
 
         # Test person detection with missing YOLO
-        with patch.object(detector, 'yolov8_model', None):
+        with patch.object(detector, "yolov8_model", None):
             result = detector.detect_persons(frame)
             assert result == []
 
@@ -102,7 +102,7 @@ class TestModelIntegration:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Mock network timeout in face detection
-        with patch.object(detector, 'face_net') as mock_net:
+        with patch.object(detector, "face_net") as mock_net:
             mock_net.forward.side_effect = Exception("Network timeout")
             result = detector.detect_faces_dnn(frame)
             assert result == []  # Should handle gracefully
@@ -113,8 +113,8 @@ class TestModelIntegration:
 
         # Process multiple frames to test memory stability
         for _ in range(5):
-            with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
+            with patch.object(detector, "detect_faces_dnn", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
                     detector.determine_frame_orientation(frame)
 
         # Should not crash or leak memory significantly
@@ -123,13 +123,14 @@ class TestModelIntegration:
     def test_concurrent_model_access(self, detector):
         """Test concurrent access to models"""
         import threading
+
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         results = []
 
         def worker():
-            with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
+            with patch.object(detector, "detect_faces_dnn", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
                     result = detector.determine_frame_orientation(frame)
                     results.append(result)
 

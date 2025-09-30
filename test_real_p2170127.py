@@ -11,9 +11,10 @@ import numpy as np
 import cv2
 
 # Add the project root to Python path
-sys.path.append('.')
+sys.path.append(".")
 
 from video_orientation_detector import OrientationDetector
+
 
 def simulate_real_p2170127_test():
     """Simulate real P2170127.mp4 processing using reference data"""
@@ -23,29 +24,32 @@ def simulate_real_p2170127_test():
 
     # Load reference data
     # Add the project root to Python path
-sys.path.append('.')
+
+
+sys.path.append(".")
 
 from video_orientation_detector import OrientationDetector, VideoOrientation
+
 
 def load_reference_data():
     """Load reference orientation data from CSV"""
     import pandas as pd
-    
+
     # Use current directory for reference file
     reference_file = Path(".") / "reference_orientations.csv"
     p2170127_data = None
 
     if reference_file.exists():
-        with open(reference_file, 'r') as f:
+        with open(reference_file, "r") as f:
             lines = f.readlines()
             for line in lines[1:]:  # Skip header
                 if "P2170127.mp4" in line:
-                    parts = line.strip().split(',')
+                    parts = line.strip().split(",")
                     p2170127_data = {
-                        'filename': parts[0],
-                        'expected_orientation': parts[1],
-                        'confidence': parts[2],
-                        'notes': parts[3] if len(parts) > 3 else ""
+                        "filename": parts[0],
+                        "expected_orientation": parts[1],
+                        "confidence": parts[2],
+                        "notes": parts[3] if len(parts) > 3 else "",
                     }
                     break
 
@@ -94,8 +98,8 @@ def load_reference_data():
     ]
 
     mock_bodies_frame1 = [
-        {"box": [80, 1100, 420, 1500], "confidence": 0.76},   # Body on left
-        {"box": [50, 1700, 400, 2100], "confidence": 0.71},   # Another body on left
+        {"box": [80, 1100, 420, 1500], "confidence": 0.76},  # Body on left
+        {"box": [50, 1700, 400, 2100], "confidence": 0.71},  # Another body on left
     ]
 
     # Test the new rotation direction analysis
@@ -107,8 +111,8 @@ def load_reference_data():
         "video_context": {
             "aspect_ratio": video_aspect,
             "is_portrait": True,
-            "resolution": f"{video_width}x{video_height}"
-        }
+            "resolution": f"{video_width}x{video_height}",
+        },
     }
 
     votes = {"face": [], "yolo": [], "mobilenet": [], "hough": [], "aspect": []}
@@ -122,7 +126,11 @@ def load_reference_data():
         print("   🎯 Rotation Direction Analysis:")
         print(f"      Detected: {rotation_direction}")
         print("      Expected: clockwise")
-        print("      ✅ SUCCESS: Correctly detected clockwise rotation!" if rotation_direction == "clockwise" else f"      ❌ FAILED: Expected clockwise, got {rotation_direction}")
+        print(
+            "      ✅ SUCCESS: Correctly detected clockwise rotation!"
+            if rotation_direction == "clockwise"
+            else f"      ❌ FAILED: Expected clockwise, got {rotation_direction}"
+        )
 
     except Exception as e:
         print(f"   ❌ ERROR in rotation analysis: {e}")
@@ -142,13 +150,15 @@ def load_reference_data():
         print(f"      Final Decision: {info.get('final_decision', 'unknown')}")
         print(f"      Mobile Portrait: {info.get('mobile_portrait_detected', 'no')}")
 
-        expected_incorrect = p2170127_data['expected_orientation'].lower() == 'incorrect'
+        expected_incorrect = p2170127_data["expected_orientation"].lower() == "incorrect"
         actual_incorrect = "INCORRECT" in orientation.value
 
         if expected_incorrect == actual_incorrect:
             print("      ✅ SUCCESS: Orientation detection matches reference data!")
         else:
-            print(f"      ❌ FAILED: Expected {'INCORRECT' if expected_incorrect else 'CORRECT'}, got {'INCORRECT' if actual_incorrect else 'CORRECT'}")
+            print(
+                f"      ❌ FAILED: Expected {'INCORRECT' if expected_incorrect else 'CORRECT'}, got {'INCORRECT' if actual_incorrect else 'CORRECT'}"
+            )
 
     except Exception as e:
         print(f"   ❌ ERROR in frame orientation: {e}")
@@ -171,7 +181,7 @@ def load_reference_data():
             "face_incorrect_votes": 13,
             "body_correct_votes": 1,
             "body_incorrect_votes": 11,
-            "rotation_directions": ["clockwise", "clockwise", "clockwise"]
+            "rotation_directions": ["clockwise", "clockwise", "clockwise"],
         }
 
         final_results = detector.calculate_final_verdict()
@@ -181,7 +191,7 @@ def load_reference_data():
         print(f"      Confidence: {final_results['confidence']:.2%}")
         print(f"      Recommendation: {final_results['recommendation']}")
 
-        if "INCORRECT" in final_results['verdict']:
+        if "INCORRECT" in final_results["verdict"]:
             print("      ✅ SUCCESS: Final verdict matches reference data!")
         else:
             print("      ❌ FAILED: Expected INCORRECT verdict")
@@ -208,6 +218,7 @@ def load_reference_data():
     print("\n🎉 CONCLUSION: Enhanced detection logic successfully handles P2170127.mp4!")
     print("   The system now correctly identifies this sideways portrait video")
     print("   and recommends 90° clockwise rotation as expected.")
+
 
 if __name__ == "__main__":
     simulate_real_p2170127_test()

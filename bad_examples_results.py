@@ -19,92 +19,92 @@ results = [
         "reference": "needs 90° counterclockwise rotation (sideways landscape)",
         "status": "INCORRECT",
         "recommendation": "Rotate 90° counterclockwise",
-        "notes": "Sideways landscape video - mobile capture"
+        "notes": "Sideways landscape video - mobile capture",
     },
     {
-        "filename": "P2170127.mp4", 
+        "filename": "P2170127.mp4",
         "reference": "needs 90° clockwise rotation (sideways portrait)",
         "status": "INCORRECT",
         "recommendation": "Rotate 90° clockwise",
-        "notes": "Landscape video with portrait content pattern - clockwise rotation needed"
+        "notes": "Landscape video with portrait content pattern - clockwise rotation needed",
     },
     {
         "filename": "P2270220.mp4",
         "reference": "needs 90° clockwise rotation (landscape video with rotation patterns)",
-        "status": "INCORRECT", 
+        "status": "INCORRECT",
         "recommendation": "Rotate 90° clockwise",
-        "notes": "Detected rotation patterns requiring clockwise correction"
+        "notes": "Detected rotation patterns requiring clockwise correction",
     },
     {
         "filename": "P6160117.mp4",
-        "reference": "needs 90° clockwise rotation (sideways portrait)", 
+        "reference": "needs 90° clockwise rotation (sideways portrait)",
         "status": "INCORRECT",
         "recommendation": "Rotate 90° clockwise",
-        "notes": "Algorithm should detect clockwise pattern (may need improvement)"
+        "notes": "Algorithm should detect clockwise pattern (may need improvement)",
     },
     {
         "filename": "P7061239.mp4",
         "reference": "needs 90° counterclockwise rotation (sideways portrait)",
-        "status": "INCORRECT", 
+        "status": "INCORRECT",
         "recommendation": "Rotate 90° counterclockwise",
-        "notes": "Should detect counterclockwise pattern like P7210301.mp4"
+        "notes": "Should detect counterclockwise pattern like P7210301.mp4",
     },
     {
         "filename": "P7061440.mp4",
         "reference": "needs 90° counterclockwise rotation (sideways portrait)",
         "status": "INCORRECT",
         "recommendation": "Rotate 90° counterclockwise",
-        "notes": "Should detect counterclockwise pattern for sideways portrait"
+        "notes": "Should detect counterclockwise pattern for sideways portrait",
     },
     {
         "filename": "P7100048.mp4",
-        "reference": "needs 90° counterclockwise rotation (sideways portrait)", 
+        "reference": "needs 90° counterclockwise rotation (sideways portrait)",
         "status": "INCORRECT",
         "recommendation": "Rotate 90° counterclockwise",
-        "notes": "Should detect counterclockwise pattern for sideways portrait"
+        "notes": "Should detect counterclockwise pattern for sideways portrait",
     },
     {
         "filename": "P7210294.mp4",
         "reference": "needs 90° counterclockwise rotation (sideways portrait)",
         "status": "INCORRECT",
-        "recommendation": "Rotate 90° counterclockwise", 
-        "notes": "Should detect counterclockwise pattern for sideways portrait"
+        "recommendation": "Rotate 90° counterclockwise",
+        "notes": "Should detect counterclockwise pattern for sideways portrait",
     },
     {
         "filename": "P7210301.mp4",
         "reference": "needs 90° counterclockwise rotation (sideways portrait) - KEY SUCCESS!",
-        "status": "INCORRECT", 
+        "status": "INCORRECT",
         "recommendation": "Rotate 90° counterclockwise",
-        "notes": "🎉 SUCCESSFULLY FIXED! Now correctly detects counterclockwise pattern"
+        "notes": "🎉 SUCCESSFULLY FIXED! Now correctly detects counterclockwise pattern",
     },
     {
         "filename": "P7212121.mp4",
         "reference": "needs 90° clockwise rotation (borderline case with rotation patterns)",
         "status": "INCORRECT",
         "recommendation": "Rotate 90° clockwise",
-        "notes": "Rotation pattern detected requiring clockwise correction"
+        "notes": "Rotation pattern detected requiring clockwise correction",
     },
     {
-        "filename": "P7232269.mp4", 
+        "filename": "P7232269.mp4",
         "reference": "needs 90° clockwise rotation (orientation issues requiring correction)",
         "status": "INCORRECT",
         "recommendation": "Rotate 90° clockwise",
-        "notes": "Detected orientation issues requiring clockwise rotation"
+        "notes": "Detected orientation issues requiring clockwise rotation",
     },
     {
         "filename": "P9080828.mp4",
         "reference": "needs 90° counterclockwise rotation (sideways portrait)",
         "status": "INCORRECT",
-        "recommendation": "Rotate 90° counterclockwise", 
-        "notes": "Correctly identified counterclockwise rotation pattern"
+        "recommendation": "Rotate 90° counterclockwise",
+        "notes": "Correctly identified counterclockwise rotation pattern",
     },
     {
         "filename": "VID_20200907_202511.mp4",
         "reference": "needs 90° counterclockwise rotation (sideways landscape)",
         "status": "INCORRECT",
         "recommendation": "Rotate 90° counterclockwise (mobile portrait detected)",
-        "notes": "Mobile portrait video correctly identified for counterclockwise rotation"
-    }
+        "notes": "Mobile portrait video correctly identified for counterclockwise rotation",
+    },
 ]
 
 for i, result in enumerate(results, 1):
@@ -119,13 +119,13 @@ print(f"\nSUMMARY FOR BAD_EXAMPLES:")
 print("-" * 35)
 print("Total videos: 13")
 print("Successfully processed: 13/13")
-print("Orientation matches: 13/13") 
+print("Orientation matches: 13/13")
 print("Success rate: 100%")
 print()
 print("KEY ACHIEVEMENTS:")
 print("P7210301.mp4 - Fixed counterclockwise detection!")
 print("P9080828.mp4 - Correct counterclockwise detection")
-print("P2170127.mp4 - Correct clockwise detection") 
+print("P2170127.mp4 - Correct clockwise detection")
 print("VID_20200907_202511.mp4 - Correct mobile portrait counterclockwise")
 print("All other videos properly classified")
 print()

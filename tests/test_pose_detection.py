@@ -40,8 +40,11 @@ class TestPoseDetection:
         mock_right_hip.x, mock_right_hip.y, mock_right_hip.visibility = 0.6, 0.7, 0.9
 
         mock_landmarks.landmark = [
-            mock_nose, mock_left_shoulder, mock_right_shoulder,
-            mock_left_hip, mock_right_hip
+            mock_nose,
+            mock_left_shoulder,
+            mock_right_shoulder,
+            mock_left_hip,
+            mock_right_hip,
         ]
         mock_results.pose_landmarks = mock_landmarks
         mock_pose.process.return_value = mock_results
@@ -99,7 +102,7 @@ class TestPoseDetection:
                 "left_shoulder": (0.4, 0.3, 0.9),
                 "right_shoulder": (0.6, 0.3, 0.9),
                 "left_hip": (0.4, 0.7, 0.9),
-                "right_hip": (0.6, 0.7, 0.9)
+                "right_hip": (0.6, 0.7, 0.9),
             }
         }
         result = detector.analyze_pose_orientation(pose)
@@ -113,7 +116,7 @@ class TestPoseDetection:
                 "left_shoulder": (0.3, 0.5, 0.9),
                 "right_shoulder": (0.7, 0.5, 0.9),  # Shoulders at same height as hips
                 "left_hip": (0.3, 0.5, 0.9),
-                "right_hip": (0.7, 0.5, 0.9)   # Hips at same height as shoulders
+                "right_hip": (0.7, 0.5, 0.9),  # Hips at same height as shoulders
             }
         }
         result = detector.analyze_pose_orientation(pose)
@@ -133,7 +136,7 @@ class TestPoseDetection:
                 "left_shoulder": (0.4, 0.3, 0.3),
                 "right_shoulder": (0.6, 0.3, 0.3),
                 "left_hip": (0.4, 0.7, 0.3),
-                "right_hip": (0.6, 0.7, 0.3)
+                "right_hip": (0.6, 0.7, 0.3),
             }
         }
         result = detector.analyze_pose_orientation(pose)

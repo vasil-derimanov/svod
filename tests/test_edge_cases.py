@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from video_orientation_detector import OrientationDetector
 
+
 class TestEdgeCases:
     """Test edge cases and boundary conditions"""
 
@@ -20,8 +21,8 @@ class TestEdgeCases:
         """Test with very small frame"""
         tiny_frame = np.zeros((5, 5, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(tiny_frame)
                 assert result is not None
                 assert isinstance(result, tuple)
@@ -31,8 +32,8 @@ class TestEdgeCases:
         """Test with minimum valid frame size"""
         min_frame = np.zeros((10, 10, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(min_frame)
                 assert result is not None
 
@@ -40,8 +41,8 @@ class TestEdgeCases:
         """Test with large frame (but not too large to avoid memory issues)"""
         large_frame = np.zeros((500, 500, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(large_frame)
                 assert result is not None
 
@@ -69,8 +70,8 @@ class TestEdgeCases:
         rgba_frame = np.zeros((100, 100, 4), dtype=np.uint8)
         bgr_frame = rgba_frame[:, :, :3]  # Convert to BGR
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(bgr_frame)
                 assert result is not None
 
@@ -81,8 +82,8 @@ class TestEdgeCases:
         uint16_frame = np.zeros((100, 100, 3), dtype=np.uint16)
         uint8_frame = (uint16_frame / 256).astype(np.uint8)  # Convert to uint8
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(uint8_frame)
                 assert result is not None
 
@@ -91,24 +92,24 @@ class TestEdgeCases:
         # Single pixel
         pixel_frame = np.zeros((1, 1, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(pixel_frame)
                 assert result is not None
 
         # Very narrow
         narrow_frame = np.zeros((100, 1, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(narrow_frame)
                 assert result is not None
 
         # Very wide
         wide_frame = np.zeros((1, 100, 3), dtype=np.uint8)
 
-        with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-            with patch.object(detector, 'detect_persons', return_value=[]):
+        with patch.object(detector, "detect_faces_dnn", return_value=[]):
+            with patch.object(detector, "detect_persons", return_value=[]):
                 result = detector.determine_frame_orientation(wide_frame)
                 assert result is not None
 
@@ -138,8 +139,8 @@ class TestEdgeCases:
         for height, width in sizes:
             frame = np.zeros((height, width, 3), dtype=np.uint8)
 
-            with patch.object(detector, 'detect_faces_dnn', return_value=[]):
-                with patch.object(detector, 'detect_persons', return_value=[]):
+            with patch.object(detector, "detect_faces_dnn", return_value=[]):
+                with patch.object(detector, "detect_persons", return_value=[]):
                     result = detector.determine_frame_orientation(frame)
                     assert result is not None
                     assert isinstance(result, tuple)
