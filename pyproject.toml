@@ -121,3 +121,12 @@ exclude = [
     "*_old.py",
     "video_orientation_detector_old.py"
 ]
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = ["E203"]
+exclude = [
+    "video_orientation_detector_old.py",
+    "__pycache__",
+    "htmlcov",
+]
