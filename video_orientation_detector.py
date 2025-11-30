@@ -2180,19 +2180,21 @@ class OrientationDetector:
                     )
 
                     # Clockwise bias: Most faces/bodies on far left side
-                    if total_left > total_right and left_ratio >= 0.5:  # Lowered from 0.6 to 0.5
-                        rotation_evidence["clockwise"] += 12.0  # Strong clockwise bias
+                    # REDUCED from 12.0 to 6.0 - position analysis alone is unreliable
+                    if total_left > total_right and left_ratio >= 0.6:  # Raised back to 0.6 for confidence
+                        rotation_evidence["clockwise"] += 6.0  # Moderate clockwise bias
                         print(
-                            f"[DEBUG] Clockwise rotation pattern detected: {total_left}/{total_analyzed} detections on far left side, applying strong clockwise bias"
+                            f"[DEBUG] Clockwise rotation pattern detected: {total_left}/{total_analyzed} detections on far left side, applying moderate clockwise bias"
                         )
 
                     # Counterclockwise bias: Most faces/bodies on far right side
-                    elif total_right > total_left and right_ratio >= 0.5:  # Lowered from 0.6 to 0.5
+                    # REDUCED from 12.0 to 6.0 - position analysis alone is unreliable
+                    elif total_right > total_left and right_ratio >= 0.6:  # Raised back to 0.6 for confidence
                         rotation_evidence[
                             "counterclockwise"
-                        ] += 12.0  # Strong counterclockwise bias
+                        ] += 6.0  # Moderate counterclockwise bias
                         print(
-                            f"[DEBUG] Counterclockwise rotation pattern detected: {total_right}/{total_analyzed} detections on far right side, applying strong counterclockwise bias"
+                            f"[DEBUG] Counterclockwise rotation pattern detected: {total_right}/{total_analyzed} detections on far right side, applying moderate counterclockwise bias"
                         )
 
         # Determine best direction with improved logic
@@ -2200,8 +2202,9 @@ class OrientationDetector:
         confidence_threshold = 0.25  # More permissive threshold
 
         # CRITICAL: Strong pattern detection should override other decisions
-        # If we have very strong counterclockwise evidence (>= 12.0), prioritize it
-        if rotation_evidence["counterclockwise"] >= 12.0:
+        # LOWERED threshold from >= 12.0 to >= 8.0 to match reduced bias strength
+        # If we have very strong counterclockwise evidence (>= 8.0), prioritize it
+        if rotation_evidence["counterclockwise"] >= 8.0:
             print(
                 f"[DEBUG] Strong counterclockwise pattern detected (score: {rotation_evidence['counterclockwise']:.1f}), forcing counterclockwise decision"
             )
@@ -2212,8 +2215,8 @@ class OrientationDetector:
             except Exception:
                 pass
             return "counterclockwise"
-        # If we have very strong clockwise evidence (>= 12.0), prioritize it
-        elif rotation_evidence["clockwise"] >= 12.0:
+        # If we have very strong clockwise evidence (>= 8.0), prioritize it
+        elif rotation_evidence["clockwise"] >= 8.0:
             print(
                 f"[DEBUG] Strong clockwise pattern detected (score: {rotation_evidence['clockwise']:.1f}), forcing clockwise decision"
             )
