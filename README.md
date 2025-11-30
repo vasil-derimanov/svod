@@ -334,6 +334,15 @@ make test-ci
 python cleanup.py
 ```
 
+### Mediapipe Optional Dependency
+- Automation and CI runs may skip installing `mediapipe`. When that happens SVOD injects a lightweight stub so imports succeed and pose-dependent tests can still execute.
+- Install the real package (`pip install mediapipe`) whenever you need pose landmarks or want parity with production behavior. You can verify whether the stub is active with `python -c "import mediapipe; print(getattr(mediapipe, '_SVOD_STUB', False))"`.
+- Workflows that rely on pose-based heuristics should add an explicit `mediapipe` installation step to avoid the stub's guard-rail exceptions.
+
+### Maintenance Notes
+- `inspect_rotation.py` is a developer helper that now accepts CLI inputs to dump rotation-strength metrics as JSON. Consider folding this into the primary CLI or automated reports to avoid long-term script drift.
+- `.flake8` records the current lint baseline. Revisit ignore/exclude entries during future refactors before broadening automation or adding new lint rules.
+
 ### Test Coverage
 - ✅ Unit tests for core detection logic
 - ✅ Integration tests for CLI functionality
@@ -457,6 +466,7 @@ CMD ["python", "video_orientation_detector.py"]
 ## 📋 Version History
 
 ### Recent Versions
+- **v4.24.0** (2025-11-29): Housekeeping release with documentation updates and project cleanup
 - **v4.23.0** (2025-09-30): YOLOv10 primary detector with 100% reference validation accuracy
 - **v4.22.2** (2025-09-30): YOLOv10 optimization complete with enhanced bias controls
 - **v4.22.1** (2025-09-26): YOLOv10 restored with analysis confirmation

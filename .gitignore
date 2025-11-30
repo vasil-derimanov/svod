@@ -1,3 +1,4 @@
+.temp-ci-venv/
 # IDE files
 .idea/
 .vscode/
