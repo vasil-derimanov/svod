@@ -10,7 +10,7 @@ Features:
 - Multi-model detection: YOLO (required), DNN Face, Haar Cascades, MobileNet
 - Enhanced face-only rotation detection for high-density face videos
 - Cross-platform compatibility (Windows, Linux, macOS with Apple Silicon support)
-- YOLOv10 required for optimal person/body detection accuracy (faster than YOLOv8)
+- YOLOv11 required for optimal person/body detection accuracy (with pose keypoints)
 - Smart dependency installation with omz_downloader for MobileNet models
 - Context-aware weighted voting system (landscape/portrait awareness)
 - Reference-based validation
@@ -136,7 +136,7 @@ def install_required_packages():
         ("numpy", "numpy==1.26.4"),
         ("torch", "torch==2.8.0"),  # PyTorch for model conversion
         ("torchvision", "torchvision==0.23.0"),  # PyTorch vision for model conversion
-        ("ultralytics", "ultralytics==8.3.196"),  # YOLOv8 support - required
+        ("ultralytics", "ultralytics>=8.3.0"),  # YOLOv11 support - required
         ("openvino", "openvino==2024.6.0"),  # OpenVINO for optimized inference
         ("onnx", "onnx==1.19.0"),  # ONNX for model format conversion
         ("tqdm", "tqdm==4.67.1"),  # Progress bars for batch processing
@@ -149,7 +149,7 @@ def install_required_packages():
     ]
 
     # Required YOLOv8 package for enhanced detection
-    required_yolo_packages = [("ultralytics", "ultralytics")]  # YOLOv8 support - required
+    required_yolo_packages = [("ultralytics", "ultralytics>=8.3.0")]  # YOLOv11 support - required
 
     # Platform-specific packages for omz_downloader functionality
     optional_dev_packages = []
@@ -221,7 +221,7 @@ def install_required_packages():
             print_info("Attempting to install YOLOv8 for enhanced body detection...")
             for module_name, package_name in required_yolo_packages:
                 try:
-                    print_info(f"Installing {package_name} (optional YOLOv10 support)...")
+                    print_info(f"Installing {package_name} (required YOLOv11 support)...")
                     result = subprocess.run(
                         [sys.executable, "-m", "pip", "install", package_name],
                         capture_output=True,
@@ -229,14 +229,14 @@ def install_required_packages():
                         timeout=600,
                     )
                     if result.returncode == 0:
-                        print_success(f"{package_name} installed successfully - YOLOv10 enabled!")
+                        print_success(f"{package_name} installed successfully - YOLOv11 enabled!")
                     else:
                         print_error(
-                            f"Failed to install {package_name} (YOLOv10 is required for operation): {result.stderr}"
+                            f"Failed to install {package_name} (YOLOv11 is required for operation): {result.stderr}"
                         )
                 except Exception as e:
                     print_error(
-                        f"{package_name} installation failed (YOLOv10 is required for operation): {e}"
+                        f"{package_name} installation failed (YOLOv11 is required for operation): {e}"
                     )
 
             # Try to install development tools for omz_downloader (not critical if fails)
@@ -376,9 +376,9 @@ def print_header(title: str):
         print("=" * len(title))
 
 
-# Required YOLOv10 import for enhanced detection with robust error handling
-# Moved to main() function to allow --version to work without YOLOv10
-YOLOV10_AVAILABLE = False
+# Required YOLOv11 import for enhanced detection with robust error handling
+# Moved to main() function to allow --version to work without YOLOv11
+YOLO_AVAILABLE = False
 
 
 def check_required_model_files():
@@ -869,7 +869,7 @@ class OrientationDetector:
 
     This class provides comprehensive video orientation detection using multiple AI techniques:
     - Face detection using DNN and Haar cascades
-    - Body/person detection using YOLOv10 (required)
+    - Body/person detection using YOLOv11 with pose keypoints (required)
     - Facial landmark analysis for precise orientation
     - MobileNet classification for enhanced accuracy
     - Intelligent voting system with balanced weighting
@@ -878,7 +878,8 @@ class OrientationDetector:
         confidence_threshold (float): Minimum confidence for detection (0.0-1.0)
         time_limit (float): Maximum analysis time per video in seconds (None = entire video)
         use_dnn_face (bool): Whether DNN face detection is available
-        use_yolov10 (bool): Whether YOLOv10 body detection is available
+        use_yolo (bool): Whether YOLOv11 body detection is available
+        use_yolo_pose (bool): Whether YOLOv11-pose keypoint detection is available
         use_landmarks (bool): Whether facial landmark detection is available
         mobilenet_available (bool): Whether MobileNet enhancement is available
         stats (dict): Statistics collected during video processing
@@ -975,42 +976,68 @@ class OrientationDetector:
             self.use_dnn_face = False
 
     def setup_person_detection(self):
-        """Setup YOLOv10 person/body detection (required)"""
-        global YOLOV10_AVAILABLE
-        self.use_yolov10 = False
-        self.yolov10_model: Optional[Any] = None
+        """Setup YOLOv11 person/body detection with pose keypoints (required)"""
+        global YOLO_AVAILABLE
+        self.use_yolo = False
+        self.yolo_model: Optional[Any] = None
+        self.yolo_pose_model: Optional[Any] = None
+        self.use_yolo_pose = False
 
-        # Import YOLOv10 here to ensure it's available when needed
-        if not YOLOV10_AVAILABLE:
+        # Import YOLO here to ensure it's available when needed
+        if not YOLO_AVAILABLE:
             try:
                 from ultralytics import YOLO
 
-                YOLOV10_AVAILABLE = True
-                print_success("YOLOv10 imported successfully for person detection")
+                YOLO_AVAILABLE = True
+                print_success("YOLOv11 (ultralytics) imported successfully")
             except ImportError as e:
-                YOLOV10_AVAILABLE = False
+                YOLO_AVAILABLE = False
                 raise RuntimeError(
-                    f"YOLOv10 is required for person detection. Installation failed: {e}"
+                    f"YOLOv11 is required for person detection. Please install: pip install 'ultralytics>=8.3.0'"
                 )
 
-        if YOLOV10_AVAILABLE:
+        if YOLO_AVAILABLE:
             try:
-                print_info("Initializing YOLOv10 for enhanced body detection...")
                 from ultralytics import YOLO
 
-                self.yolov10_model = YOLO("yolov10n.pt")  # Auto-downloads if needed
-                self.use_yolov10 = True
-                # Provide compatibility attribute for legacy YOLOv8 integrations
-                self.yolov8_model = self.yolov10_model
-                print_success("YOLOv10 initialized successfully - using enhanced detection!")
+                # Initialize YOLOv11 pose model (required for keypoint detection)
+                print_info("Initializing YOLOv11 with pose keypoints...")
+                try:
+                    self.yolo_pose_model = YOLO("yolo11n-pose.pt")  # Auto-downloads if needed
+                    self.use_yolo_pose = True
+                    print_success("YOLOv11-pose initialized - keypoint detection enabled!")
+                except Exception as pose_err:
+                    print_warning(f"YOLOv11-pose failed, trying YOLOv8-pose: {pose_err}")
+                    try:
+                        # Fallback to YOLOv8 pose only if YOLOv11 pose unavailable
+                        self.yolo_pose_model = YOLO("yolov8n-pose.pt")
+                        self.use_yolo_pose = True
+                        print_success("YOLOv8-pose initialized - keypoint detection enabled!")
+                    except Exception as v8_err:
+                        print_error(f"Pose model initialization failed: {v8_err}")
+                        raise RuntimeError(
+                            "YOLO pose model is required for accurate rotation detection. "
+                            "Please ensure ultralytics>=8.3.0 is installed."
+                        )
+
+                # Initialize YOLOv11 detection model (required)
+                print_info("Initializing YOLOv11 detection model...")
+                self.yolo_model = YOLO("yolo11n.pt")  # Required - no fallback
+                self.use_yolo = True
+                print_success("YOLOv11 detection initialized successfully!")
+
+                # Provide compatibility attributes for legacy code
+                self.use_yolov10 = self.use_yolo  # Compatibility
+                self.yolov10_model = self.yolo_model  # Compatibility
+                self.yolov8_model = self.yolo_model  # Compatibility
             except Exception as e:
-                print_error(f"YOLOv10 initialization failed: {e}")
+                print_error(f"YOLOv11 initialization failed: {e}")
                 raise RuntimeError(
-                    f"YOLOv10 is required for person detection. Installation failed: {e}"
+                    f"YOLOv11 is required for person detection. Please install: pip install 'ultralytics>=8.3.0'"
                 )
         else:
             raise RuntimeError(
-                "YOLOv10 is required for person detection. Please install ultralytics: pip install ultralytics"
+                "YOLOv11 is required for person detection. Please install: pip install 'ultralytics>=8.3.0'"
             )
 
     def setup_feature_detection(self):
@@ -1538,13 +1565,13 @@ class OrientationDetector:
 
     def detect_persons(self, frame: np.ndarray) -> List[Dict]:
         """
-        Detect full person bodies in frame using YOLO models.
+        Detect full person bodies in frame using YOLOv11 model.
 
-        Prefers YOLOv10 but keeps YOLOv8 compatibility for older integrations/tests.
+        Uses YOLOv11 with compatibility attributes for legacy code.
         """
         persons: List[Dict] = []
 
-        # Primary YOLOv10 detection path
+        # Primary YOLOv11 detection path (use_yolov10 for compatibility)
         if getattr(self, "use_yolov10", False) and getattr(self, "yolov10_model", None):
             try:
                 yolo_conf = 0.4
@@ -1563,8 +1590,8 @@ class OrientationDetector:
                     )
                 )
             except Exception as exc:
-                print_error(f"YOLOv10 detection failed: {exc}")
-                print_error("YOLOv10 is required for operation. Cannot continue without YOLOv10.")
+                print_error(f"YOLOv11 detection failed: {exc}")
+                print_error("YOLOv11 is required for operation. Cannot continue without YOLOv11.")
 
         # Legacy YOLOv8 compatibility path (used by tests and downstream tooling)
         if getattr(self, "use_yolov8", False) and getattr(self, "yolov8_model", None):
@@ -3712,7 +3739,7 @@ class OrientationDetector:
             face_conf_thresh_env = 0.0
         face_conf_thresh = 0.6
         if getattr(self, "use_yolov10", False):
-            face_conf_thresh = 0.55  # Slightly more permissive with YOLOv10
+            face_conf_thresh = 0.55  # Slightly more permissive with YOLOv11
         if face_conf_thresh_env > 0:
             face_conf_thresh = face_conf_thresh_env
 
@@ -3731,7 +3758,7 @@ class OrientationDetector:
                 votes["face"].append("uncertain")
 
         # 2. YOLO body voting
-        # Slightly relax thresholds for YOLOv10 which tends to be conservative
+        # Slightly relax thresholds for YOLOv11 which tends to be conservative
         yolo_vertical_thresh = 1.25 if getattr(self, "use_yolov10", False) else 1.3
         yolo_horizontal_thresh = 0.75 if getattr(self, "use_yolov10", False) else 0.7
         for body in bodies:
@@ -3855,7 +3882,7 @@ class OrientationDetector:
         else:
             body_reliability = 0.8
 
-        # If using YOLOv10, apply a small boost to YOLO weight to offset conservatism
+        # If using YOLOv11, apply a small boost to YOLO weight to offset conservatism
         if getattr(self, "use_yolov10", False):
             yolo_weight *= 1.1  # +10% weight
 
@@ -4382,7 +4409,7 @@ class OrientationDetector:
                 ):
                     detection_info["final_decision"] = "tie_prefer_correct"
                     return VideoOrientation.CORRECT, detection_info
-                # YOLOv10-specific fallback to reduce UNCERTAINs (guarded by env)
+                # YOLOv11-specific fallback to reduce UNCERTAINs (guarded by env)
                 try:
                     reduce_uncertain = os.getenv("SVOD_YOLO10_REDUCE_UNCERTAIN", "0") == "1"
                 except Exception:
@@ -6461,30 +6488,30 @@ Examples:
     )
     args = parser.parse_args()
 
-    # Check YOLOv10 availability (moved here so --version works without it)
-    global YOLOV10_AVAILABLE
+    # Check YOLOv11 availability (moved here so --version works without it)
+    global YOLO_AVAILABLE
     try:
         # Simple check for ultralytics availability
         import importlib
 
         ultralytics_spec = importlib.util.find_spec("ultralytics")  # type: ignore
         if ultralytics_spec is not None:
-            YOLOV10_AVAILABLE = True
-            print_success("YOLOv10 (ultralytics) detected - enhanced body detection enabled!")
+            YOLO_AVAILABLE = True
+            print_success("YOLOv11 (ultralytics) detected - enhanced body detection enabled!")
         else:
-            YOLOV10_AVAILABLE = False
-            print_error("YOLOv10 not available - YOLOv10 is required for operation")
-            print_error("Please install ultralytics: pip install ultralytics")
+            YOLO_AVAILABLE = False
+            print_error("YOLOv11 not available - YOLOv11 is required for operation")
+            print_error("Please install ultralytics: pip install 'ultralytics>=8.3.0'")
             raise RuntimeError(
-                "YOLOv10 is required for person detection. Please install ultralytics: pip install ultralytics"
+                "YOLOv11 is required for person detection. Please install: pip install 'ultralytics>=8.3.0'"
             )
     except Exception as e:
-        YOLOV10_AVAILABLE = False
-        print_error(f"YOLOv10 check failed: {e}")
+        YOLO_AVAILABLE = False
+        print_error(f"YOLOv11 check failed: {e}")
         print_error(
-            "YOLOv10 is required for operation. Please install ultralytics: pip install ultralytics"
+            "YOLOv11 is required for operation. Please install: pip install 'ultralytics>=8.3.0'"
         )
-        raise RuntimeError(f"YOLOv10 is required for person detection. Installation failed: {e}")
+        raise RuntimeError(f"YOLOv11 is required for person detection. Installation failed: {e}")
 
     # Enhanced input validation with security checks
     print_info("Validating input parameters...")

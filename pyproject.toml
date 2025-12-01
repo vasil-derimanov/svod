@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "svod"
 version = "4.24.0"
-description = "Smart Video Orientation Detector - YOLOv10 primary detector with comprehensive validation"
+description = "Smart Video Orientation Detector - YOLOv11 primary detector with comprehensive validation"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
@@ -15,7 +15,7 @@ authors = [
 maintainers = [
     {name = "Boris", email = "boris@example.com"},
 ]
-keywords = ["video", "orientation", "detection", "ai", "computer-vision", "opencv", "yolov10", "yolov8"]
+keywords = ["video", "orientation", "detection", "ai", "computer-vision", "opencv", "yolov11", "yolo"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -32,7 +32,7 @@ classifiers = [
 dependencies = [
     "opencv-python>=4.8.0",
     "numpy>=1.24.0",
-    "ultralytics>=8.0.0",
+    "ultralytics>=8.3.0",  # YOLOv11 support (Nov 2024)
     "torch>=2.0.0",
     "torchvision>=0.15.0",
     "onnx>=1.14.0",

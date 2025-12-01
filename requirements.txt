@@ -1,4 +1,4 @@
-# SVOD v4.20.0 Requirements
+# SVOD v4.24.0 Requirements - YOLOv11 Upgrade
 # Pinned versions for reproducible builds and compatibility
 
 # Core computer vision and image processing
@@ -8,7 +8,7 @@ numpy==1.26.4
 # AI/ML frameworks
 torch==2.8.0
 torchvision==0.23.0
-ultralytics==8.3.196
+ultralytics>=8.3.0  # YOLOv11 support (Nov 2024) - required
 
 # Model optimization and inference
 openvino==2024.6.0
