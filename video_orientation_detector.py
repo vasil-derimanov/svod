@@ -1582,6 +1582,105 @@ class OrientationDetector:
 
         return persons
 
+    def _extract_yolo_keypoints(self, frame: np.ndarray) -> List[Dict]:
+        """Extract YOLO pose keypoints for body orientation analysis."""
+        keypoint_data = []
+
+        if not self.use_yolo_pose or self.yolo_pose_model is None:
+            return keypoint_data
+
+        try:
+            results = self.yolo_pose_model(frame, verbose=False)
+            for result in results:
+                keypoints = getattr(result, "keypoints", None)
+                boxes = getattr(result, "boxes", None)
+
+                if keypoints is None or boxes is None:
+                    continue
+
+                # Extract keypoint data (17 keypoints per person in COCO format)
+                # 0: nose, 5: left_shoulder, 6: right_shoulder, 11: left_hip, 12: right_hip
+                for i, (kpts, box) in enumerate(zip(keypoints, boxes)):
+                    conf_value = getattr(box, "conf", None)
+                    if conf_value is None:
+                        continue
+
+                    try:
+                        confidence = float(conf_value[0])
+                    except Exception:
+                        confidence = 0.0
+
+                    if confidence < 0.4:  # Minimum confidence threshold
+                        continue
+
+                    # Get keypoint coordinates (shape: [17, 3] - x, y, confidence)
+                    if hasattr(kpts, "data"):
+                        kpts_data = kpts.data[0].cpu().numpy() if hasattr(kpts.data[0], "cpu") else kpts.data[0]
+                    else:
+                        continue
+
+                    keypoint_data.append({
+                        "keypoints": kpts_data,
+                        "confidence": confidence,
+                        "type": "yolo_pose"
+                    })
+
+        except Exception as e:
+            # Silently fail - keypoints are optional enhancement
+            pass
+
+        return keypoint_data
+
+    def _analyze_body_angle_from_keypoints(self, keypoints_list: List[Dict]) -> Optional[str]:
+        """Analyze body orientation angle from YOLO keypoints to determine rotation direction."""
+        if not keypoints_list:
+            return None
+
+        rotation_votes = {"clockwise": 0, "counterclockwise": 0}
+
+        for kpt_data in keypoints_list:
+            kpts = kpt_data["keypoints"]
+            if kpts.shape[0] < 17:  # Need all 17 COCO keypoints
+                continue
+
+            # Extract shoulder keypoints (5: left_shoulder, 6: right_shoulder)
+            left_shoulder = kpts[5]  # [x, y, conf]
+            right_shoulder = kpts[6]
+
+            # Check if both shoulders are detected (confidence > 0.3)
+            if left_shoulder[2] < 0.3 or right_shoulder[2] < 0.3:
+                continue
+
+            # Calculate shoulder line angle
+            dx = right_shoulder[0] - left_shoulder[0]
+            dy = right_shoulder[1] - left_shoulder[1]
+
+            # Calculate angle from horizontal (in degrees)
+            import math
+            angle = math.degrees(math.atan2(dy, dx))
+
+            # Normalize angle to [-90, 90]
+            angle = ((angle + 90) % 180) - 90
+
+            # Strong rotation indicators:
+            # - If shoulders are nearly vertical (angle ~70-90° or ~-70 to -90°), video is rotated
+            # - Angle > 60°: counterclockwise rotation needed
+            # - Angle < -60°: clockwise rotation needed
+
+            if abs(angle) > 60:  # Significant rotation detected
+                if angle > 60:
+                    rotation_votes["counterclockwise"] += 1
+                elif angle < -60:
+                    rotation_votes["clockwise"] += 1
+
+        # Determine final direction if we have strong evidence
+        if rotation_votes["clockwise"] > rotation_votes["counterclockwise"]:
+            return "clockwise"
+        elif rotation_votes["counterclockwise"] > rotation_votes["clockwise"]:
+            return "counterclockwise"
+
+        return None
+
     def _collect_ultralytics_persons(
         self,
         frame: np.ndarray,
@@ -1964,6 +2063,16 @@ class OrientationDetector:
 
         # Enhanced voting system with confidence weights
         rotation_evidence = {"clockwise": 0.0, "counterclockwise": 0.0, "none": 0.0}
+
+        # 0. PRIORITY: YOLO Pose Keypoints - Most reliable rotation indicator
+        # Extract keypoints and analyze body angles
+        keypoints = self._extract_yolo_keypoints(frame)
+        if keypoints:
+            keypoint_direction = self._analyze_body_angle_from_keypoints(keypoints)
+            if keypoint_direction:
+                # Keypoint analysis is highly reliable - give it strong weight (15.0)
+                rotation_evidence[keypoint_direction] += 15.0
+                print(f"[DEBUG] YOLO keypoint analysis suggests: {keypoint_direction} (confidence: HIGH)")
 
         # 1. Enhanced face analysis with improved counterclockwise detection
         if len(faces) > 0:
