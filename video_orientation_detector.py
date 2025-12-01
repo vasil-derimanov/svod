@@ -948,6 +948,8 @@ class OrientationDetector:
             "rotation_left_positions": 0,
             "rotation_right_positions": 0,
             "rotation_position_samples": 0,
+            "face_mesh_detections": 0,
+            "face_mesh_votes": 0,
         }
 
         # Reference data for validation (no hardcoded overrides)
@@ -1159,15 +1161,19 @@ class OrientationDetector:
                 raise RuntimeError(f"[ERROR] MobileNet setup failed - all models are required: {e}")
 
     def setup_pose_detection(self):
-        """Setup MediaPipe Pose for advanced human pose estimation"""
+        """Setup MediaPipe Pose and Face Mesh for advanced human detection"""
         self.mediapipe_available = False
         self.pose = None
         self.mp_pose = None
         self.mp_drawing = None
+        self.face_mesh = None
+        self.mp_face_mesh = None
+        self.face_mesh_available = False
 
         try:
             import mediapipe as mp
 
+            # Initialize Pose detection
             self.mp_pose = mp.solutions.pose  # type: ignore
             self.mp_drawing = mp.solutions.drawing_utils  # type: ignore
             self.pose = self.mp_pose.Pose(
@@ -1179,13 +1185,32 @@ class OrientationDetector:
             )
             self.mediapipe_available = True
             print_success("MediaPipe Pose detection enabled for enhanced human pose analysis")
+
+            # Initialize Face Mesh detection (468 landmarks for precise facial orientation)
+            try:
+                self.mp_face_mesh = mp.solutions.face_mesh  # type: ignore
+                self.face_mesh = self.mp_face_mesh.FaceMesh(
+                    static_image_mode=False,
+                    max_num_faces=5,  # Detect up to 5 faces
+                    refine_landmarks=True,  # Enable iris landmarks for better accuracy
+                    min_detection_confidence=0.5,
+                    min_tracking_confidence=0.5,
+                )
+                self.face_mesh_available = True
+                print_success("MediaPipe Face Mesh enabled - 468-point facial landmark tracking!")
+            except Exception as mesh_err:
+                print_warning(f"Face Mesh initialization failed: {mesh_err}")
+                self.face_mesh_available = False
+
         except ImportError:
-            print_info("MediaPipe not available - pose detection disabled")
-            print_info("Install mediapipe for enhanced pose analysis: pip install mediapipe")
+            print_info("MediaPipe not available - pose/face mesh detection disabled")
+            print_info("Install mediapipe for enhanced analysis: pip install mediapipe")
             self.mediapipe_available = False
+            self.face_mesh_available = False
         except Exception as e:
-            print_info(f"MediaPipe Pose setup failed: {e}")
+            print_info(f"MediaPipe setup failed: {e}")
             self.mediapipe_available = False
+            self.face_mesh_available = False
 
     def mobilenet_detect_orientation(self, frame: np.ndarray) -> str:
         """Use MobileNet to detect orientation based on general image features"""
@@ -1925,6 +1950,119 @@ class OrientationDetector:
 
         except Exception as e:
             print_error(f"Error analyzing pose orientation: {e}")
+            return "uncertain"
+
+    def detect_face_mesh(self, frame: np.ndarray) -> List[Dict]:
+        """Detect faces using MediaPipe Face Mesh (468 landmarks per face)"""
+        if not self.face_mesh_available or self.face_mesh is None:
+            return []
+
+        try:
+            # Convert BGR to RGB
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            height, width = frame.shape[:2]
+
+            # Process the frame
+            results = self.face_mesh.process(rgb_frame)
+
+            face_meshes = []
+            if results.multi_face_landmarks:
+                for face_landmarks in results.multi_face_landmarks:
+                    # Extract all 468 landmarks
+                    landmarks = []
+                    for idx, landmark in enumerate(face_landmarks.landmark):
+                        landmarks.append(
+                            {
+                                "id": idx,
+                                "x": landmark.x,
+                                "y": landmark.y,
+                                "z": landmark.z,
+                                "pixel_x": int(landmark.x * width),
+                                "pixel_y": int(landmark.y * height),
+                            }
+                        )
+
+                    # Calculate bounding box from landmarks
+                    x_coords = [lm["pixel_x"] for lm in landmarks]
+                    y_coords = [lm["pixel_y"] for lm in landmarks]
+                    x_min, x_max = min(x_coords), max(x_coords)
+                    y_min, y_max = min(y_coords), max(y_coords)
+
+                    face_meshes.append(
+                        {
+                            "landmarks": landmarks,
+                            "box": (x_min, y_min, x_max - x_min, y_max - y_min),
+                            "confidence": 0.9,  # MediaPipe doesn't provide confidence, use high default
+                            "type": "face_mesh",
+                        }
+                    )
+                    self.stats["face_mesh_detections"] += 1
+
+            return face_meshes
+        except Exception as e:
+            print_error(f"MediaPipe Face Mesh detection failed: {e}")
+            return []
+
+    def analyze_face_mesh_orientation(self, face_mesh: Dict) -> str:
+        """Analyze face orientation using 468-point Face Mesh landmarks
+        
+        Key landmarks for orientation detection:
+        - Nose tip: 1
+        - Left eye: 33, 133, 159, 145
+        - Right eye: 362, 263, 386, 374
+        - Mouth: 61, 291, 0, 17
+        - Face outline: 10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288
+        """
+        landmarks = face_mesh.get("landmarks", [])
+        if len(landmarks) < 468:
+            return "uncertain"
+
+        try:
+            # Key landmark indices for orientation
+            nose_tip = landmarks[1]  # Nose tip
+            left_eye_outer = landmarks[33]  # Left eye outer corner
+            right_eye_outer = landmarks[263]  # Right eye outer corner
+            left_mouth = landmarks[61]  # Left mouth corner
+            right_mouth = landmarks[291]  # Right mouth corner
+            chin = landmarks[152]  # Chin
+            forehead = landmarks[10]  # Forehead
+
+            # Calculate eye line angle (should be horizontal when upright)
+            eye_dx = right_eye_outer["pixel_x"] - left_eye_outer["pixel_x"]
+            eye_dy = right_eye_outer["pixel_y"] - left_eye_outer["pixel_y"]
+            
+            if abs(eye_dx) > 1:  # Avoid division by zero
+                eye_angle = math.degrees(math.atan2(eye_dy, eye_dx))
+            else:
+                # Eyes are vertical - definitely sideways
+                return "sideways"
+
+            # Calculate face vertical axis (forehead to chin should be vertical when upright)
+            face_dx = chin["pixel_x"] - forehead["pixel_x"]
+            face_dy = chin["pixel_y"] - forehead["pixel_y"]
+            
+            if abs(face_dy) > 1:
+                face_angle = math.degrees(math.atan2(face_dx, face_dy))
+            else:
+                # Face is horizontal - definitely sideways
+                return "sideways"
+
+            # Upright: eyes horizontal (-15° to +15°), face vertical (-15° to +15°)
+            if abs(eye_angle) < 15 and abs(face_angle) < 15:
+                return "upright"
+            
+            # Upside down: eyes horizontal but face inverted
+            if abs(abs(eye_angle) - 180) < 15:
+                return "upside_down"
+            
+            # Sideways: eyes or face significantly rotated
+            if abs(eye_angle) > 60 or abs(face_angle) > 60:
+                return "sideways"
+            
+            return "uncertain"
+
+        except Exception as e:
+            print_error(f"Face mesh orientation analysis failed: {e}")
             return "uncertain"
 
     def _detect_persons_cascade(self, frame: np.ndarray) -> List[Dict]:
@@ -3723,11 +3861,27 @@ class OrientationDetector:
             pass  # Silently handle errors for graceful degradation
         detection_info["poses"] = poses
 
+        # Face Mesh detection using MediaPipe (468 landmarks) with error handling
+        face_meshes = []
+        try:
+            face_meshes = self.detect_face_mesh(frame)
+        except Exception as e:
+            pass  # Silently handle errors for graceful degradation
+        detection_info["face_meshes"] = face_meshes
+
         # Enhanced detection voting system
-        votes = {"face": [], "yolo": [], "pose": [], "mobilenet": [], "hough": [], "aspect": []}
+        votes = {
+            "face": [],
+            "yolo": [],
+            "pose": [],
+            "face_mesh": [],
+            "mobilenet": [],
+            "hough": [],
+            "aspect": [],
+        }
 
         # If no human evidence at all, short-circuit to UNCERTAIN to match legacy behaviour
-        if not faces and not bodies and not poses:
+        if not faces and not bodies and not poses and not face_meshes:
             detection_info["votes"] = votes
             detection_info["final_decision"] = "no_human_detected"
             return VideoOrientation.UNCERTAIN, detection_info
@@ -3756,6 +3910,18 @@ class OrientationDetector:
                 votes["face"].append("incorrect")
             else:
                 votes["face"].append("uncertain")
+
+        # 1.5 Face Mesh voting (468-point landmarks for precise orientation)
+        for face_mesh in face_meshes:
+            mesh_orientation = self.analyze_face_mesh_orientation(face_mesh)
+            if mesh_orientation in ["upright", "upside_down"]:
+                votes["face_mesh"].append("correct")
+                self.stats["face_mesh_votes"] += 1
+            elif mesh_orientation == "sideways":
+                votes["face_mesh"].append("incorrect")
+                self.stats["face_mesh_votes"] += 1
+            else:
+                votes["face_mesh"].append("uncertain")
 
         # 2. YOLO body voting
         # Slightly relax thresholds for YOLOv11 which tends to be conservative
@@ -3889,6 +4055,7 @@ class OrientationDetector:
         # Enhanced ensemble voting with conflict resolution
         model_votes = {
             "face": votes["face"],
+            "face_mesh": votes["face_mesh"],
             "yolo": votes["yolo"],
             "pose": votes["pose"],
             "mobilenet": votes["mobilenet"],
@@ -3896,8 +4063,14 @@ class OrientationDetector:
             "aspect": votes["aspect"],
         }
 
+        # Calculate Face Mesh weight based on detection count
+        face_mesh_count = len(face_meshes)
+        face_mesh_weight = 3.0 if face_mesh_count > 0 else 0.0  # High weight for precise 468-point detection
+        face_mesh_reliability = 0.95  # Very high reliability due to precise landmark tracking
+
         model_weights = {
             "face": face_weight,
+            "face_mesh": face_mesh_weight,  # Priority 1: High precision facial landmarks
             "yolo": yolo_weight,
             "pose": 2.5,  # Pose detection gets high weight for human pose analysis
             "mobilenet": 1.5,  # Increased MobileNet weight for difficult cases
@@ -3907,6 +4080,7 @@ class OrientationDetector:
 
         model_reliabilities = {
             "face": face_reliability,
+            "face_mesh": face_mesh_reliability,  # Very high reliability (468 landmarks)
             "yolo": body_reliability,
             "pose": 0.9,  # High reliability for pose detection
             "mobilenet": 0.8,

@@ -14,6 +14,9 @@ ultralytics>=8.3.0  # YOLOv11 support (Nov 2024) - required
 openvino==2024.6.0
 onnx==1.19.0
 
+# MediaPipe for advanced pose and face mesh detection
+mediapipe>=0.10.0  # Face Mesh (468 landmarks) and Pose detection
+
 # User experience and utilities
 tqdm==4.67.1
 rich>=13.7.1
