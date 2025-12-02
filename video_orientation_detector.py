@@ -4068,10 +4068,29 @@ class OrientationDetector:
         face_mesh_weight = 3.0 if face_mesh_count > 0 else 0.0  # High weight for precise 468-point detection
         face_mesh_reliability = 0.95  # Very high reliability due to precise landmark tracking
 
+        # Context-aware weight adjustment based on video characteristics
+        if is_video_landscape and body_count > face_count:
+            # Landscape videos with more bodies - trust YOLO more
+            video_context_multiplier_yolo = 1.2
+            video_context_multiplier_face = 0.9
+        elif is_video_portrait and face_count > body_count:
+            # Portrait videos with more faces - trust face detection more
+            video_context_multiplier_yolo = 0.9
+            video_context_multiplier_face = 1.2
+        else:
+            video_context_multiplier_yolo = 1.0
+            video_context_multiplier_face = 1.0
+
+        # Dynamic reliability adjustment based on detection quality
+        # If we have high-quality detections (many faces/bodies), boost their reliability
+        quality_boost_face = 1.0 + min(face_count / 50.0, 0.3)  # Up to +30% for 50+ faces
+        quality_boost_yolo = 1.0 + min(body_count / 20.0, 0.3)  # Up to +30% for 20+ bodies
+        quality_boost_mesh = 1.0 + min(face_mesh_count / 5.0, 0.4)  # Up to +40% for 5+ face meshes
+
         model_weights = {
-            "face": face_weight,
-            "face_mesh": face_mesh_weight,  # Priority 1: High precision facial landmarks
-            "yolo": yolo_weight,
+            "face": face_weight * video_context_multiplier_face * quality_boost_face,
+            "face_mesh": face_mesh_weight * quality_boost_mesh,  # Priority 1: High precision facial landmarks
+            "yolo": yolo_weight * video_context_multiplier_yolo * quality_boost_yolo,
             "pose": 2.5,  # Pose detection gets high weight for human pose analysis
             "mobilenet": 1.5,  # Increased MobileNet weight for difficult cases
             "hough": 1.0,
@@ -4079,28 +4098,55 @@ class OrientationDetector:
         }
 
         model_reliabilities = {
-            "face": face_reliability,
-            "face_mesh": face_mesh_reliability,  # Very high reliability (468 landmarks)
-            "yolo": body_reliability,
+            "face": face_reliability * quality_boost_face,
+            "face_mesh": face_mesh_reliability * quality_boost_mesh,  # Very high reliability (468 landmarks)
+            "yolo": body_reliability * quality_boost_yolo,
             "pose": 0.9,  # High reliability for pose detection
             "mobilenet": 0.8,
             "hough": 0.7,
             "aspect": 0.6,
         }
 
-        # Apply votes with adaptive weighting
+        # Apply votes with adaptive weighting and confidence-based adjustments
+        model_confidence_scores = {}  # Track each model's confidence in its vote
         for model_name, model_vote_list in model_votes.items():
             base_weight = model_weights[model_name]
             reliability = model_reliabilities[model_name]
 
+            # Calculate vote consistency (more consistent = higher confidence)
+            if model_vote_list:
+                primary_vote = max(set(model_vote_list), key=model_vote_list.count)
+                vote_consistency = model_vote_list.count(primary_vote) / len(model_vote_list)
+                model_confidence_scores[model_name] = vote_consistency
+            else:
+                vote_consistency = 0.0
+                model_confidence_scores[model_name] = 0.0
+
             # Boost weight for reliable models in difficult scenarios
             if reliability > 0.8 and face_count > 30:  # High face count scenario
                 adaptive_weight = base_weight * 1.5
+            elif vote_consistency > 0.9:  # Very consistent model votes
+                adaptive_weight = base_weight * 1.3
             else:
                 adaptive_weight = base_weight
 
             for vote in model_vote_list:
                 weighted_scores[vote] += adaptive_weight
+
+        # Advanced conflict resolution with tiered voting
+        # Tier 1: High-precision models (Face Mesh, Pose with keypoints)
+        # Tier 2: Body/face detection (YOLO, DNN Face)
+        # Tier 3: General features (MobileNet, Hough, Aspect)
+        tier1_models = ["face_mesh", "pose"]  # Highest precision
+        tier2_models = ["yolo", "face"]  # Human detection
+        tier3_models = ["mobilenet", "hough", "aspect"]  # General features
+
+        tier_weight_bonus = {"tier1": 2.5, "tier2": 1.5, "tier3": 0.75}
+        tier_definitions = {
+            "tier1": tier1_models,
+            "tier2": tier2_models,
+            "tier3": tier3_models,
+        }
 
         # Cross-model validation and conflict resolution
         model_agreements = {}
@@ -4108,6 +4154,31 @@ class OrientationDetector:
             if model_vote_list:
                 primary_vote = max(set(model_vote_list), key=model_vote_list.count)
                 model_agreements[model_name] = primary_vote
+
+        # Compute tier consensus for each tier
+        tier_consensus = {}
+        for tier_name, tier_models in tier_definitions.items():
+            tier_votes = [
+                model_agreements[model]
+                for model in tier_models
+                if model in model_agreements and model_agreements[model] != "uncertain"
+            ]
+            if tier_votes:
+                majority_vote = max(set(tier_votes), key=tier_votes.count)
+                majority_count = tier_votes.count(majority_vote)
+                tier_consensus[tier_name] = {
+                    "vote": majority_vote,
+                    "count": majority_count,
+                    "models": [
+                        model
+                        for model in tier_models
+                        if model_agreements.get(model) == majority_vote
+                    ],
+                }
+                # Apply tier-based weighting bonus
+                weighted_scores[majority_vote] += tier_weight_bonus[tier_name] * majority_count
+
+        detection_info["tier_consensus"] = tier_consensus
 
         # Count agreements for confidence boosting
         agreement_counts = {"correct": 0, "incorrect": 0, "uncertain": 0}
@@ -4140,9 +4211,28 @@ class OrientationDetector:
 
         # Determine final orientation
         if weighted_scores["correct"] == 0 and weighted_scores["incorrect"] == 0:
-            # No model cast a decisive vote. Optionally avoid UNCERTAIN using format-aware fallback.
+            # No model cast a decisive vote. Try tier consensus hints before UNCERTAIN.
+            tier_hint = None
+            if tier_consensus.get("tier1"):
+                tier_hint = tier_consensus["tier1"]["vote"]
+            elif tier_consensus.get("tier2") and tier_consensus["tier2"]["count"] >= 2:
+                tier_hint = tier_consensus["tier2"]["vote"]
+
+            if tier_hint == "correct":
+                detection_info["final_decision"] = "tier_hint_correct"
+                detection_info["ensemble_consensus"] = "tier1_or_tier2_hint_correct"
+                return VideoOrientation.CORRECT, detection_info
+            elif tier_hint == "incorrect":
+                detection_info["final_decision"] = "tier_hint_incorrect"
+                detection_info["ensemble_consensus"] = "tier_hint_incorrect"
+                return VideoOrientation.INCORRECT, detection_info
+
+            # Optionally avoid UNCERTAIN using format-aware fallback (legacy env var support)
             try:
-                reduce_uncertain = os.getenv("SVOD_YOLO10_REDUCE_UNCERTAIN", "0") == "1"
+                reduce_uncertain_env = os.getenv("SVOD_REDUCE_UNCERTAIN", None)
+                if reduce_uncertain_env is None:
+                    reduce_uncertain_env = os.getenv("SVOD_YOLO10_REDUCE_UNCERTAIN", "0")
+                reduce_uncertain = reduce_uncertain_env == "1"
                 force_decision = os.getenv("SVOD_FORCE_DECISION", "0") == "1"
             except Exception:
                 reduce_uncertain = False
