@@ -1,7 +1,7 @@
 # SVOD - Smart Video Orientation Detector
 
 ## Project Overview
-SVOD detects video orientation (CORRECT/INCORRECT/UNCERTAIN) using AI-powered computer vision. The core is a 6,778-line monolithic Python module (`video_orientation_detector.py`) that combines multiple detection models through a weighted voting system.
+SVOD detects video orientation (CORRECT/INCORRECT/UNCERTAIN) using AI-powered computer vision. The core is a 7,879-line monolithic Python module (`video_orientation_detector.py`) that combines multiple detection models through a weighted voting system.
 
 **Current Version:** 4.24.0 - Housekeeping Release (November 2025)
 **Previous Milestone:** v4.23.0 achieved 100% accuracy on reference dataset validation
@@ -10,11 +10,12 @@ SVOD detects video orientation (CORRECT/INCORRECT/UNCERTAIN) using AI-powered co
 
 ### Multi-Model Ensemble Approach
 SVOD uses a **weighted voting system** across 4+ detection methods:
-1. **YOLOv10 Person Detection** (PRIMARY, REQUIRED) - `yolov10n.pt` model via ultralytics
+1. **YOLOv11 Person Detection** (PRIMARY, REQUIRED) - `yolo11n.pt` + `yolo11n-pose.pt` models via ultralytics
 2. **DNN Face Detection** - OpenCV DNN with Caffe models (`deploy.prototxt`, `res10_300x300_ssd_iter_140000.caffemodel`)
 3. **Facial Landmarks** - LBF landmark detection (`lbfmodel.yaml`) for precise orientation
 4. **MobileNet Classification** - OpenVINO models (`mobilenet-v2.xml/.bin`) - optional enhancement
 5. **Haar Cascade Face Detection** - OpenCV fallback detector
+6. **MediaPipe Face Mesh** - 468-landmark face mesh for advanced pose detection (optional)
 
 ### Key Detection Logic (OrientationDetector class)
 - `process_video_unified()` - Main processing loop analyzing frames
@@ -32,7 +33,7 @@ SVOD uses a **weighted voting system** across 4+ detection methods:
 ## Development Workflows
 
 ### Testing Philosophy: Two Distinct Ecosystems
-**`tests/` directory** - Automated pytest suite (18 test files):
+**`tests/` directory** - Automated pytest suite (17 test files):
 - Unit tests: `test_basic.py`, `test_core_detection.py`, `test_face_detection.py`
 - Integration tests: `test_integration.py`, `test_model_integration.py`
 - Run with: `pytest tests/` or `make test`
@@ -45,11 +46,11 @@ SVOD uses a **weighted voting system** across 4+ detection methods:
 - **NEVER create new test scripts** - always use these 3 standard scripts
 
 ### Reference Validation System
-**`reference_orientations.csv`** - Ground truth dataset (16 videos with known orientations):
+**`reference_orientations.csv`** - Ground truth dataset (18 videos with known orientations):
 - Loaded via `detector.load_reference_data()` or `--reference` CLI flag
 - Format: `filename,expected_orientation,confidence,notes`
 - Used by `validate_against_reference()` to verify detection accuracy
-- **Achievement**: v4.23.0 reached 100% accuracy on reference dataset (8/8 files tested)
+- **Achievement**: v4.23.0 reached 100% accuracy on reference dataset
 - Batch testing automatically compares results and shows accuracy metrics
 - Direction validation: Verifies rotation suggestions (clockwise/counterclockwise) match expected
 
@@ -98,8 +99,9 @@ Security is deeply integrated throughout the codebase:
 
 ### Statistics Tracking Pattern
 `OrientationDetector.stats` dictionary tracks all detection metrics:
-- `frames_processed`, `faces_detected_dnn`, `persons_detected_yolo10`
+- `frames_processed`, `face_detections`, `body_detections`, `pose_detections`
 - `forced_landscape_portrait_incorrect` - count of landscape videos with portrait content
+- `face_mesh_detections`, `face_mesh_votes` - MediaPipe face mesh tracking
 - Access via `get_statistics()`, display with `print_statistics()`
 
 ### Enum-Based Orientation System
@@ -114,7 +116,8 @@ Used consistently throughout for type safety and clear semantics.
 ## Critical Dependencies & Model Files
 
 ### Required Files (All auto-downloaded)
-- `yolov10n.pt` - YOLOv10 nano model (ultralytics auto-downloads)
+- `yolo11n.pt` - YOLOv11 nano detection model (ultralytics auto-downloads)
+- `yolo11n-pose.pt` - YOLOv11 nano pose model with keypoint detection
 - `deploy.prototxt`, `res10_300x300_ssd_iter_140000.caffemodel` - DNN face detector
 - `lbfmodel.yaml` - Facial landmark model
 - `coco.names` - YOLO class names
@@ -124,22 +127,24 @@ Used consistently throughout for type safety and clear semantics.
 Key pins for reproducibility:
 - `opencv-contrib-python==4.8.1.78` (contrib required for facial landmarks)
 - `numpy==1.26.4` (v2.0+ incompatible with some dependencies)
-- `ultralytics==8.3.196` (YOLOv10 support)
+- `ultralytics>=8.3.0` (YOLOv11 support)
+- `torch==2.8.0`, `torchvision==0.23.0` (PyTorch backend)
 - `openvino==2024.6.0` (model optimization)
+- `mediapipe>=0.10.0` (face mesh and pose detection)
 
 ## Key Files & Directories
 
-- **`video_orientation_detector.py`** - Monolithic 6,778-line core module (all logic)
+- **`video_orientation_detector.py`** - Monolithic 7,879-line core module (all detection logic)
 - **`pyproject.toml`** - Project metadata, entry point: `svod` CLI command
-- **`reference_orientations.csv`** - Ground truth dataset (16 videos) for validation testing
+- **`reference_orientations.csv`** - Ground truth dataset (18 videos) for validation testing
 - **`performance_baselines/`** - Version performance benchmarks (v4.17.0 through v4.23.0) for regression testing
-- **`YOLOV10_UPGRADE.md`** - Detailed YOLOv10 optimization documentation, 100% validation milestone
+- **`YOLOV10_UPGRADE.md`** - Historical YOLOv10→v11 migration documentation, 100% validation milestone
 - **`HOUSEKEEPING_PLAN.md`** - Technical debt and cleanup tracking
 
 ## Video Verification Strategy
 
 ### Multi-Level Validation Approach
-1. **Reference Dataset** - 16 curated videos in `reference_orientations.csv` with known orientations
+1. **Reference Dataset** - 18 curated videos in `reference_orientations.csv` with known orientations
    - Includes challenging cases: `P2170127.mp4` (landscape with portrait content)
    - Mix of correct/incorrect orientations, various rotation types (clockwise/counterclockwise)
    
@@ -158,11 +163,12 @@ Key pins for reproducibility:
 
 ## Common Pitfalls & Solutions
 
-1. **YOLOv10 "not available" error**: Install ultralytics first: `pip install ultralytics`
+1. **YOLOv11 "not available" error**: Install ultralytics: `pip install "ultralytics>=8.3.0"`
 2. **MobileNet download fails**: Expected on Apple Silicon - core detection still accurate
 3. **NumPy v2.0 issues**: Pin to `numpy==1.26.4` (specified in requirements.txt)
 4. **"omz_downloader not found"**: Requires Python 3.11-3.12, install `openvino-dev`
 5. **UNCERTAIN verdicts**: Tune environment variables (see PowerShell commands above)
+6. **MediaPipe unavailable**: SVOD injects a lightweight stub; install `mediapipe` for full pose support
 
 ## Adding New Features
 

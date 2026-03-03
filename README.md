@@ -1,6 +1,6 @@
 # Smart Video Orientation Detector (SVOD)
 
-🎥 **AI-Powered Video Orientation Analysis** | **YOLOv10 + Face Detection** | **Cross-Platform**
+🎥 **AI-Powered Video Orientation Analysis** | **YOLOv11 + Face Detection** | **Cross-Platform**
 
 [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -10,7 +10,7 @@
 
 SVOD automatically detects video orientation using advanced AI techniques:
 - **Face Detection** - Primary orientation indicator using DNN face detector
-- **Body Detection** - YOLOv10 as the primary detector with enhanced bias controls
+- **Body Detection** - YOLOv11 as the primary detector with pose keypoints and bias controls
 - **Pattern Recognition** - Enhanced landscape portrait content detection (15.0+ bias)
 - **Facial Landmarks** - Precise orientation analysis using LBF landmark detection
 - **Environment Controls** - Tunable parameters for aggressiveness and fallback behavior
@@ -28,7 +28,7 @@ SVOD automatically detects video orientation using advanced AI techniques:
 - ✅ **Validation Mode** - Compare results against reference data
 - ✅ **Automatic Setup** - All dependencies installed automatically
 - ✅ **Security Features** - Input sanitization and resource protection
-- ✅ **YOLOv10 Optimization** - Enhanced bias system with environment controls
+- ✅ **YOLOv11 Detection** - Primary detector with pose keypoints and bias controls
 - ✅ **Pattern Detection** - Strong landscape portrait bias (15.0+) for decisive outcomes
 - ✅ **Environment Tuning** - Configurable parameters for different accuracy/speed trade-offs
 
@@ -134,7 +134,7 @@ python video_orientation_detector.py /videos --batch -r --time-limit 10 --report
 | `--max-depth` | | Max directory depth | 10 |
 | `--version` | | Show version information | |
 
-### YOLOv10 Environment Controls
+### YOLO Environment Controls
 
 Advanced tuning parameters for optimized performance:
 
@@ -189,7 +189,7 @@ export SVOD_FORCE_DECISION=1
 **Core Dependencies:**
 - `opencv-contrib-python` - Computer vision and face detection
 - `numpy` - Mathematical operations
-- `ultralytics` - YOLOv8 object detection (required)
+- `ultralytics` - YOLOv11 object detection (required)
 - `torch` - PyTorch for model operations
 - `onnx` - Model format conversion
 - `tqdm` - Progress bars
@@ -202,10 +202,10 @@ export SVOD_FORCE_DECISION=1
 
 ### Common Issues
 
-**"YOLOv8 not available" Error:**
+**"YOLOv11 not available" Error:**
 ```bash
 # Install ultralytics manually
-pip install ultralytics
+pip install "ultralytics>=8.3.0"
 
 # For macOS NumPy issues
 pip install "numpy<2.0"
@@ -261,9 +261,9 @@ curl -O https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/m
 - Analyzes face orientation and positioning
 - Most accurate for videos with visible faces
 
-### Secondary Detection: Body Analysis
-- YOLOv8 object detection for people
-- Backup method when faces aren't visible
+### Primary Detection: Body Analysis
+- YOLOv11 object detection with pose keypoints (required)
+- Primary detector for person/body orientation
 - Useful for wide shots and group scenes
 
 ### Enhanced Detection: MobileNet Classification
@@ -374,7 +374,7 @@ python cleanup.py
 ### Detection Accuracy
 - **Reference Validation**: 100% accuracy against known orientation data (v4.23.0)
 - **Face Detection**: 85-95% accuracy for videos with faces
-- **Body Detection**: YOLOv10 primary detector with enhanced bias controls
+- **Body Detection**: YOLOv11 primary detector with pose keypoints and bias controls
 - **Combined Analysis**: 95%+ overall accuracy with optimized thresholds
 - **Verdict Consistency**: Eliminated UNCERTAIN fallbacks through improved enum conversion
 
@@ -428,7 +428,7 @@ addopts = "-v --tb=short"
 ```
 opencv-contrib-python>=4.8.0
 numpy>=1.24.0
-ultralytics>=8.0.0
+ultralytics>=8.3.0
 torch>=2.0.0
 onnx>=1.14.0
 tqdm>=4.65.0
@@ -466,7 +466,7 @@ CMD ["python", "video_orientation_detector.py"]
 ## 📋 Version History
 
 ### Recent Versions
-- **v4.24.0** (2025-11-29): Housekeeping release with documentation updates and project cleanup
+- **v4.24.0** (2025-11-29): Housekeeping release with documentation updates, YOLOv11 upgrade, and project cleanup
 - **v4.23.0** (2025-09-30): YOLOv10 primary detector with 100% reference validation accuracy
 - **v4.22.2** (2025-09-30): YOLOv10 optimization complete with enhanced bias controls
 - **v4.22.1** (2025-09-26): YOLOv10 restored with analysis confirmation
@@ -477,7 +477,7 @@ CMD ["python", "video_orientation_detector.py"]
 - **v4.15.0** (2025-01-20): Balanced 50/50 face/body weighting
 
 ### Key Improvements
-- ✅ YOLOv10 as primary detector achieving **100% reference validation accuracy**
+- ✅ YOLOv11 as primary detector achieving **100% reference validation accuracy**
 - ✅ Enhanced verdict alignment eliminating UNCERTAIN fallbacks
 - ✅ Strong bias detection system (15.0+ bias values) for decisive orientation decisions
 - ✅ Optimized environment defaults for maximum performance out-of-the-box
@@ -526,4 +526,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - YOLO authors for object detection framework
 - Intel OpenVINO team for optimization tools
 - PyTorch community for machine learning support
-- Ultralytics team for YOLOv8 implementation
+- Ultralytics team for YOLOv11/YOLO implementation
