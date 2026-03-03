@@ -959,6 +959,35 @@ class OrientationDetector:
         self.use_yolov8 = False
         self.yolov8_model = None
 
+        # === Performance: cached environment variables (avoid os.getenv per frame) ===
+        try:
+            self._cached_yolo_conf = float(os.getenv("SVOD_YOLO11_CONF", os.getenv("SVOD_YOLO10_CONF", "0.4")))
+        except Exception:
+            self._cached_yolo_conf = 0.4
+        try:
+            _face_env = os.getenv("SVOD_YOLO11_FACE_CONF", os.getenv("SVOD_YOLO10_FACE_CONF", "0.0"))
+            self._cached_face_conf = float(_face_env)
+        except Exception:
+            self._cached_face_conf = 0.0
+        self._cached_reduce_uncertain = os.getenv(
+            "SVOD_REDUCE_UNCERTAIN",
+            os.getenv("SVOD_YOLO11_REDUCE_UNCERTAIN", os.getenv("SVOD_YOLO10_REDUCE_UNCERTAIN", "0")),
+        ) == "1"
+        self._cached_force_decision = os.getenv("SVOD_FORCE_DECISION", "0") == "1"
+        try:
+            self._cached_decision_factor = float(
+                os.getenv("SVOD_YOLO11_DECISION_FACTOR", os.getenv("SVOD_YOLO10_DECISION_FACTOR", "1.03"))
+            )
+        except Exception:
+            self._cached_decision_factor = 1.03
+
+        # === Performance: frame downscale limit for detection models ===
+        self._max_detect_dim = 640  # px – YOLO native input size
+
+        # === Performance: early-exit parameters for batch mode ===
+        self._early_exit_min_frames = 8
+        self._early_exit_ratio = 0.90
+
     def setup_face_detection(self):
         """Setup multiple face detection methods for robustness"""
         # Haar Cascade for face detection
@@ -2082,6 +2111,18 @@ class OrientationDetector:
 
         return persons
 
+    def _downscale_frame(self, frame: np.ndarray) -> np.ndarray:
+        """Downscale frame for detection models if larger than _max_detect_dim.
+        Returns the (possibly resized) frame. Preserves aspect ratio.
+        """
+        h, w = frame.shape[:2]
+        max_dim = self._max_detect_dim
+        if max(h, w) <= max_dim:
+            return frame
+        scale = max_dim / max(h, w)
+        new_w, new_h = int(w * scale), int(h * scale)
+        return cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
     def is_close_up(self, face_box: Tuple[int, int, int, int], frame_shape: Tuple) -> bool:
         """
         Determine if a face detection is a close-up shot
@@ -3161,514 +3202,8 @@ class OrientationDetector:
         else:
             return "none"
 
-    def process_video_unified(self, video_path: str, mode: str = "full", display: bool = True, output_path: Optional[str] = None):  # type: ignore
-        """
-        Unified video processing method supporting multiple modes
-
-        Args:
-            video_path: Path to video file
-            mode: Processing mode - "full", "batch", "quick"
-            display: Show video display (ignored in batch mode)
-            output_path: Save annotated video (ignored in batch mode)
-
-        Returns:
-            Dict for full/quick modes, BatchResult for batch mode
-        """
-        start_time = time.time()
-        is_batch_mode = mode == "batch"
-        cap = None
-        writer = None
-
-        try:
-            self.reset_stats()
-
-            # Store current filename for smart override patterns
-            self.current_filename = os.path.basename(video_path)
-
-            # Enhanced video file validation
-            if not os.path.exists(video_path):
-                error_msg = f"Video file does not exist: {video_path}"
-                if is_batch_mode:
-                    return BatchResult(
-                        video_path,
-                        VideoOrientation.UNCERTAIN,
-                        0.0,
-                        {},
-                        time.time() - start_time,
-                        error_msg,
-                    )
-                else:
-                    raise FileNotFoundError(error_msg)
-
-            if not os.access(video_path, os.R_OK):
-                error_msg = f"No read permission for video file: {video_path}"
-                if is_batch_mode:
-                    return BatchResult(
-                        video_path,
-                        VideoOrientation.UNCERTAIN,
-                        0.0,
-                        {},
-                        time.time() - start_time,
-                        error_msg,
-                    )
-                else:
-                    raise PermissionError(error_msg)
-
-            # Check file size (prevent processing extremely large files that could cause memory issues)
-            file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
-            if file_size_mb > 2048:  # 2GB limit
-                error_msg = (
-                    f"Video file too large ({file_size_mb:.1f}MB). Maximum supported size is 2048MB"
-                )
-                if is_batch_mode:
-                    return BatchResult(
-                        video_path,
-                        VideoOrientation.UNCERTAIN,
-                        0.0,
-                        {},
-                        time.time() - start_time,
-                        error_msg,
-                    )
-                else:
-                    raise ValueError(error_msg)
-
-            cap = cv2.VideoCapture(video_path)
-            if not cap.isOpened():
-                error_msg = f"Cannot open video file. Possible causes: corrupted file, unsupported codec, or missing codec support: {video_path}"
-                if is_batch_mode:
-                    return BatchResult(
-                        video_path,
-                        VideoOrientation.UNCERTAIN,
-                        0.0,
-                        {},
-                        time.time() - start_time,
-                        error_msg,
-                    )
-                else:
-                    raise ValueError(error_msg)
-
-            # Get video properties with enhanced error checking
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-            # Validate video properties
-            if width <= 0 or height <= 0:
-                error_msg = f"Invalid video dimensions: {width}x{height}. Video may be corrupted"
-                cap.release()
-                if is_batch_mode:
-                    return BatchResult(
-                        video_path,
-                        VideoOrientation.UNCERTAIN,
-                        0.0,
-                        {},
-                        time.time() - start_time,
-                        error_msg,
-                    )
-                else:
-                    raise ValueError(error_msg)
-
-            if total_frames <= 0:
-                error_msg = (
-                    f"Video has no frames or frame count could not be determined: {video_path}"
-                )
-                cap.release()
-                if is_batch_mode:
-                    return BatchResult(
-                        video_path,
-                        VideoOrientation.UNCERTAIN,
-                        0.0,
-                        {},
-                        time.time() - start_time,
-                        error_msg,
-                    )
-                else:
-                    raise ValueError(error_msg)
-
-            # Smart FPS validation for VFR (Variable Frame Rate) videos
-            # Some mobile videos have incorrect FPS reporting in OpenCV
-            original_fps = fps
-            if fps <= 0 or fps > 200:  # Clearly wrong FPS values
-                print(f"[WARNING]  Invalid FPS detected ({fps}), using fallback calculation")
-                fps = 30.0  # Reasonable fallback
-            elif total_frames > 0:
-                calculated_duration = total_frames / fps
-
-                # Check for unreasonably high FPS (common VFR issue)
-                if (
-                    fps > 60 and calculated_duration < 10.0
-                ):  # High FPS + short duration = suspicious
-                    # Try common mobile video fps values
-                    for test_fps in [29.97, 30.0, 25.0, 23.976, 24.0]:
-                        test_duration = total_frames / test_fps
-                        if 10.0 <= test_duration <= 300.0:  # Reasonable duration (10s to 5min)
-                            print(
-                                f"[TOOL] FPS corrected from {original_fps:.1f} to {test_fps:.1f} for VFR video (duration: {test_duration:.1f}s)"
-                            )
-                            fps = test_fps
-                            break
-                    else:
-                        # If no common fps works, use a simple heuristic
-                        if calculated_duration < 1.0:  # Very short suggests very high wrong fps
-                            corrected_fps = max(
-                                total_frames / 20.0, 15.0
-                            )  # Assume ~20s video, min 15fps
-                            print(
-                                f"[TOOL] FPS corrected from {original_fps:.1f} to {corrected_fps:.1f} (estimated from frames)"
-                            )
-                            fps = corrected_fps
-
-            self.stats["video_duration"] = total_frames / fps if fps > 0 else 0
-
-            # Get width/height for both modes (needed for aspect ratio calculation)
-            video_aspect_ratio = width / height if height > 0 else 1.0
-
-            # Store video aspect ratio for frame analysis
-            self.video_aspect_ratio = video_aspect_ratio
-
-            # Calculate frame ranges for distributed analysis (v4.12.0 approach)
-            sampling_ranges = self.get_sampling_ranges_v4_12_0(total_frames, fps)
-
-            # Calculate total analysis duration
-            total_analysis_frames = sum(end - start for start, end in sampling_ranges)
-            self.stats["analyzed_duration"] = total_analysis_frames / fps if fps > 0 else 0
-
-            if is_batch_mode:
-                if len(sampling_ranges) > 1:
-                    print(
-                        f"  [TIMER]  Distributed analysis: {len(sampling_ranges)} segments, {self.stats['analyzed_duration']:.1f}s total"
-                    )
-                else:
-                    print(f"  [TIMER]  Time limit: analyzing first {self.time_limit}s of video")
-
-            # Setup video writer (only for full mode with output)
-            if not is_batch_mode and output_path:
-                try:
-                    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore
-                    writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-                    if not writer.isOpened():
-                        raise IOError(f"Failed to create output video writer: {output_path}")
-                except Exception as e:
-                    error_msg = f"Cannot create output video file: {e}"
-                    cap.release()
-                    if is_batch_mode:
-                        return BatchResult(
-                            video_path,
-                            VideoOrientation.UNCERTAIN,
-                            0.0,
-                            {},
-                            time.time() - start_time,
-                            error_msg,
-                        )
-                    else:
-                        raise IOError(error_msg)
-
-            # Print info for full mode
-            if not is_batch_mode:
-                print(f"Processing video: {video_path}")
-                print(f"Resolution: {width}x{height}, Total frames: {total_frames}, FPS: {fps:.1f}")
-                print(f"Video duration: {self.stats['video_duration']:.1f}s")
-                if self.time_limit:
-                    segments_info = (
-                        f"{len(sampling_ranges)} segments"
-                        if len(sampling_ranges) > 1
-                        else "1 segment"
-                    )
-                    segment_times = ", ".join(
-                        [f"{start/fps:.1f}-{end/fps:.1f}s" for start, end in sampling_ranges]
-                    )
-                    print(f"[TIMER]  Distributed analysis: {segments_info} ({segment_times})")
-                print("Detecting faces and bodies for orientation analysis...")
-
-            # Unified frame processing logic
-            skip_frames = 6  # Consistent frame skipping for all modes
-            frame_count = 0
-            memory_warning_shown = False
-
-            while True:
-                try:
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-
-                    # Validate frame
-                    if frame is None or frame.size == 0:
-                        print(f"[WARNING] Skipping corrupted frame at position {frame_count}")
-                        continue
-
-                    frame_count += 1
-
-                    # Check if frame should be processed (v4.12.0 approach)
-                    if not self.should_process_frame_v4_12_0(frame_count, sampling_ranges):
-                        continue
-
-                    # Skip frames for efficiency
-                    if frame_count % skip_frames != 0:
-                        continue
-
-                    # Memory usage check (rough estimate)
-                    if not memory_warning_shown and frame_count > 100:
-                        frame_size_mb = (frame.nbytes * skip_frames) / (1024 * 1024)
-                        if frame_size_mb > 500:  # Warning if processing might use >500MB
-                            print(
-                                f"[WARNING] Large frames detected ({frame_size_mb:.1f}MB per frame). Processing may be slow"
-                            )
-                            memory_warning_shown = True
-
-                    # Analyze frame with error handling
-                    try:
-                        orientation, detection_info = self.determine_frame_orientation(frame)
-                    except Exception as e:
-                        print(f"[WARNING] Frame analysis failed at frame {frame_count}: {e}")
-                        continue  # Skip this frame and continue processing
-
-                    # Update statistics (unified logic for all modes)
-                    self.stats["total_frames"] += 1
-                    has_humans = bool(detection_info["faces"] or detection_info["bodies"])
-                    if has_humans:
-                        # Count frames with humans regardless of per-frame orientation outcome
-                        self.stats["frames_with_humans"] += 1
-
-                        if orientation == VideoOrientation.CORRECT:
-                            self.stats["correct_orientation_frames"] += 1
-                        elif orientation == VideoOrientation.INCORRECT:
-                            self.stats["incorrect_orientation_frames"] += 1
-                            # Track forced decisions
-                            if detection_info.get("final_decision"):
-                                if "forced" in detection_info["final_decision"]:
-                                    self.stats["forced_incorrect_frames"] += 1
-                                if (
-                                    "forced_landscape_portrait_incorrect"
-                                    in detection_info["final_decision"]
-                                ):
-                                    self.stats["forced_landscape_portrait_incorrect"] += 1
-                            # Track horizontal subject distribution for final direction hint
-                            frame_width = frame.shape[1]
-                            left_positions = 0
-                            right_positions = 0
-                            for face in detection_info.get("faces", []):
-                                if face.get("confidence", 0) > 0.5:
-                                    x, _, w, _ = face["box"]
-                                    center_x = x + w // 2
-                                    if center_x < frame_width * 0.35:
-                                        left_positions += 1
-                                    elif center_x > frame_width * 0.65:
-                                        right_positions += 1
-                            for body in detection_info.get("bodies", []):
-                                if body.get("confidence", 0) > 0.5:
-                                    x, _, w, _ = body["box"]
-                                    center_x = x + w // 2
-                                    if center_x < frame_width * 0.35:
-                                        left_positions += 1
-                                    elif center_x > frame_width * 0.65:
-                                        right_positions += 1
-                            if left_positions or right_positions:
-                                self.stats["rotation_left_positions"] += left_positions
-                                self.stats["rotation_right_positions"] += right_positions
-                                self.stats["rotation_position_samples"] += 1
-                            # Collect rotation directions for all modes
-                            try:
-                                direction = self.detect_rotation_direction(
-                                    frame, detection_info["faces"], detection_info["bodies"]
-                                )
-                                if "rotation_directions" not in self.stats:
-                                    self.stats["rotation_directions"] = []
-                                self.stats["rotation_directions"].append(direction)
-                                # Track strength if available
-                                try:
-                                    strength = float(getattr(self, "_last_rotation_strength", 0.5))
-                                except Exception:
-                                    strength = 0.5
-                                if "rotation_strengths" not in self.stats:
-                                    self.stats["rotation_strengths"] = []
-                                self.stats["rotation_strengths"].append(strength)
-                            except Exception as e:
-                                print(f"[WARNING] Rotation direction detection failed: {e}")
-                        else:
-                            # Human detected but frame orientation was uncertain
-                            self.stats["uncertain_frames"] += 1
-
-                    # Mode-specific processing (display, annotation, output)
-                    if not is_batch_mode:
-                        # Annotate frame for full/quick modes
-                        try:
-                            annotated_frame = self.annotate_frame(
-                                frame, orientation, detection_info
-                            )
-                        except Exception as e:
-                            print(f"[WARNING] Frame annotation failed: {e}")
-                            annotated_frame = frame  # Use original frame if annotation fails
-
-                        # Display for full/quick modes if requested
-                        if display:
-                            try:
-                                cv2.imshow("Video Orientation Analysis", annotated_frame)
-                                if cv2.waitKey(1) & 0xFF == ord("q"):
-                                    print("\nProcessing interrupted by user")
-                                    break
-                            except Exception as e:
-                                print(f"[WARNING] Display failed: {e}")
-                                display = False  # Disable display for remaining frames
-
-                        # Write to output for full/quick modes
-                        if writer:
-                            try:
-                                writer.write(annotated_frame)
-                            except Exception as e:
-                                print(f"[ERROR] Failed to write frame to output video: {e}")
-                                # Close writer and continue without output
-                                writer.release()
-                                writer = None
-
-                        # Progress update for full/quick modes
-                        if frame_count % 90 == 0:
-                            total_analysis_frames = sum(
-                                end - start for start, end in sampling_ranges
-                            )
-                            processed_frames = sum(
-                                min(frame_count, end) - start
-                                for start, end in sampling_ranges
-                                if frame_count >= start
-                            )
-                            if total_analysis_frames > 0:
-                                progress = (processed_frames / total_analysis_frames) * 100
-                            else:
-                                progress = (frame_count / total_frames) * 100
-                            print(
-                                f"Progress: {progress:.1f}% | Faces detected: {self.stats['face_detections']} | "
-                                f"Bodies detected: {self.stats['body_detections']}"
-                            )
-
-                except MemoryError:
-                    print(f"[ERROR] Out of memory while processing frame {frame_count}")
-                    error_msg = "Insufficient memory to process video. Try reducing time limit or processing smaller videos"
-                    break  # Exit processing loop
-                except Exception as e:
-                    print(f"[WARNING] Error processing frame {frame_count}: {e}")
-                    continue  # Continue with next frame
-
-            # Cleanup
-            cap.release()
-            if writer:
-                writer.release()
-            if not is_batch_mode:
-                cv2.destroyAllWindows()
-
-            # Check if we had any successful frame processing
-            if self.stats["total_frames"] == 0:
-                error_msg = "No frames could be processed from the video. Video may be corrupted or in an unsupported format"
-                if is_batch_mode:
-                    return BatchResult(
-                        video_path,
-                        VideoOrientation.UNCERTAIN,
-                        0.0,
-                        {},
-                        time.time() - start_time,
-                        error_msg,
-                    )
-                else:
-                    raise ValueError(error_msg)
-
-            # Calculate final verdict
-            results = self.calculate_final_verdict()
-            processing_time = time.time() - start_time
-
-            # Return appropriate result type based on mode
-            if is_batch_mode:
-                return BatchResult(
-                    video_path,
-                    self._get_orientation_from_verdict(results["verdict"]),
-                    results["confidence"],
-                    results,
-                    processing_time,
-                )
-            else:
-                return results
-
-        except FileNotFoundError as e:
-            error_msg = f"Video file not found: {e}"
-            if is_batch_mode:
-                return BatchResult(
-                    video_path,
-                    VideoOrientation.UNCERTAIN,
-                    0.0,
-                    {},
-                    time.time() - start_time,
-                    error_msg,
-                )
-            else:
-                raise
-        except PermissionError as e:
-            error_msg = f"Permission denied accessing video file: {e}"
-            if is_batch_mode:
-                return BatchResult(
-                    video_path,
-                    VideoOrientation.UNCERTAIN,
-                    0.0,
-                    {},
-                    time.time() - start_time,
-                    error_msg,
-                )
-            else:
-                raise
-        except MemoryError as e:
-            error_msg = f"Insufficient memory to process video: {e}"
-            if is_batch_mode:
-                return BatchResult(
-                    video_path,
-                    VideoOrientation.UNCERTAIN,
-                    0.0,
-                    {},
-                    time.time() - start_time,
-                    error_msg,
-                )
-            else:
-                raise
-        except cv2.error as e:
-            error_msg = f"OpenCV error while processing video: {e}"
-            if is_batch_mode:
-                return BatchResult(
-                    video_path,
-                    VideoOrientation.UNCERTAIN,
-                    0.0,
-                    {},
-                    time.time() - start_time,
-                    error_msg,
-                )
-            else:
-                raise
-        except Exception as e:
-            # Cleanup resources
-            if cap is not None:
-                try:
-                    cap.release()
-                except:
-                    pass
-            if writer is not None:
-                try:
-                    writer.release()
-                except:
-                    pass
-            if not is_batch_mode:
-                try:
-                    cv2.destroyAllWindows()
-                except:
-                    pass
-
-            error_msg = f"Unexpected error during video processing: {e}"
-            if is_batch_mode:
-                return BatchResult(
-                    video_path,
-                    VideoOrientation.UNCERTAIN,
-                    0.0,
-                    {},
-                    time.time() - start_time,
-                    error_msg,
-                )
-            else:
-                raise
-
+    # NOTE: Dead first definition removed during v4.25 performance optimisation.
+    # The active process_video_unified lives after annotate_frame below.
     def _analyze_motion_patterns(
         self, frame_sequence: List[np.ndarray], video_aspect: float
     ) -> Dict[str, float]:
@@ -3887,13 +3422,8 @@ class OrientationDetector:
             return VideoOrientation.UNCERTAIN, detection_info
 
         # 1. Face-based voting (filter low confidence faces with conservative threshold)
-        try:
-            face_conf_thresh_env = float(os.getenv("SVOD_YOLO10_FACE_CONF", "0.0"))
-        except Exception:
-            face_conf_thresh_env = 0.0
-        face_conf_thresh = 0.6
-        if getattr(self, "use_yolov10", False):
-            face_conf_thresh = 0.55  # Slightly more permissive with YOLOv11
+        face_conf_thresh_env = self._cached_face_conf
+        face_conf_thresh = 0.55  # tuned for YOLOv11
         if face_conf_thresh_env > 0:
             face_conf_thresh = face_conf_thresh_env
 
@@ -4227,16 +3757,9 @@ class OrientationDetector:
                 detection_info["ensemble_consensus"] = "tier_hint_incorrect"
                 return VideoOrientation.INCORRECT, detection_info
 
-            # Optionally avoid UNCERTAIN using format-aware fallback (legacy env var support)
-            try:
-                reduce_uncertain_env = os.getenv("SVOD_REDUCE_UNCERTAIN", None)
-                if reduce_uncertain_env is None:
-                    reduce_uncertain_env = os.getenv("SVOD_YOLO10_REDUCE_UNCERTAIN", "0")
-                reduce_uncertain = reduce_uncertain_env == "1"
-                force_decision = os.getenv("SVOD_FORCE_DECISION", "0") == "1"
-            except Exception:
-                reduce_uncertain = False
-                force_decision = False
+            # Optionally avoid UNCERTAIN using format-aware fallback
+            reduce_uncertain = self._cached_reduce_uncertain
+            force_decision = self._cached_force_decision
 
             if reduce_uncertain or force_decision:
                 # Use any human evidence if available, otherwise rely on video format
@@ -4532,11 +4055,7 @@ class OrientationDetector:
         #     return VideoOrientation.INCORRECT, detection_info
 
         # LOWER THRESHOLD FOR DECISION MAKING - More aggressive about rotation detection
-        # Allow environment override to tweak aggressiveness during experiments
-        try:
-            yolo10_aggr = float(os.getenv("SVOD_YOLO10_DECISION_FACTOR", "1.03"))
-        except Exception:
-            yolo10_aggr = 1.05
+        yolo10_aggr = self._cached_decision_factor
 
         if (
             weighted_scores["correct"] > adjusted_incorrect * yolo10_aggr
@@ -4673,11 +4192,8 @@ class OrientationDetector:
                 ):
                     detection_info["final_decision"] = "tie_prefer_correct"
                     return VideoOrientation.CORRECT, detection_info
-                # YOLOv11-specific fallback to reduce UNCERTAINs (guarded by env)
-                try:
-                    reduce_uncertain = os.getenv("SVOD_YOLO10_REDUCE_UNCERTAIN", "0") == "1"
-                except Exception:
-                    reduce_uncertain = False
+                # YOLOv11-specific fallback to reduce UNCERTAINs
+                reduce_uncertain = self._cached_reduce_uncertain
                 if reduce_uncertain and (len(bodies) + len(high_confidence_faces)) > 0:
                     # If we have any human evidence, make a safe default decision by format
                     if is_video_landscape:
@@ -5038,46 +4554,84 @@ class OrientationDetector:
                 print("Detecting faces and bodies for orientation analysis...")
 
             # Unified frame processing logic
-            skip_frames = 6  # Consistent frame skipping for all modes
+            # Batch mode: larger skip for speed; full/quick modes stay granular
+            skip_frames = 15 if is_batch_mode else 6
             frame_count = 0
             memory_warning_shown = False
 
+            # Pre-compute sampling set for O(1) lookup instead of O(n) range iteration
+            _sampling_set: Optional[set] = None
+            if sampling_ranges:
+                _sampling_set = set()
+                for _sr_start, _sr_end in sampling_ranges:
+                    for _f in range(_sr_start, _sr_end + 1, skip_frames):
+                        _sampling_set.add(_f)
+
+            # Early-exit tracking: stop when verdict is already decisive
+            _early_exit_min = self._early_exit_min_frames
+            _early_exit_ratio = self._early_exit_ratio
+            _analyzed_count = 0
+
             while True:
                 try:
+                    frame_count += 1
+
+                    # Fast path: skip frames we won't analyse using grab (3-5x faster than read)
+                    if _sampling_set is not None:
+                        if frame_count not in _sampling_set:
+                            ret = cap.grab()
+                            if not ret:
+                                break
+                            continue
+                    else:
+                        if frame_count % skip_frames != 0:
+                            ret = cap.grab()
+                            if not ret:
+                                break
+                            continue
+
                     ret, frame = cap.read()
                     if not ret:
                         break
 
                     # Validate frame
                     if frame is None or frame.size == 0:
-                        print(f"[WARNING] Skipping corrupted frame at position {frame_count}")
-                        continue
-
-                    frame_count += 1
-
-                    # Check if frame should be processed (v4.12.0 approach)
-                    if not self.should_process_frame_v4_12_0(frame_count, sampling_ranges):
-                        continue
-
-                    # Skip frames for efficiency
-                    if frame_count % skip_frames != 0:
+                        if not is_batch_mode:
+                            print(f"[WARNING] Skipping corrupted frame at position {frame_count}")
                         continue
 
                     # Memory usage check (rough estimate)
                     if not memory_warning_shown and frame_count > 100:
                         frame_size_mb = (frame.nbytes * skip_frames) / (1024 * 1024)
-                        if frame_size_mb > 500:  # Warning if processing might use >500MB
-                            print(
-                                f"[WARNING] Large frames detected ({frame_size_mb:.1f}MB per frame). Processing may be slow"
-                            )
+                        if frame_size_mb > 500:
+                            if not is_batch_mode:
+                                print(
+                                    f"[WARNING] Large frames detected ({frame_size_mb:.1f}MB per frame). Processing may be slow"
+                                )
                             memory_warning_shown = True
+
+                    # Downscale frame for detection models (keeps original for annotation)
+                    detect_frame = self._downscale_frame(frame)
 
                     # Analyze frame with error handling
                     try:
-                        orientation, detection_info = self.determine_frame_orientation(frame)
+                        orientation, detection_info = self.determine_frame_orientation(detect_frame)
                     except Exception as e:
-                        print(f"[WARNING] Frame analysis failed at frame {frame_count}: {e}")
-                        continue  # Skip this frame and continue processing
+                        if not is_batch_mode:
+                            print(f"[WARNING] Frame analysis failed at frame {frame_count}: {e}")
+                        continue
+
+                    _analyzed_count += 1
+
+                    # Early exit: if verdict is decisive in batch mode, stop early
+                    if is_batch_mode and _analyzed_count >= _early_exit_min:
+                        _c = self.stats.get("correct_orientation_frames", 0)
+                        _i = self.stats.get("incorrect_orientation_frames", 0)
+                        _total_ci = _c + _i
+                        if _total_ci >= _early_exit_min:
+                            _dominant = max(_c, _i)
+                            if _dominant / _total_ci >= _early_exit_ratio:
+                                break  # Verdict is clear, stop processing
 
                     # Update statistics (unified logic for all modes)
                     self.stats["total_frames"] += 1

@@ -113,6 +113,11 @@ def test_batch_folder(
     # Load reference data
     reference_data = load_reference_data()
 
+    # Create detector ONCE and reuse across videos (model loading is the bottleneck)
+    detector = OrientationDetector(
+        confidence_threshold=confidence_threshold, time_limit=time_limit
+    )
+
     # Test results
     results = {}
     total_time = 0
@@ -122,10 +127,8 @@ def test_batch_folder(
         print(f"\\n📹 [{i}/{len(video_files)}] Testing: {filename}")
 
         try:
-            # Create fresh detector for each video (avoid state issues)
-            detector = OrientationDetector(
-                confidence_threshold=confidence_threshold, time_limit=time_limit
-            )
+            # Reset stats for each video (reuse detector to avoid model reload)
+            detector.reset_stats()
 
             start_time = time.time()
             video_results = detector.process_video(video_path, display=False)
