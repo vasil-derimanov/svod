@@ -891,16 +891,18 @@ class OrientationDetector:
         detector.print_results(results)
     """
 
-    def __init__(self, confidence_threshold: float = 0.5, time_limit: Optional[float] = None):
+    def __init__(self, confidence_threshold: float = 0.5, time_limit: Optional[float] = None, verbose: bool = False):
         """
         Initialize the orientation detector
 
         Args:
             confidence_threshold: Minimum confidence for detection (0-1)
             time_limit: Maximum time in seconds to analyze from start of video (None = entire video)
+            verbose: Enable detailed DEBUG output (default: False)
         """
         self.confidence_threshold = confidence_threshold
         self.time_limit = time_limit  # Optional parameter - can process entire video if None
+        self.verbose = verbose
 
         # Initialize face detection (works for close-ups)
         self.setup_face_detection()
@@ -985,8 +987,13 @@ class OrientationDetector:
         self._max_detect_dim = 640  # px – YOLO native input size
 
         # === Performance: early-exit parameters for batch mode ===
-        self._early_exit_min_frames = 8
+        self._early_exit_min_frames = 20
         self._early_exit_ratio = 0.90
+
+    def _debug(self, msg: str) -> None:
+        """Print debug message only when verbose mode is enabled."""
+        if self.verbose:
+            print(msg)
 
     def setup_face_detection(self):
         """Setup multiple face detection methods for robustness"""
@@ -1599,8 +1606,8 @@ class OrientationDetector:
             # Determine orientation based on angle
             if -30 <= angle <= 30:
                 return "upright"  # Eyes are roughly horizontal
-            # elif 60 <= angle <= 120 or -120 <= angle <= -60:
-            #     return 'sideways'  # Eyes are roughly vertical
+            elif 60 <= angle <= 120 or -120 <= angle <= -60:
+                return "sideways"  # Eyes are roughly vertical
             elif 150 <= angle or angle <= -150:
                 return "upside_down"  # Eyes are horizontal but inverted
             # else:
@@ -2029,7 +2036,7 @@ class OrientationDetector:
 
             return face_meshes
         except Exception as e:
-            print_error(f"MediaPipe Face Mesh detection failed: {e}")
+            self._debug(f"MediaPipe Face Mesh detection failed: {e}")
             return []
 
     def analyze_face_mesh_orientation(self, face_mesh: Dict) -> str:
@@ -2278,7 +2285,7 @@ class OrientationDetector:
             if keypoint_direction:
                 # Keypoint analysis is highly reliable - give it strong weight (15.0)
                 rotation_evidence[keypoint_direction] += 15.0
-                print(f"[DEBUG] YOLO keypoint analysis suggests: {keypoint_direction} (confidence: HIGH)")
+                self._debug(f"[DEBUG] YOLO keypoint analysis suggests: {keypoint_direction} (confidence: HIGH)")
 
         # 1. Enhanced face analysis with improved counterclockwise detection
         if len(faces) > 0:
@@ -2490,7 +2497,7 @@ class OrientationDetector:
                     left_ratio = total_left / total_analyzed
                     right_ratio = total_right / total_analyzed
 
-                    print(
+                    self._debug(
                         f"[DEBUG] Position analysis: {total_left} left, {total_right} right out of {total_analyzed} total (left_ratio={left_ratio:.3f}, right_ratio={right_ratio:.3f})"
                     )
 
@@ -2498,7 +2505,7 @@ class OrientationDetector:
                     # REDUCED from 12.0 to 6.0 - position analysis alone is unreliable
                     if total_left > total_right and left_ratio >= 0.6:  # Raised back to 0.6 for confidence
                         rotation_evidence["clockwise"] += 6.0  # Moderate clockwise bias
-                        print(
+                        self._debug(
                             f"[DEBUG] Clockwise rotation pattern detected: {total_left}/{total_analyzed} detections on far left side, applying moderate clockwise bias"
                         )
 
@@ -2508,7 +2515,7 @@ class OrientationDetector:
                         rotation_evidence[
                             "counterclockwise"
                         ] += 6.0  # Moderate counterclockwise bias
-                        print(
+                        self._debug(
                             f"[DEBUG] Counterclockwise rotation pattern detected: {total_right}/{total_analyzed} detections on far right side, applying moderate counterclockwise bias"
                         )
 
@@ -2520,7 +2527,7 @@ class OrientationDetector:
         # LOWERED threshold from >= 12.0 to >= 8.0 to match reduced bias strength
         # If we have very strong counterclockwise evidence (>= 8.0), prioritize it
         if rotation_evidence["counterclockwise"] >= 8.0:
-            print(
+            self._debug(
                 f"[DEBUG] Strong counterclockwise pattern detected (score: {rotation_evidence['counterclockwise']:.1f}), forcing counterclockwise decision"
             )
             # Expose last rotation strength for aggregation
@@ -2532,7 +2539,7 @@ class OrientationDetector:
             return "counterclockwise"
         # If we have very strong clockwise evidence (>= 8.0), prioritize it
         elif rotation_evidence["clockwise"] >= 8.0:
-            print(
+            self._debug(
                 f"[DEBUG] Strong clockwise pattern detected (score: {rotation_evidence['clockwise']:.1f}), forcing clockwise decision"
             )
             try:
@@ -3000,7 +3007,7 @@ class OrientationDetector:
                 for aspect in sideways_portrait_aspects:
                     if abs(video_aspect_ratio - aspect) < 0.02:  # Very close match
                         is_sideways_portrait = True
-                        print(
+                        self._debug(
                             f"[DEBUG] Sideways portrait aspect ratio detected: {video_aspect_ratio:.3f}"
                         )
                         break
@@ -3019,7 +3026,7 @@ class OrientationDetector:
                 #     # Require 80% of faces to be on the left side (less restrictive than 100%)
                 #     if left_faces >= total_confident_faces * 0.8 and total_confident_faces >= 3:
                 #         is_sideways_portrait = True
-                #         print(f"[DEBUG] 80% faces clustered on left side: {left_faces}/{total_confident_faces}")
+                #         self._debug(f"[DEBUG] 80% faces clustered on left side: {left_faces}/{total_confident_faces}")
 
                 # Only rely on aspect ratios for sideways portrait detection
                 # This prevents false positives for normal landscape videos
@@ -3031,10 +3038,10 @@ class OrientationDetector:
                 if is_sideways_portrait:
                     if face_center_x < frame_width * 0.4:  # Left side of landscape frame
                         clockwise_evidence += 8.0  # Very strong evidence - portrait content on left needs clockwise (increased from 4.0)
-                        print(f"[DEBUG] Sideways portrait face on left side: clockwise +8.0")
+                        self._debug(f"[DEBUG] Sideways portrait face on left side: clockwise +8.0")
                     elif face_center_x < frame_width * 0.5:  # Left-center
                         clockwise_evidence += 4.0  # Strong evidence (increased from 2.0)
-                        print(f"[DEBUG] Sideways portrait face on left-center: clockwise +4.0")
+                        self._debug(f"[DEBUG] Sideways portrait face on left-center: clockwise +4.0")
                 # For normal landscape videos, DO NOT add clockwise evidence for left-side faces
                 # This prevents false positives for regular landscape videos
 
@@ -3415,8 +3422,27 @@ class OrientationDetector:
             "aspect": [],
         }
 
-        # If no human evidence at all, short-circuit to UNCERTAIN to match legacy behaviour
+        # If no human evidence at all, try rotated frame probe for landscape videos
         if not faces and not bodies and not poses and not face_meshes:
+            if is_video_landscape:
+                # Rotated frame probe: if people are sideways, YOLO can't detect them
+                # Try rotating the frame 90° CW and CCW and re-running person detection
+                for rotation_flag in (cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE):
+                    try:
+                        rotated_frame = cv2.rotate(frame, rotation_flag)
+                        rotated_bodies = self.detect_persons(rotated_frame)
+                        if rotated_bodies:
+                            # People detected in rotated frame but not original → video is rotated
+                            for body in rotated_bodies:
+                                votes["yolo"].append("incorrect")
+                            detection_info["votes"] = votes
+                            detection_info["bodies"] = rotated_bodies
+                            detection_info["final_decision"] = "rotated_frame_probe_detected"
+                            self._update_voting_stats(votes)
+                            self.stats["rotated_probe_hits"] = self.stats.get("rotated_probe_hits", 0) + 1
+                            return VideoOrientation.INCORRECT, detection_info
+                    except Exception:
+                        pass
             detection_info["votes"] = votes
             detection_info["final_decision"] = "no_human_detected"
             return VideoOrientation.UNCERTAIN, detection_info
@@ -3454,18 +3480,61 @@ class OrientationDetector:
                 votes["face_mesh"].append("uncertain")
 
         # 2. YOLO body voting
+        # For landscape videos with faces but no bodies, try rotated frame probe
+        # Face detection is rotation-invariant but body detection is not
+        if is_video_landscape and faces and not bodies and not poses:
+            for rotation_flag in (cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE):
+                try:
+                    rotated_frame = cv2.rotate(frame, rotation_flag)
+                    rotated_bodies = self.detect_persons(rotated_frame)
+                    if rotated_bodies:
+                        # Bodies found in rotated frame → people are sideways
+                        bodies = rotated_bodies
+                        detection_info["bodies"] = rotated_bodies
+                        detection_info["rotated_body_probe"] = True
+                        break
+                except Exception:
+                    pass
+
         # Slightly relax thresholds for YOLOv11 which tends to be conservative
         yolo_vertical_thresh = 1.25 if getattr(self, "use_yolov10", False) else 1.3
         yolo_horizontal_thresh = 0.75 if getattr(self, "use_yolov10", False) else 0.7
+        _from_rotated_probe = detection_info.get("rotated_body_probe", False) or detection_info.get("final_decision") == "rotated_frame_probe_detected"
         for body in bodies:
-            _, _, w, h = body["box"]
-            aspect_ratio = h / w if w > 0 else 0
-            if aspect_ratio > yolo_vertical_thresh:
-                votes["yolo"].append("correct")
-            elif aspect_ratio < yolo_horizontal_thresh:
+            if _from_rotated_probe:
+                # Bodies from rotated frame probe: upright in rotated = sideways in original
                 votes["yolo"].append("incorrect")
             else:
-                votes["yolo"].append("uncertain")
+                _, _, w, h = body["box"]
+                aspect_ratio = h / w if w > 0 else 0
+                if aspect_ratio > yolo_vertical_thresh:
+                    votes["yolo"].append("correct")
+                elif aspect_ratio < yolo_horizontal_thresh:
+                    votes["yolo"].append("incorrect")
+                else:
+                    votes["yolo"].append("uncertain")
+
+        # 2.5 YOLO Keypoint-based rotation detection (shoulder angle analysis)
+        try:
+            keypoints = self._extract_yolo_keypoints(frame)
+            if keypoints:
+                for kpt_data in keypoints:
+                    kpts = kpt_data["keypoints"]
+                    if kpts.shape[0] >= 17:
+                        left_shoulder = kpts[5]  # [x, y, conf]
+                        right_shoulder = kpts[6]
+                        if left_shoulder[2] > 0.3 and right_shoulder[2] > 0.3:
+                            dx = right_shoulder[0] - left_shoulder[0]
+                            dy = right_shoulder[1] - left_shoulder[1]
+                            shoulder_angle = abs(math.degrees(math.atan2(dy, dx)))
+                            if shoulder_angle > 90:
+                                shoulder_angle = 180 - shoulder_angle
+                            if shoulder_angle > 55:  # Shoulders nearly vertical = rotated
+                                votes["pose"].append("incorrect")
+                            elif shoulder_angle < 35:  # Shoulders nearly horizontal = upright
+                                votes["pose"].append("correct")
+        except Exception:
+            pass
 
         # 3. MediaPipe pose voting
         for pose in poses:
@@ -3519,8 +3588,14 @@ class OrientationDetector:
         for method_name, method_vote in voting_methods:
             if is_video_landscape:
                 # For landscape videos (like 1920x1080), landscape detection is CORRECT
+                # BUT: when rotated body probe found sideways people, suppress "correct"
+                # votes from ambient methods (mobilenet/hough/aspect) as they give misleading
+                # "landscape=correct" signal when the actual human content is rotated
                 if method_vote == "landscape":
-                    votes[method_name].append("correct")
+                    if _from_rotated_probe:
+                        votes[method_name].append("uncertain")
+                    else:
+                        votes[method_name].append("correct")
                 elif method_vote == "portrait":
                     votes[method_name].append("incorrect")  # Portrait in landscape video = rotated
                 else:
@@ -3730,6 +3805,9 @@ class OrientationDetector:
             self.stats["face_detections"] += len(high_confidence_faces)
         if bodies:
             self.stats["body_detections"] += len(bodies)
+            # Track original (non-probe) body detections separately
+            if not detection_info.get("rotated_body_probe", False):
+                self.stats["original_body_detections"] = self.stats.get("original_body_detections", 0) + len(bodies)
         if poses:
             self.stats["pose_detections"] += len(poses)
         if votes["mobilenet"]:
@@ -3799,21 +3877,21 @@ class OrientationDetector:
         # ENHANCED MOBILE PORTRAIT DETECTION (Fix for P2170127.mp4 and similar videos)
         # Smart detection for very portrait mobile videos that may need clockwise OR counterclockwise rotation
         video_aspect_ratio = getattr(self, "video_aspect_ratio", 1.0)
-        print(f"[DEBUG] Video aspect ratio: {video_aspect_ratio:.3f}")
+        self._debug(f"[DEBUG] Video aspect ratio: {video_aspect_ratio:.3f}")
         if video_aspect_ratio < 0.65:  # Very portrait (like 2160x3840 = 0.5625 or P2170127.mp4)
-            print(f"[DEBUG] Very portrait video detected, analyzing rotation direction...")
+            self._debug(f"[DEBUG] Very portrait video detected, analyzing rotation direction...")
             # Analyze face and body positions to determine rotation direction
             # Enhanced logic for P2170127.mp4 detection
             rotation_direction = self._analyze_rotation_direction_for_portrait_video(
                 detection_info, votes, video_aspect_ratio
             )
-            print(f"[DEBUG] Rotation direction result: {rotation_direction}")
+            self._debug(f"[DEBUG] Rotation direction result: {rotation_direction}")
 
             if rotation_direction == "clockwise":
                 # Videos like P2170127.mp4 need clockwise rotation
                 clockwise_bias = 8.0  # Reduced from 12.0 - still strong but less aggressive
                 counterclockwise_bias = 0.0
-                print(
+                self._debug(
                     f"[DEBUG] Setting clockwise_bias to {clockwise_bias} for P2170127.mp4 pattern"
                 )
                 detection_info["mobile_portrait_detected"] = (
@@ -3836,12 +3914,12 @@ class OrientationDetector:
         elif (
             video_aspect_ratio > 1.3
         ):  # Landscape videos that might contain portrait content (P2170127.mp4 case)
-            print(f"[DEBUG] Landscape video detected, checking for portrait content patterns...")
+            self._debug(f"[DEBUG] Landscape video detected, checking for portrait content patterns...")
             # Check if this landscape video has portrait content that needs rotation
             rotation_direction = self._analyze_rotation_direction_for_portrait_video(
                 detection_info, votes, video_aspect_ratio
             )
-            print(f"[DEBUG] Landscape rotation direction result: {rotation_direction}")
+            self._debug(f"[DEBUG] Landscape rotation direction result: {rotation_direction}")
 
             # SELECTIVE RE-ENABLING: Apply bias only for STRONG pattern detection to avoid false positives
             # Only apply bias when we have very confident rotation direction detection (>= 12.0 evidence)
@@ -3871,7 +3949,7 @@ class OrientationDetector:
                     # REDUCED BIAS: Use lighter bias to avoid overriding correct videos
                     clockwise_bias = 8.0  # Reduced from 15.0 to be less aggressive
                     counterclockwise_bias = 0.0
-                    print(
+                    self._debug(
                         f"[DEBUG] Setting clockwise_bias to {clockwise_bias} for landscape portrait content"
                     )
                     detection_info["landscape_portrait_content"] = (
@@ -3885,11 +3963,11 @@ class OrientationDetector:
                     if "rotation_strengths" not in self.stats:
                         self.stats["rotation_strengths"] = []
                     self.stats["rotation_strengths"].append(8.0)
-                    print(
+                    self._debug(
                         f"[DEBUG] Added {rotation_direction} to rotation directions for final recommendation"
                     )
                 else:
-                    print(
+                    self._debug(
                         f"[DEBUG] Clockwise rotation detected but no strong evidence - skipping bias"
                     )
             elif rotation_direction == "counterclockwise":
@@ -3907,7 +3985,7 @@ class OrientationDetector:
                     or (len(bodies) >= 8)
                 ):
                     has_strong_evidence = True
-                    print(
+                    self._debug(
                         f"[DEBUG] Strong counterclockwise evidence: faces={len(faces)}, bodies={len(bodies)}"
                     )
 
@@ -3916,7 +3994,7 @@ class OrientationDetector:
                     # REDUCED BIAS: Use lighter bias to avoid overriding correct videos
                     counterclockwise_bias = 8.0  # Reduced from 15.0 to be less aggressive
                     clockwise_bias = 0.0
-                    print(
+                    self._debug(
                         f"[DEBUG] Setting counterclockwise_bias to {counterclockwise_bias} for landscape portrait content"
                     )
                     detection_info["landscape_portrait_content"] = (
@@ -3929,11 +4007,11 @@ class OrientationDetector:
                     if "rotation_strengths" not in self.stats:
                         self.stats["rotation_strengths"] = []
                     self.stats["rotation_strengths"].append(8.0)
-                    print(
+                    self._debug(
                         f"[DEBUG] Added {rotation_direction} to rotation directions for final recommendation"
                     )
                 else:
-                    print(
+                    self._debug(
                         f"[DEBUG] Counterclockwise rotation detected but no strong evidence - skipping bias"
                     )
         elif video_aspect_ratio < 0.75:  # Portrait mobile-like
@@ -3988,7 +4066,7 @@ class OrientationDetector:
         if (
             counterclockwise_bias >= 12.0 or clockwise_bias >= 12.0
         ):  # Require stronger aggregate bias to override
-            print(
+            self._debug(
                 f"[DEBUG] Strong bias detected (ccw:{counterclockwise_bias:.1f}, cw:{clockwise_bias:.1f}) - overriding votes to ensure consistency"
             )
             # Override votes to reflect the bias-forced decision
@@ -4018,14 +4096,14 @@ class OrientationDetector:
         # SPECIAL HANDLING FOR VERY PORTRAIT VIDEOS (P2170127.mp4 fix)
         if video_aspect_ratio < 0.65 and (clockwise_bias > 0 or counterclockwise_bias > 0):
             # For very portrait videos with detected rotation patterns, be more aggressive
-            print(
+            self._debug(
                 f"[DEBUG] Very portrait video detected: aspect={video_aspect_ratio:.3f}, clockwise_bias={clockwise_bias}, counterclockwise_bias={counterclockwise_bias}"
             )
-            print(
+            self._debug(
                 f"[DEBUG] Scores: correct={weighted_scores['correct']:.3f}, incorrect={weighted_scores['incorrect']:.3f}, adjusted_incorrect={adjusted_incorrect:.3f}"
             )
             if adjusted_incorrect > weighted_scores["correct"] * 1.05:  # Even lower threshold
-                print("[DEBUG] Taking INCORRECT path with very low threshold")
+                self._debug("[DEBUG] Taking INCORRECT path with very low threshold")
                 detection_info["final_decision"] = "weighted_incorrect_with_bias_very_portrait"
                 # Determine rotation direction based on bias
                 if clockwise_bias > counterclockwise_bias:
@@ -4037,7 +4115,7 @@ class OrientationDetector:
                 return VideoOrientation.INCORRECT, detection_info
             elif clockwise_bias >= 8.0:  # Lower threshold for strong clockwise evidence
                 # Force INCORRECT for strong clockwise patterns (P2170127.mp4)
-                print("[DEBUG] Forcing INCORRECT due to strong clockwise pattern")
+                self._debug("[DEBUG] Forcing INCORRECT due to strong clockwise pattern")
                 detection_info["final_decision"] = "forced_incorrect_strong_clockwise_pattern"
                 detection_info["rotation_direction"] = "clockwise"
                 return VideoOrientation.INCORRECT, detection_info
@@ -4049,7 +4127,7 @@ class OrientationDetector:
         #     print(
         #         f"[DEBUG] Confirmed sideways portrait content detected: aspect={video_aspect_ratio:.3f}, clockwise_bias={clockwise_bias}"
         #     )
-        #     print(f"[DEBUG] Forcing INCORRECT for confirmed sideways portrait content regardless of scores")
+        #     self._debug(f"[DEBUG] Forcing INCORRECT for confirmed sideways portrait content regardless of scores")
         #     detection_info["final_decision"] = "forced_sideways_portrait_incorrect"
         #     detection_info["rotation_direction"] = "clockwise"
         #     return VideoOrientation.INCORRECT, detection_info
@@ -4082,7 +4160,7 @@ class OrientationDetector:
 
             # For confirmed sideways portrait videos, be much more aggressive
             if video_aspect_ratio > 1.3 and clockwise_bias > 0:
-                print(
+                self._debug(
                     f"[DEBUG] Confirmed sideways portrait detected, being aggressive: correct={weighted_scores['correct']:.3f}, incorrect={adjusted_incorrect:.3f}, diff={score_diff:.3f}"
                 )
                 if (
@@ -4102,7 +4180,7 @@ class OrientationDetector:
 
             # If scores are very close but we have bias, use the bias direction
             if score_diff < 0.3 and (clockwise_bias > 0 or counterclockwise_bias > 0):
-                print(
+                self._debug(
                     f"[DEBUG] Close scores but bias detected: correct={weighted_scores['correct']:.3f}, incorrect={adjusted_incorrect:.3f}, diff={score_diff:.3f}"
                 )
                 detection_info["final_decision"] = "close_call_bias_decision"
@@ -4130,7 +4208,7 @@ class OrientationDetector:
 
             # For very close scores, prefer INCORRECT for portrait videos (common mobile pattern)
             if score_diff < 0.2 and video_aspect_ratio < 1.0:
-                print(
+                self._debug(
                     f"[DEBUG] Very close scores for portrait video, preferring INCORRECT: aspect={video_aspect_ratio:.3f}"
                 )
                 detection_info["final_decision"] = "close_scores_portrait_prefer_incorrect"
@@ -4501,6 +4579,7 @@ class OrientationDetector:
 
             # Calculate frame ranges for distributed analysis (v4.12.0 approach)
             sampling_ranges = self.get_sampling_ranges_v4_12_0(total_frames, fps)
+            self.stats["num_segments"] = len(sampling_ranges)
 
             # Calculate total analysis duration
             total_analysis_frames = sum(end - start for start, end in sampling_ranges)
@@ -4554,8 +4633,8 @@ class OrientationDetector:
                 print("Detecting faces and bodies for orientation analysis...")
 
             # Unified frame processing logic
-            # Batch mode: larger skip for speed; full/quick modes stay granular
-            skip_frames = 15 if is_batch_mode else 6
+            # Batch mode: moderate skip for speed; full/quick modes stay granular
+            skip_frames = 8 if is_batch_mode else 10
             frame_count = 0
             memory_warning_shown = False
 
@@ -4624,14 +4703,21 @@ class OrientationDetector:
                     _analyzed_count += 1
 
                     # Early exit: if verdict is decisive in batch mode, stop early
+                    # Require: minimum coverage (50%) AND both orientations seen
+                    # This prevents premature exit on videos that start correctly then rotate
                     if is_batch_mode and _analyzed_count >= _early_exit_min:
                         _c = self.stats.get("correct_orientation_frames", 0)
                         _i = self.stats.get("incorrect_orientation_frames", 0)
                         _total_ci = _c + _i
-                        if _total_ci >= _early_exit_min:
-                            _dominant = max(_c, _i)
-                            if _dominant / _total_ci >= _early_exit_ratio:
-                                break  # Verdict is clear, stop processing
+                        _target_frames = len(_sampling_set) if _sampling_set else (total_frames // skip_frames)
+                        _coverage = _analyzed_count / max(_target_frames, 1)
+                        if _total_ci >= _early_exit_min and _coverage >= 0.5:
+                            # Only early-exit when BOTH orientations have been observed
+                            # or coverage is very high (>80%) with unanimous verdict
+                            if (_c > 0 and _i > 0) or _coverage >= 0.8:
+                                _dominant = max(_c, _i)
+                                if _dominant / _total_ci >= _early_exit_ratio:
+                                    break  # Verdict is clear, stop processing
 
                     # Update statistics (unified logic for all modes)
                     self.stats["total_frames"] += 1
@@ -4848,30 +4934,30 @@ class OrientationDetector:
 
     def _get_orientation_from_verdict(self, verdict: str) -> VideoOrientation:
         """Extract VideoOrientation from verdict string"""
-        print(f"[DEBUG] === _get_orientation_from_verdict called! ===")
-        print(f"[DEBUG] Converting verdict to orientation: '{verdict}'")
-        print(f"[DEBUG] Verdict type: {type(verdict)}")
-        print(f"[DEBUG] Verdict length: {len(verdict)}")
+        self._debug(f"[DEBUG] === _get_orientation_from_verdict called! ===")
+        self._debug(f"[DEBUG] Converting verdict to orientation: '{verdict}'")
+        self._debug(f"[DEBUG] Verdict type: {type(verdict)}")
+        self._debug(f"[DEBUG] Verdict length: {len(verdict)}")
 
         # Normalize verdict by removing emoji and checking key words
         verdict_clean = (
             verdict.replace("[OK]", "").replace("[ERROR]", "").replace("[WARNING]", "").strip()
         )
-        print(f"[DEBUG] Cleaned verdict: '{verdict_clean}'")
-        print(f"[DEBUG] Cleaned verdict length: {len(verdict_clean)}")
+        self._debug(f"[DEBUG] Cleaned verdict: '{verdict_clean}'")
+        self._debug(f"[DEBUG] Cleaned verdict length: {len(verdict_clean)}")
 
         # CRITICAL: Check INCORRECT first, then CORRECT
         # because "LIKELY CORRECT" contains both words!
         if "INCORRECT" in verdict_clean or "ROTATED" in verdict_clean:
-            print(
+            self._debug(
                 f"[DEBUG] Verdict mapped to INCORRECT (found 'INCORRECT' or 'ROTATED' in '{verdict_clean}')"
             )
             return VideoOrientation.INCORRECT
         elif "CORRECT" in verdict_clean:
-            print(f"[DEBUG] Verdict mapped to CORRECT (found 'CORRECT' in '{verdict_clean}')")
+            self._debug(f"[DEBUG] Verdict mapped to CORRECT (found 'CORRECT' in '{verdict_clean}')")
             return VideoOrientation.CORRECT
         else:
-            print(
+            self._debug(
                 f"[DEBUG] Verdict mapped to UNCERTAIN (no 'INCORRECT'/'ROTATED'/'CORRECT' found in '{verdict_clean}')"
             )
             return VideoOrientation.UNCERTAIN
@@ -4891,25 +4977,25 @@ class OrientationDetector:
         """
         Calculate final verdict with detailed analysis
         """
-        print(f"[DEBUG] === calculate_final_verdict() called ===")
+        self._debug(f"[DEBUG] === calculate_final_verdict() called ===")
 
         # DEBUG: Log stats at start
-        print(
+        self._debug(
             f"[DEBUG] Final verdict - forced_incorrect_frames: {self.stats.get('forced_incorrect_frames', 0)}"
         )
-        print(
+        self._debug(
             f"[DEBUG] Final verdict - forced_landscape_portrait_incorrect: {self.stats.get('forced_landscape_portrait_incorrect', 0)}"
         )
-        print(
+        self._debug(
             f"[DEBUG] Final verdict - frames_with_humans: {self.stats.get('frames_with_humans', 0)}"
         )
-        print(
+        self._debug(
             f"[DEBUG] Final verdict - correct_frames: {self.stats.get('correct_orientation_frames', 0)}"
         )
-        print(
+        self._debug(
             f"[DEBUG] Final verdict - incorrect_frames: {self.stats.get('incorrect_orientation_frames', 0)}"
         )
-        print(
+        self._debug(
             f"[DEBUG] Final verdict - rotation_directions: {self.stats.get('rotation_directions', [])}"
         )
 
@@ -4962,9 +5048,9 @@ class OrientationDetector:
 
         # Very portrait mobile videos are almost always rotated counterclockwise
         video_aspect_ratio = getattr(self, "video_aspect_ratio", 1.0)
-        print(f"[DEBUG] Mobile portrait check: video_aspect_ratio = {video_aspect_ratio}")
+        self._debug(f"[DEBUG] Mobile portrait check: video_aspect_ratio = {video_aspect_ratio}")
         if video_aspect_ratio < 0.65:  # Very portrait (like 2160x3840 = 0.5625)
-            print(f"[DEBUG] Mobile portrait override triggered! Aspect {video_aspect_ratio} < 0.65")
+            self._debug(f"[DEBUG] Mobile portrait override triggered! Aspect {video_aspect_ratio} < 0.65")
             verdict = "[ERROR] INCORRECT"
             confidence = 0.95  # High confidence for mobile portrait override
             recommendation = "Rotate 90° counterclockwise (mobile portrait detected)"
@@ -4990,7 +5076,7 @@ class OrientationDetector:
                 },
                 "analysis_quality": "mobile_portrait_override",
             }
-            print(
+            self._debug(
                 f"[DEBUG] Mobile portrait returning results with verdict='{verdict}', orientation='{orientation_str}'"
             )
             return attach_rotation_direction(
@@ -5065,18 +5151,69 @@ class OrientationDetector:
             )
 
             # DEBUG: Log ratio calculations
-            print(
+            self._debug(
                 f"[DEBUG] Ratio calculations - correct_ratio: {correct_ratio:.3f}, incorrect_ratio: {incorrect_ratio:.3f}"
             )
             ratio_difference = abs(correct_ratio - incorrect_ratio)
-            print(
+            self._debug(
                 f"[DEBUG] Confidence threshold will be determined by ratio difference: {ratio_difference:.3f}"
             )
 
+            # NOTE: Rotated probe hits already contribute to per-frame voting
+            # (each probe frame returns INCORRECT + adds "incorrect" votes).
+            # No need for a separate override - let normal ratio-based verdict handle it.
+
+            # FACE-BODY DISCREPANCY OVERRIDE: In landscape videos, face detection is
+            # rotation-invariant but body detection requires upright people. If many
+            # faces are detected but very few ORIGINAL (non-probe) bodies, people are
+            # likely sideways. We use original_body_detections to exclude probe-detected
+            # bodies which inflate the count.
+            face_count = self.stats.get("face_detections", 0)
+            original_body_count = self.stats.get("original_body_detections", 0)
+            body_correct = self.stats.get("body_correct_votes", 0)
+            body_incorrect = self.stats.get("body_incorrect_votes", 0)
+            total_body_votes = body_correct + body_incorrect
+            if (video_aspect_ratio > 1.2
+                    and ((face_count >= 10 and original_body_count <= max(face_count * 0.15, 3))
+                         or (face_count >= 4 and original_body_count == 0))):
+                self._debug(
+                    f"[DEBUG] Face-body discrepancy in landscape: {face_count} faces vs {original_body_count} original bodies - people likely sideways"
+                )
+                verdict = "[ERROR] INCORRECT"
+                confidence = 0.85
+                recommendation = f"Rotate 90° {resolve_rotation_direction()}"
+            # BODY VOTE RATIO OVERRIDE: If body detection overwhelmingly says "incorrect"
+            # (83%+ of body votes), AND faces outnumber body votes (rotation signature:
+            # face detection is rotation-invariant but body detection isn't), trust the
+            # body signal over ambient methods like mobilenet/hough/aspect.
+            elif (video_aspect_ratio > 1.2
+                    and total_body_votes >= 5
+                    and body_incorrect > body_correct * 5
+                    and face_count >= total_body_votes):
+                self._debug(
+                    f"[DEBUG] Body votes strongly indicate rotation: {body_incorrect}/{total_body_votes} incorrect ({body_incorrect/max(total_body_votes,1)*100:.0f}%)"
+                )
+                verdict = "[ERROR] INCORRECT"
+                confidence = 0.85
+                recommendation = f"Rotate 90° {resolve_rotation_direction()}"
+            # SPARSE DETECTION OVERRIDE: In multi-segment landscape videos, if very few
+            # frames have human detections (< 15%), the undetected segments likely contain
+            # rotated humans that can't be detected upright. Favor INCORRECT.
+            elif (self.stats.get("num_segments", 1) > 1
+                  and video_aspect_ratio > 1.2
+                  and self.stats["frames_with_humans"] > 0
+                  and self.stats["frames_with_humans"] < max(self.stats["total_frames"] * 0.15, 5)
+                  and correct_ratio > incorrect_ratio):
+                self._debug(
+                    f"[DEBUG] Sparse detection in multi-segment landscape: {self.stats['frames_with_humans']}/{self.stats['total_frames']} frames with humans"
+                )
+                verdict = "[ERROR] INCORRECT"
+                confidence = 0.85
+                recommendation = f"Rotate 90° {resolve_rotation_direction()}"
             # CRITICAL FIX: If frame-based ratios show strong signals, use them directly
             # LOWERED from 0.92 to 0.70 to catch more INCORRECT cases
-            if incorrect_ratio >= 0.70 and incorrect_ratio > correct_ratio:
-                print(
+            elif incorrect_ratio >= 0.70 and incorrect_ratio > correct_ratio:
+                self._debug(
                     f"[DEBUG] Frame ratios show {incorrect_ratio:.1%} incorrect - using frame-based verdict"
                 )
                 verdict = "[ERROR] INCORRECT"
@@ -5084,7 +5221,7 @@ class OrientationDetector:
                 recommendation = f"Rotate 90° {resolve_rotation_direction()}"
             # Similarly, if frame-based ratios show strong correct signal
             elif correct_ratio >= 0.80 and correct_ratio >= incorrect_ratio:
-                print(
+                self._debug(
                     f"[DEBUG] Frame ratios show {correct_ratio:.1%} correct - using frame-based verdict"
                 )
                 verdict = "[OK] CORRECT"
@@ -5108,24 +5245,24 @@ class OrientationDetector:
                 )
 
                 if total_forced_decisions > 0:
-                    print(
+                    self._debug(
                         f"[DEBUG] Forced decisions detected: {total_forced_decisions} frames ({forced_incorrect_count} general + {forced_landscape_portrait_count} landscape portrait)"
                     )
-                    print(
+                    self._debug(
                         "[DEBUG] Forcing overall video result to INCORRECT due to forced frame decisions"
                     )
                     verdict = "[ERROR] INCORRECT"
                     confidence = max(0.9, min(incorrect_ratio + 0.05, 1.0))
                     if "rotation_directions" in self.stats and self.stats["rotation_directions"]:
                         direction_counts = Counter(self.stats["rotation_directions"])
-                        print(f"[DEBUG] Final rotation direction counts: {dict(direction_counts)}")
-                        print(
+                        self._debug(f"[DEBUG] Final rotation direction counts: {dict(direction_counts)}")
+                        self._debug(
                             f"[DEBUG] All rotation directions: {self.stats['rotation_directions']}"
                         )
                         preferred_direction = (
                             direction_counts.most_common(1)[0][0] if direction_counts else None
                         )
-                        print(f"[DEBUG] Most common direction: {preferred_direction}")
+                        self._debug(f"[DEBUG] Most common direction: {preferred_direction}")
                         recommendation = (
                             f"Rotate 90° {resolve_rotation_direction(preferred_direction)}"
                         )
@@ -5160,10 +5297,10 @@ class OrientationDetector:
                 )
 
                 # DEBUG: Log voting stats
-                print(
+                self._debug(
                     f"[DEBUG] Vote counts - face_correct: {self.stats.get('face_correct_votes', 0)}, face_incorrect: {self.stats.get('face_incorrect_votes', 0)}, face_total: {face_total_votes}"
                 )
-                print(
+                self._debug(
                     f"[DEBUG] Vote counts - body_correct: {self.stats.get('body_correct_votes', 0)}, body_incorrect: {self.stats.get('body_incorrect_votes', 0)}, body_total: {body_total_votes}"
                 )
 
@@ -5234,7 +5371,7 @@ class OrientationDetector:
 
                             cw = weighted_votes["clockwise"]
                             ccw = weighted_votes["counterclockwise"]
-                            print(
+                            self._debug(
                                 f"[DEBUG] Weighted direction votes: clockwise={cw:.1f}, counterclockwise={ccw:.1f}"
                             )
 
@@ -5283,7 +5420,7 @@ class OrientationDetector:
 
         close_up_ratio = self.stats["close_up_frames"] / max(self.stats["total_frames"], 1)
 
-        print(
+        self._debug(
             f"[DEBUG] About to create results dict with verdict='{verdict}', confidence={confidence}"
         )
 
