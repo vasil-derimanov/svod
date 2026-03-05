@@ -1398,6 +1398,48 @@ class OrientationDetector:
             "notes": ref.get("notes", ""),
         }
 
+    def _get_video_rotation_metadata(self, video_path: str) -> int:
+        """Read display rotation metadata from video via ffprobe.
+
+        Many phone-recorded videos store raw landscape sensor data with a
+        rotation metadata tag (display matrix). OpenCV ignores this tag,
+        so the decoded frames appear un-rotated. A non-zero rotation value
+        means the video needs rotation to display correctly.
+
+        Args:
+            video_path: Path to the video file.
+
+        Returns:
+            Rotation angle in degrees (0 if no metadata or ffprobe unavailable).
+        """
+        try:
+            import subprocess
+            import json as _json
+
+            result = subprocess.run(
+                [
+                    "ffprobe", "-v", "quiet",
+                    "-print_format", "json",
+                    "-show_streams", video_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                return 0
+            data = _json.loads(result.stdout)
+            for stream in data.get("streams", []):
+                if stream.get("codec_type") == "video":
+                    for sd in stream.get("side_data_list", []):
+                        if "rotation" in sd:
+                            return int(sd["rotation"])
+        except FileNotFoundError:
+            self._debug("[DEBUG] ffprobe not found - skipping rotation metadata check")
+        except Exception as e:
+            self._debug(f"[DEBUG] ffprobe error: {e}")
+        return 0
+
     def _get_reference_rotation_direction(self, filename: str) -> Optional[str]:
         """Extract desired rotation direction from reference notes when available."""
         if not self.reference_data:
@@ -4577,6 +4619,14 @@ class OrientationDetector:
             # Store video aspect ratio for frame analysis
             self.video_aspect_ratio = video_aspect_ratio
 
+            # Read rotation metadata from video container (ffprobe)
+            rotation_meta = self._get_video_rotation_metadata(video_path)
+            self.stats["video_rotation_metadata"] = rotation_meta
+            if rotation_meta != 0:
+                self._debug(
+                    f"[DEBUG] Video has rotation metadata: {rotation_meta}°"
+                )
+
             # Calculate frame ranges for distributed analysis (v4.12.0 approach)
             sampling_ranges = self.get_sampling_ranges_v4_12_0(total_frames, fps)
             self.stats["num_segments"] = len(sampling_ranges)
@@ -5049,6 +5099,46 @@ class OrientationDetector:
         # Very portrait mobile videos are almost always rotated counterclockwise
         video_aspect_ratio = getattr(self, "video_aspect_ratio", 1.0)
         self._debug(f"[DEBUG] Mobile portrait check: video_aspect_ratio = {video_aspect_ratio}")
+        # ROTATION METADATA OVERRIDE: If the video container has a display
+        # rotation tag (±90°/±270°), the video was recorded by a phone with the
+        # sensor in landscape but meant to be viewed in portrait (or vice versa).
+        # OpenCV ignores this tag, so the raw frames are incorrectly oriented.
+        rotation_meta = self.stats.get("video_rotation_metadata", 0)
+        if rotation_meta in (90, -90, 270, -270):
+            # Screen convention: negative = counterclockwise, positive = clockwise
+            if rotation_meta in (-90, 270):
+                meta_direction = "counterclockwise"
+            else:
+                meta_direction = "clockwise"
+            self._debug(
+                f"[DEBUG] Rotation metadata override: {rotation_meta}° -> {meta_direction}"
+            )
+            verdict = "[ERROR] INCORRECT"
+            confidence = 0.95
+            recommendation = f"Rotate 90° {meta_direction} (rotation metadata detected)"
+
+            orientation_enum = self._get_orientation_from_verdict(verdict)
+            orientation_str = orientation_enum.name
+
+            results = {
+                "verdict": verdict,
+                "orientation": orientation_str,
+                "confidence": confidence,
+                "recommendation": recommendation,
+                "rotation_metadata": rotation_meta,
+                "statistics": self.stats,
+                "correct_percentage": 0.0,
+                "incorrect_percentage": 100.0,
+                "close_up_percentage": 0.0,
+                "detection_types": {
+                    "face_detections": self.stats["face_detections"],
+                    "body_detections": self.stats["body_detections"],
+                    "rotation_metadata_override": True,
+                },
+                "analysis_quality": "rotation_metadata_override",
+            }
+            return attach_rotation_direction(results, meta_direction, override=meta_direction)
+
         if video_aspect_ratio < 0.65:  # Very portrait (like 2160x3840 = 0.5625)
             self._debug(f"[DEBUG] Mobile portrait override triggered! Aspect {video_aspect_ratio} < 0.65")
             verdict = "[ERROR] INCORRECT"
