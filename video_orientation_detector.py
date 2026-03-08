@@ -43,9 +43,9 @@ import io
 from contextlib import contextmanager
 
 # Version information
-__version__ = "4.24.0"
-__release_date__ = "2025-11-29"
-__release_name__ = "Housekeeping Release: Documentation and Project Structure Updates"
+__version__ = "4.25.0"
+__release_date__ = "2026-03-06"
+__release_name__ = "YuNet & Direction Accuracy Release"
 
 # Fast path: allow `--version` to run without importing heavy dependencies
 if __name__ == "__main__" and any(arg == "--version" for arg in sys.argv[1:]):
@@ -132,7 +132,7 @@ def install_required_packages():
     print_info("Checking and installing required packages...")
 
     required_packages = [
-        ("cv2", "opencv-contrib-python==4.8.1.78"),  # Changed to contrib version for face landmarks
+        ("cv2", "opencv-contrib-python==4.11.0.86"),  # Contrib version required by mediapipe
         ("numpy", "numpy==1.26.4"),
         ("torch", "torch==2.8.0"),  # PyTorch for model conversion
         ("torchvision", "torchvision==0.23.0"),  # PyTorch vision for model conversion
@@ -172,7 +172,7 @@ def install_required_packages():
                     _ = hasattr(module, "dnn") and hasattr(
                         module.dnn, "readNet"
                     )  # Check DNN module exists
-                    hasattr(module.dnn, "readNetFromCaffe")  # Check Caffe support
+                    _ = hasattr(module, "FaceDetectorYN")  # Check YuNet support
                     print_success(f"{package_name}: Already installed with full DNN support")
                 except:
                     print(
@@ -392,9 +392,7 @@ def check_required_model_files():
     # Critical files required for basic functionality
     critical_files = {
         "coco.names": "COCO class names",
-        "deploy.prototxt": "DNN face detector configuration",
-        "res10_300x300_ssd_iter_140000.caffemodel": "DNN face detector model",
-        "lbfmodel.yaml": "Facial landmark model",
+        "face_detection_yunet_2023mar.onnx": "YuNet face detector model",
         "mobilenet-v2.xml": "MobileNet model configuration (required)",
         "mobilenet-v2.bin": "MobileNet model weights (required)",
     }
@@ -538,9 +536,7 @@ def download_model_files():
 
     files_to_download = {
         "coco.names": "https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names",
-        "deploy.prototxt": "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt",
-        "res10_300x300_ssd_iter_140000.caffemodel": "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel",
-        "lbfmodel.yaml": "https://github.com/kurnianggoro/GSOC2017/raw/master/data/lbfmodel.yaml",
+        "face_detection_yunet_2023mar.onnx": "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
     }
 
     # MobileNet models (OpenVINO format) - Using OpenVINO Model Zoo tools
@@ -584,9 +580,9 @@ def download_model_files():
                 if file_size < 1000000:  # Should be at least 1MB
                     return False
 
-            elif filename.endswith(".caffemodel"):
-                # Caffe models should be binary
-                if file_size < 100000:  # Should be at least 100KB
+            elif filename.endswith(".onnx"):
+                # ONNX models should be binary and at least 100KB
+                if file_size < 100000:
                     return False
 
             return True
@@ -1001,17 +997,27 @@ class OrientationDetector:
         self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")  # type: ignore
         self.profile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_profileface.xml")  # type: ignore
 
-        # DNN-based face detection (more robust)
+        # YuNet face detection (OpenCV 4.5.4+, replaces old Caffe SSD)
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(script_dir, "res10_300x300_ssd_iter_140000.caffemodel")
-        config_path = os.path.join(script_dir, "deploy.prototxt")
+        yunet_path = os.path.join(script_dir, "face_detection_yunet_2023mar.onnx")
 
-        if os.path.exists(model_path) and os.path.exists(config_path):
-            self.face_net = cv2.dnn.readNet(model_path, config_path)
-            self.use_dnn_face = True
+        self.use_dnn_face = False
+        self.yunet_detector = None
+        if os.path.exists(yunet_path) and hasattr(cv2, "FaceDetectorYN"):
+            try:
+                self.yunet_detector = cv2.FaceDetectorYN.create(
+                    yunet_path, "", (300, 300),
+                    score_threshold=self.confidence_threshold,
+                    nms_threshold=0.3,
+                    top_k=20,
+                )
+                self.use_dnn_face = True
+                print_success("YuNet face detector initialized successfully!")
+            except Exception as e:
+                print_warning(f"YuNet face detector setup failed: {e}")
+                print_warning("Using Haar Cascade only.")
         else:
-            print_warning("DNN face model not found. Using Haar Cascade only.")
-            self.use_dnn_face = False
+            print_warning("YuNet model not found. Using Haar Cascade only.")
 
     def setup_person_detection(self):
         """Setup YOLOv11 person/body detection with pose keypoints (required)"""
@@ -1079,31 +1085,10 @@ class OrientationDetector:
             )
 
     def setup_feature_detection(self):
-        """Setup facial landmark detection for precise orientation"""
-        # Check if cv2.face module is available (requires opencv-contrib-python)
+        """Setup additional enhanced detection methods"""
+        # LBF facial landmarks removed — MediaPipe Face Mesh (468 points)
+        # completely supersedes the old 68-point LBF model.
         self.use_landmarks = False
-        try:
-            # Face module is OPTIONAL - enhanced detection only!
-            if not hasattr(cv2, "face"):
-                print_info("cv2.face module not available - facial landmark detection disabled")
-                print_info("Install opencv-contrib-python for enhanced face analysis")
-                return
-
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            landmark_model = os.path.join(script_dir, "lbfmodel.yaml")
-            if not os.path.exists(landmark_model):
-                print_info(f"Landmark model not found: {landmark_model}")
-                print_info("Facial landmark detection disabled")
-                return
-
-            self.landmark_detector = cv2.face.createFacemarkLBF()
-            self.landmark_detector.loadModel(landmark_model)
-            self.use_landmarks = True
-            print_success("Facial landmark detection enabled.")
-        except Exception as e:
-            print_info(f"Facial landmark detection setup failed: {e}")
-            print_info("Continuing with core detection algorithms only")
-            self.use_landmarks = False
 
         # Setup additional enhanced detection methods
         self.setup_mobilenet()
@@ -1532,7 +1517,7 @@ class OrientationDetector:
 
     def detect_faces_dnn(self, frame: np.ndarray) -> List[Dict]:
         """
-        Detect faces using DNN method with orientation hints
+        Detect faces using YuNet (OpenCV FaceDetectorYN)
 
         Returns:
             List of face detections with confidence and bounds
@@ -1540,35 +1525,29 @@ class OrientationDetector:
         if not self.use_dnn_face:
             return []
 
-        # Check if face_net is properly initialized
-        if not hasattr(self, "face_net") or self.face_net is None:
+        if not hasattr(self, "yunet_detector") or self.yunet_detector is None:
             return []
 
         try:
             h, w = frame.shape[:2]
-            blob = cv2.dnn.blobFromImage(
-                cv2.resize(frame, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0)
-            )
-
-            self.face_net.setInput(blob)
-            detections = self.face_net.forward()
+            self.yunet_detector.setInputSize((w, h))
+            _, detections = self.yunet_detector.detect(frame)
         except Exception as e:
-            # Return empty list on any network or processing error
             return []
 
         faces = []
-        for i in range(detections.shape[2]):
-            confidence = detections[0, 0, i, 2]
-            if confidence > self.confidence_threshold:
-                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-                (x1, y1, x2, y2) = box.astype("int")
-                faces.append(
-                    {
-                        "box": (x1, y1, x2 - x1, y2 - y1),
-                        "confidence": confidence,
-                        "type": "dnn_face",
-                    }
-                )
+        if detections is not None:
+            for det in detections:
+                x1, y1, dw, dh = int(det[0]), int(det[1]), int(det[2]), int(det[3])
+                confidence = float(det[-1])
+                if confidence > self.confidence_threshold:
+                    faces.append(
+                        {
+                            "box": (x1, y1, dw, dh),
+                            "confidence": confidence,
+                            "type": "dnn_face",
+                        }
+                    )
 
         return faces
 
@@ -1761,8 +1740,100 @@ class OrientationDetector:
 
         return keypoint_data
 
+    def _probe_rotation_direction(self) -> Optional[str]:
+        """Probe both CW and CCW rotations on sampled frames to find which
+        makes people upright (nose above hips).  Used for metadata-override
+        videos where the metadata sign is unreliable across different phones.
+
+        Returns:
+            'clockwise', 'counterclockwise', or None if inconclusive.
+        """
+        # Return cached result if already computed for this video
+        cached = getattr(self, "_probe_cache", None)
+        if cached is not None:
+            return cached if cached != "_none" else None
+
+        video_path = getattr(self, "_current_video_path", None)
+        if not video_path:
+            return None
+
+        try:
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                return None
+
+            total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            if total < 1:
+                cap.release()
+                return None
+
+            # Sample up to 5 frames from across the video
+            sample_indices = [int(total * f) for f in (0.1, 0.3, 0.5, 0.7, 0.9)]
+            cw_gaps: list = []
+            ccw_gaps: list = []
+
+            for idx in sample_indices:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, min(idx, total - 1))
+                ret, frame = cap.read()
+                if not ret:
+                    continue
+
+                for rot_name, rot_code in [("CW", cv2.ROTATE_90_CLOCKWISE),
+                                           ("CCW", cv2.ROTATE_90_COUNTERCLOCKWISE)]:
+                    rotated = cv2.rotate(frame, rot_code)
+                    keypoints = self._extract_yolo_keypoints(rotated)
+                    for kpt_data in keypoints:
+                        kpts = kpt_data["keypoints"]
+                        if kpts.shape[0] < 17:
+                            continue
+                        nose = kpts[0]
+                        lh = kpts[11]
+                        rh = kpts[12]
+                        if nose[2] > 0.3 and lh[2] > 0.3 and rh[2] > 0.3:
+                            hip_y = (lh[1] + rh[1]) / 2
+                            gap = hip_y - nose[1]  # positive = nose above hips
+                            if rot_name == "CW":
+                                cw_gaps.append(gap)
+                            else:
+                                ccw_gaps.append(gap)
+
+            cap.release()
+
+            cw_avg = sum(cw_gaps) / len(cw_gaps) if cw_gaps else 0
+            ccw_avg = sum(ccw_gaps) / len(ccw_gaps) if ccw_gaps else 0
+
+            self._debug(
+                f"[DEBUG] Rotation probe: CW_gap={cw_avg:.0f}({len(cw_gaps)}) "
+                f"CCW_gap={ccw_avg:.0f}({len(ccw_gaps)})"
+            )
+
+            # Clear gap-based winner: one direction has people upright
+            # (nose above hips), the other does not.
+            if cw_avg > 50 and ccw_avg <= 0:
+                self._probe_cache = "clockwise"
+                return "clockwise"
+            elif ccw_avg > 50 and cw_avg <= 0:
+                self._probe_cache = "counterclockwise"
+                return "counterclockwise"
+
+            # Both directions show upright poses or neither does —
+            # return None and let the caller decide the fallback.
+            self._probe_cache = "_none"
+            return None
+
+        except Exception as e:
+            self._debug(f"[DEBUG] Rotation probe failed: {e}")
+            self._probe_cache = "_none"
+            return None
+
     def _analyze_body_angle_from_keypoints(self, keypoints_list: List[Dict]) -> Optional[str]:
-        """Analyze body orientation angle from YOLO keypoints to determine rotation direction."""
+        """Analyze body orientation angle from YOLO keypoints to determine rotation direction.
+
+        Uses nose-vs-hip horizontal position (most reliable for sideways people)
+        with shoulder angle as fallback.  YOLO sometimes swaps left/right
+        shoulder labels for rotated subjects, making the raw shoulder angle
+        unreliable on its own.
+        """
         if not keypoints_list:
             return None
 
@@ -1773,35 +1844,56 @@ class OrientationDetector:
             if kpts.shape[0] < 17:  # Need all 17 COCO keypoints
                 continue
 
-            # Extract shoulder keypoints (5: left_shoulder, 6: right_shoulder)
-            left_shoulder = kpts[5]  # [x, y, conf]
-            right_shoulder = kpts[6]
+            import math
 
-            # Check if both shoulders are detected (confidence > 0.3)
+            # --- Primary signal: nose vs hip horizontal position ---
+            # This is invariant to left/right label swaps.
+            nose = kpts[0]       # [x, y, conf]
+            left_hip = kpts[11]
+            right_hip = kpts[12]
+
+            nose_ok = nose[2] > 0.3
+            hips_ok = left_hip[2] > 0.3 and right_hip[2] > 0.3
+
+            if nose_ok and hips_ok:
+                hip_x = (left_hip[0] + right_hip[0]) / 2
+                diff = nose[0] - hip_x  # positive → nose right of hips
+
+                # Only vote when the head is clearly offset horizontally
+                # (at least 15% of frame width is a safe threshold since
+                # sideways people have large horizontal head-hip separation).
+                left_shoulder = kpts[5]
+                right_shoulder = kpts[6]
+                # Rough body scale: distance between shoulders or hips
+                body_scale = max(
+                    abs(float(left_hip[0] - right_hip[0])),
+                    abs(float(left_shoulder[0] - right_shoulder[0])) if left_shoulder[2] > 0.3 and right_shoulder[2] > 0.3 else 0,
+                    50.0,  # minimum to avoid zero-division
+                )
+                rel_diff = abs(diff) / body_scale
+
+                if rel_diff > 0.5:  # Clear horizontal offset
+                    if diff < 0:
+                        # Nose LEFT of hips → head points LEFT → needs CW
+                        rotation_votes["clockwise"] += 1
+                    else:
+                        # Nose RIGHT of hips → head points RIGHT → needs CCW
+                        rotation_votes["counterclockwise"] += 1
+                    continue  # Skip shoulder fallback for this person
+
+            # --- Fallback: shoulder angle ---
+            left_shoulder = kpts[5]
+            right_shoulder = kpts[6]
             if left_shoulder[2] < 0.3 or right_shoulder[2] < 0.3:
                 continue
-
-            # Calculate shoulder line angle
             dx = right_shoulder[0] - left_shoulder[0]
             dy = right_shoulder[1] - left_shoulder[1]
-
-            # Calculate angle from horizontal (in degrees)
-            import math
             angle = math.degrees(math.atan2(dy, dx))
 
-            # Normalize angle to [-90, 90]
-            angle = ((angle + 90) % 180) - 90
-
-            # Strong rotation indicators:
-            # - If shoulders are nearly vertical (angle ~70-90° or ~-70 to -90°), video is rotated
-            # - Angle > 60°: counterclockwise rotation needed
-            # - Angle < -60°: clockwise rotation needed
-
-            if abs(angle) > 60:  # Significant rotation detected
-                if angle > 60:
-                    rotation_votes["counterclockwise"] += 1
-                elif angle < -60:
-                    rotation_votes["clockwise"] += 1
+            if 60 < angle < 120:
+                rotation_votes["clockwise"] += 1
+            elif -120 < angle < -60:
+                rotation_votes["counterclockwise"] += 1
 
         # Determine final direction if we have strong evidence
         if rotation_votes["clockwise"] > rotation_votes["counterclockwise"]:
@@ -2325,8 +2417,10 @@ class OrientationDetector:
         if keypoints:
             keypoint_direction = self._analyze_body_angle_from_keypoints(keypoints)
             if keypoint_direction:
-                # Keypoint analysis is highly reliable - give it strong weight (15.0)
-                rotation_evidence[keypoint_direction] += 15.0
+                # Nose-hip keypoint analysis is the most reliable direction signal.
+                # Weight must dominate face/body position heuristics (each ~2.0 per detection)
+                # so even 10+ face positions can't override it.
+                rotation_evidence[keypoint_direction] += 30.0
                 self._debug(f"[DEBUG] YOLO keypoint analysis suggests: {keypoint_direction} (confidence: HIGH)")
 
         # 1. Enhanced face analysis with improved counterclockwise detection
@@ -4476,6 +4570,8 @@ class OrientationDetector:
 
             # Store current filename for smart override patterns
             self.current_filename = os.path.basename(video_path)
+            self._current_video_path = video_path
+            self._probe_cache = None  # Clear probe cache for new video
 
             # Enhanced video file validation
             if not os.path.exists(video_path):
@@ -5067,11 +5163,17 @@ class OrientationDetector:
                 return preferred
             directions = self.stats.get("rotation_directions", [])
             if directions:
-                counts = Counter(directions)
-                for candidate, _ in counts.most_common():
-                    if candidate != "none":
-                        return candidate
-            return "clockwise"
+                counts = Counter(d for d in directions if d != "none")
+                if counts:
+                    top = counts.most_common(2)
+                    # Only trust a clear majority (not a tie)
+                    if len(top) == 1 or top[0][1] > top[1][1]:
+                        return top[0][0]
+            # Physical rotation probe as tiebreaker
+            probe = self._probe_rotation_direction()
+            if probe:
+                return probe
+            return "counterclockwise"
 
         def attach_rotation_direction(
             data: Dict, fallback: Optional[str] = None, override: Optional[str] = None
@@ -5105,11 +5207,18 @@ class OrientationDetector:
         # OpenCV ignores this tag, so the raw frames are incorrectly oriented.
         rotation_meta = self.stats.get("video_rotation_metadata", 0)
         if rotation_meta in (90, -90, 270, -270):
-            # Screen convention: negative = counterclockwise, positive = clockwise
-            if rotation_meta in (-90, 270):
+            # Metadata confirms the video IS rotated, but the sign convention
+            # varies across device manufacturers, so we cannot reliably map
+            # ±90° to a specific direction.  Use a physical rotation probe
+            # with strict margin requirements, then fall back to the frame-level
+            # rotation_directions majority vote, then counterclockwise default.
+            meta_direction = self._probe_rotation_direction()
+            if meta_direction is None:
+                # Probe inconclusive — default to counterclockwise.
+                # Metadata sign conventions vary wildly across manufacturers
+                # and cannot be trusted.  Counterclockwise is overwhelmingly
+                # the correct rotation for phone-recorded metadata videos.
                 meta_direction = "counterclockwise"
-            else:
-                meta_direction = "clockwise"
             self._debug(
                 f"[DEBUG] Rotation metadata override: {rotation_meta}° -> {meta_direction}"
             )
@@ -5276,10 +5385,13 @@ class OrientationDetector:
             # (83%+ of body votes), AND faces outnumber body votes (rotation signature:
             # face detection is rotation-invariant but body detection isn't), trust the
             # body signal over ambient methods like mobilenet/hough/aspect.
+            # Guard: skip when frame-level consensus is strongly CORRECT (≥80%) to
+            # avoid overriding a clear correct verdict with noisy body vote tallies.
             elif (video_aspect_ratio > 1.2
                     and total_body_votes >= 5
                     and body_incorrect > body_correct * 5
-                    and face_count >= total_body_votes):
+                    and face_count >= total_body_votes
+                    and correct_ratio < 0.80):
                 self._debug(
                     f"[DEBUG] Body votes strongly indicate rotation: {body_incorrect}/{total_body_votes} incorrect ({body_incorrect/max(total_body_votes,1)*100:.0f}%)"
                 )
@@ -5395,15 +5507,28 @@ class OrientationDetector:
                 )
 
                 if face_total_votes > 0 and body_total_votes > 0:
-                    # Both faces and bodies detected - 50/50 weighting
+                    # Both faces and bodies detected - weight by sample size
                     face_correct_ratio = self.stats["face_correct_votes"] / face_total_votes
                     face_incorrect_ratio = self.stats["face_incorrect_votes"] / face_total_votes
                     body_correct_ratio = self.stats["body_correct_votes"] / body_total_votes
                     body_incorrect_ratio = self.stats["body_incorrect_votes"] / body_total_votes
 
-                    # Balanced weighting: faces=50%, bodies=50%
-                    weighted_correct = (face_correct_ratio * 0.5) + (body_correct_ratio * 0.5)
-                    weighted_incorrect = (face_incorrect_ratio * 0.5) + (body_incorrect_ratio * 0.5)
+                    # Sample-size-aware weighting: when face votes are very few
+                    # compared to body votes, reduce face weight. Face detection
+                    # is rotation-invariant and tends to always look "correct",
+                    # so a handful of face votes shouldn't override many body votes.
+                    if face_total_votes < 5 and body_total_votes > face_total_votes * 3:
+                        face_weight = 0.2
+                        body_weight = 0.8
+                    elif body_total_votes < 5 and face_total_votes > body_total_votes * 3:
+                        face_weight = 0.8
+                        body_weight = 0.2
+                    else:
+                        face_weight = 0.5
+                        body_weight = 0.5
+
+                    weighted_correct = (face_correct_ratio * face_weight) + (body_correct_ratio * body_weight)
+                    weighted_incorrect = (face_incorrect_ratio * face_weight) + (body_incorrect_ratio * body_weight)
 
                 elif face_total_votes > 0:
                     # Only faces detected - use face ratios with high confidence filter
@@ -5475,13 +5600,8 @@ class OrientationDetector:
                                     1.0, max(confidence, 0.85 if margin >= 1.0 else 0.75)
                                 )
                             else:
-                                # Tie-breaker: use video aspect fallbacks
-                                if video_aspect_ratio < 0.9:
-                                    recommendation = f"Rotate 90° {resolve_rotation_direction('counterclockwise')}"
-                                else:
-                                    recommendation = (
-                                        f"Rotate 90° {resolve_rotation_direction('clockwise')}"
-                                    )
+                                # Tie-breaker: use rotation probe and statistical default
+                                recommendation = f"Rotate 90° {resolve_rotation_direction()}"
                         else:
                             # Fallback to counts
                             direction_counts = Counter(self.stats["rotation_directions"])
