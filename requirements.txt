@@ -1,8 +1,9 @@
-# SVOD v4.24.0 Requirements - YOLOv11 Upgrade
+# SVOD v4.25.0 Requirements - YuNet & Direction Accuracy Release
 # Pinned versions for reproducible builds and compatibility
 
 # Core computer vision and image processing
-opencv-contrib-python==4.8.1.78
+# contrib version required by mediapipe; do NOT install opencv-python alongside
+opencv-contrib-python==4.11.0.86
 numpy==1.26.4
 
 # AI/ML frameworks

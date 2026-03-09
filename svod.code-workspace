@@ -21,7 +21,8 @@
             "C:\\Users\\boris\\svod"
         ],
         "python.envFile": "${workspaceFolder}/.env",
-        "python.terminal.activateEnvironment": true
+        "python.terminal.activateEnvironment": true,
+        "chat.agent.maxRequests": 100
     },
     "extensions": {
         "recommendations": [

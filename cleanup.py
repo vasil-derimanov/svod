@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 SVOD Project Cleanup Script
-Version: 1.0.0
-Last Updated: 2025-09-14
+Version: 2.0.0
+Last Updated: 2026-03-06
 Follows rules from copilot-instructions.md for safe project cleanup
 """
 
@@ -32,33 +32,24 @@ def is_protected(path):
     # Critical files that MUST NOT be deleted
     protected_files = [
         "video_orientation_detector.py",
-        "video_orientation_detector_old.py",
-        "test_batch.py",
-        "test_single.py",  # 🆕 ДОБАВЕНО
-        "test_comparison.py",  # 🆕 ДОБАВЕНО
-        "test_improved_detection.py",  # 🆕 ДОБАВЕНО
-        "test_logic_improvements.py",  # 🆕 ДОБАВЕНО
-        "test_p2170127_advanced.py",  # 🆕 ДОБАВЕНО
-        "test_p2170127_improvements.py",  # 🆕 ДОБАВЕНО
-        "test_p2170127_quick.py",  # 🆕 ДОБАВЕНО
-        "test_practical_improvements.py",  # 🆕 ДОБАВЕНО
-        "test_real_p2170127.py",  # 🆕 ДОБАВЕНО
-        "test_real_videos.py",  # 🆕 ДОБАВЕНО
-        "test_simple.py",  # 🆕 ДОБАВЕНО
-        "debug_p2170127.py",  # 🆕 ДОБАВЕНО
-        "performance_comparison.py",  # 🆕 ДОБАВЕНО
-        "TEST_README.md",  # 🆕 ДОБАВЕНО
         "reference_orientations.csv",
         "pyproject.toml",
         "requirements.txt",
         "Makefile",
+        "README.md",
+        "LICENSE",
+        "MANIFEST.in",
+        "coco.names",
+        "inspect_rotation.py",
         "cleanup.ps1",
         "cleanup.py",
         ".pre-commit-config.yaml",
+        ".flake8",
+        ".gitignore",
     ]
 
     # Critical folders that MUST NOT be deleted (including all contents)
-    protected_folders = ["tests", ".vscode", "performance_baselines"]
+    protected_folders = ["tests", "testing", ".vscode", ".github", "performance_baselines", "release"]
 
     # Normalize path separators
     path = path.replace("\\", "/")
@@ -100,7 +91,7 @@ def safe_remove(path, description=""):
 
 def main():
     print_colored(
-        "🧹 SVOD Cleanup Script v1.0.0 - Safe project cleanup following copilot-instructions.md",
+        "🧹 SVOD Cleanup Script v2.0.0 - Safe project cleanup following copilot-instructions.md",
         "cyan",
     )
     print_colored("⚠️  This script will only remove truly unnecessary files and folders", "yellow")
@@ -108,10 +99,15 @@ def main():
 
     removed_count = 0
 
-    # Remove legacy model files (retain current YOLOv10 assets)
+    # Remove legacy model files (retain current YOLOv11 assets)
     unnecessary_model_files = [
         "yolov4.cfg",  # Old YOLOv4 config
         "yolov4.weights",  # Old YOLOv4 weights
+        "res10_300x300_ssd_iter_140000.caffemodel",  # Old Caffe face detector
+        "deploy.prototxt",  # Old Caffe config
+        "lbfmodel.yaml",  # Old LBF landmark model
+        "yolov8n.pt",  # Old YOLOv8 model
+        "yolov10n.pt",  # Old YOLOv10 model
     ]
 
     print_colored("\n📂 Removing unnecessary model files...", "yellow")
@@ -184,21 +180,11 @@ def main():
 
     # Check deployment files (don't auto-remove, require manual review)
     print_colored("\n🚀 Checking deployment files...", "yellow")
-    deployment_files = ["Dockerfile", "docker-compose.yml", "deploy.sh", "deploy.prototxt"]
+    deployment_files = ["Dockerfile", "docker-compose.yml"]
     for deploy_file in deployment_files:
         if os.path.exists(deploy_file):
             print_colored(
                 f"⚠️  Review needed: {deploy_file} (marked for potential removal)", "yellow"
-            )
-
-    # Check for duplicate test files outside tests/ folder
-    print_colored("\n🧪 Checking for duplicate test files...", "yellow")
-    duplicate_test_files = ["test_single.py", "test_comparison.py"]
-    for test_file in duplicate_test_files:
-        if os.path.exists(test_file):
-            print_colored(
-                f"⚠️  Duplicate test file found: {test_file} (consider moving to tests/ folder)",
-                "yellow",
             )
 
     # Summary
@@ -208,31 +194,22 @@ def main():
     print_colored("\n📋 Protected items:", "cyan")
     protected_files = [
         "video_orientation_detector.py",
-        "video_orientation_detector_old.py",
-        "test_batch.py",
-        "test_single.py",  # 🆕 ДОБАВЕНО
-        "test_comparison.py",  # 🆕 ДОБАВЕНО
-        "test_improved_detection.py",  # 🆕 ДОБАВЕНО
-        "test_logic_improvements.py",  # 🆕 ДОБАВЕНО
-        "test_p2170127_advanced.py",  # 🆕 ДОБАВЕНО
-        "test_p2170127_improvements.py",  # 🆕 ДОБАВЕНО
-        "test_p2170127_quick.py",  # 🆕 ДОБАВЕНО
-        "test_practical_improvements.py",  # 🆕 ДОБАВЕНО
-        "test_real_p2170127.py",  # 🆕 ДОБАВЕНО
-        "test_real_videos.py",  # 🆕 ДОБАВЕНО
-        "test_simple.py",  # 🆕 ДОБАВЕНО
-        "debug_p2170127.py",  # 🆕 ДОБАВЕНО
-        "performance_comparison.py",  # 🆕 ДОБАВЕНО
-        "TEST_README.md",  # 🆕 ДОБАВЕНО
         "reference_orientations.csv",
         "pyproject.toml",
         "requirements.txt",
         "Makefile",
+        "README.md",
+        "LICENSE",
+        "MANIFEST.in",
+        "coco.names",
+        "inspect_rotation.py",
         "cleanup.ps1",
         "cleanup.py",
         ".pre-commit-config.yaml",
+        ".flake8",
+        ".gitignore",
     ]
-    protected_folders = ["tests", ".vscode", "performance_baselines"]
+    protected_folders = ["tests", "testing", ".vscode", ".github", "performance_baselines", "release"]
 
     for file in protected_files:
         print_colored(f"   • {file}", "white")

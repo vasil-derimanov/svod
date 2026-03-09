@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "svod"
-version = "4.24.0"
-description = "Smart Video Orientation Detector - YOLOv11 primary detector with comprehensive validation"
+version = "4.25.0"
+description = "Smart Video Orientation Detector - YOLOv11 + YuNet face detection with comprehensive validation"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
@@ -30,7 +30,7 @@ classifiers = [
     "Topic :: Utilities",
 ]
 dependencies = [
-    "opencv-python>=4.8.0",
+    "opencv-contrib-python>=4.8.0",  # contrib required by mediapipe
     "numpy>=1.24.0",
     "ultralytics>=8.3.0",  # YOLOv11 support (Nov 2024)
     "torch>=2.0.0",
@@ -63,14 +63,10 @@ exclude = ["tests*", "docs*"]
 
 [tool.setuptools.package-data]
 "*" = [
-    "*.yaml",
-    "*.caffemodel",
-    "*.prototxt",
+    "*.onnx",
     "*.xml",
     "*.bin",
     "*.names",
-    "*.cfg",
-    "*.weights",
     "*.pt",
     "*.csv",
 ]
@@ -106,9 +102,7 @@ python_functions = "test_*"
 exclude = [
     "test_*.py",
     "debug_*.py", 
-    "performance_*.py",
-    "*_old.py",
-    "video_orientation_detector_old.py"
+    "performance_*.py"
 ]
 reportMissingImports = false
 reportMissingTypeStubs = false
@@ -118,16 +112,5 @@ pythonVersion = "3.12"
 exclude = [
     "test_*.py",
     "debug_*.py",
-    "performance_*.py", 
-    "*_old.py",
-    "video_orientation_detector_old.py"
-]
-
-[tool.flake8]
-max-line-length = 120
-extend-ignore = ["E203"]
-exclude = [
-    "video_orientation_detector_old.py",
-    "__pycache__",
-    "htmlcov",
+    "performance_*.py"
 ]

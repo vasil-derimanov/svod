@@ -9,18 +9,13 @@
 *.pt
 *.bin
 *.xml
-*.caffemodel
-*.cfg
-*.weights
+*.onnx
 coco.names
-yolov8n.pt
+yolo11n.pt
+yolo11n-pose.pt
 mobilenet-v2.bin
 mobilenet-v2.xml
-res10_300x300_ssd_iter_140000.caffemodel
-yolov4.cfg
-yolov4.weights
-lbfmodel.yaml
-deploy.prototxt
+face_detection_yunet_2023mar.onnx
 
 # Python cache and virtual environments  
 __pycache__/

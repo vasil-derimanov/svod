@@ -1,7 +1,7 @@
 [flake8]
 max-line-length = 120
 extend-ignore = E203
-exclude = video_orientation_detector_old.py,__pycache__,htmlcov,tests,testing,cleanup.py
+exclude = __pycache__,htmlcov,tests,testing,cleanup.py
 
 per-file-ignores =
 	video_orientation_detector.py: E401,E402,E501,E722,F401,F402,F403,F541,F811,F821,F824,F841

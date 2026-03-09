@@ -1,44 +1,38 @@
 # SVOD Project Cleanup Script
-# Version: 1.0.0
-# Last Updated: 2025-09-15
+# Version: 2.0.0
+# Last Updated: 2026-03-06
 # Follows rules from copilot-instructions.md for safe project cleanup
 
-Write-Host "SVOD Cleanup Script v1.0.0 - Safe project cleanup following copilot-instructions.md" -ForegroundColor Cyan
+Write-Host "SVOD Cleanup Script v2.0.0 - Safe project cleanup following copilot-instructions.md" -ForegroundColor Cyan
 Write-Host "WARNING: This script will only remove truly unnecessary files and folders" -ForegroundColor Yellow
 Write-Host "OK: All critical files and folders will be preserved" -ForegroundColor Green
 
 # Critical files and folders that MUST NOT be deleted (from copilot-instructions.md)
 $protectedFiles = @(
     "video_orientation_detector.py",
-    "video_orientation_detector_old.py",
-    "test_batch.py",
-    "test_single.py",
-    "test_comparison.py",
-    "test_improved_detection.py",
-    "test_logic_improvements.py",
-    "test_p2170127_advanced.py",
-    "test_p2170127_improvements.py",
-    "test_p2170127_quick.py",
-    "test_practical_improvements.py",
-    "test_real_p2170127.py",
-    "test_real_videos.py",
-    "test_simple.py",
-    "debug_p2170127.py",
-    "performance_comparison.py",
-    "TEST_README.md",
     "reference_orientations.csv",
     "pyproject.toml",
     "requirements.txt",
     "Makefile",
+    "README.md",
+    "LICENSE",
+    "MANIFEST.in",
+    "coco.names",
+    "inspect_rotation.py",
     "cleanup.ps1",
     "cleanup.py",
-    ".pre-commit-config.yaml"
+    ".pre-commit-config.yaml",
+    ".flake8",
+    ".gitignore"
 )
 
 $protectedFolders = @(
     "tests",
+    "testing",
     ".vscode",
-    "performance_baselines"
+    ".github",
+    "performance_baselines",
+    "release"
 )
 
 # Function to check if path is protected
@@ -62,10 +56,15 @@ function Test-ProtectedPath {
     return $false
 }
 
-# Remove legacy model files (leave current YOLOv10 assets intact)
+# Remove legacy model files (leave current YOLOv11 assets intact)
 $unnecessaryModelFiles = @(
     "yolov4.cfg",
-    "yolov4.weights"
+    "yolov4.weights",
+    "res10_300x300_ssd_iter_140000.caffemodel",
+    "deploy.prototxt",
+    "lbfmodel.yaml",
+    "yolov8n.pt",
+    "yolov10n.pt"
 )
 
 Write-Host "`nRemoving unnecessary model files..." -ForegroundColor Yellow
@@ -174,9 +173,7 @@ foreach ($pattern in $tempPatterns) {
 # Check deployment files (don't auto-remove)
 $unnecessaryDeployFiles = @(
     "Dockerfile",
-    "docker-compose.yml",
-    "deploy.sh",
-    "deploy.prototxt"
+    "docker-compose.yml"
 )
 
 Write-Host "`nChecking deployment files..." -ForegroundColor Yellow
@@ -187,14 +184,6 @@ foreach ($file in $unnecessaryDeployFiles) {
 }
 
 # Check for duplicate test files
-Write-Host "`nChecking for duplicate test files..." -ForegroundColor Yellow
-$duplicateTestFiles = @("test_single.py", "test_comparison.py")
-foreach ($file in $duplicateTestFiles) {
-    if (Test-Path $file) {
-        Write-Host "Duplicate test file found: $file (consider moving to tests/ folder)" -ForegroundColor Yellow
-    }
-}
-
 Write-Host "`nSafe cleanup completed!" -ForegroundColor Green
 Write-Host "All critical files and folders have been preserved" -ForegroundColor Blue
 Write-Host "Protected items:" -ForegroundColor Cyan

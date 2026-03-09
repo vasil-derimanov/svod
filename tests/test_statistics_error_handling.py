@@ -82,12 +82,14 @@ class TestStatisticsAndErrorHandling:
 
     def test_error_handling_model_loading_failures(self, detector):
         """Test error handling when model loading fails"""
-        # Mock model loading failure
-        with patch("cv2.dnn.readNetFromCaffe", side_effect=Exception("Model load failed")):
-            # Should not crash, should continue with other methods
-            frame = np.zeros((100, 100, 3), dtype=np.uint8)
-            result = detector.determine_frame_orientation(frame)
-            assert result is not None  # Should fall back to other methods
+        # Mock model loading failure - YuNet detector unavailable
+        orig_yunet = getattr(detector, 'yunet_detector', None)
+        detector.yunet_detector = None
+        # Should not crash, should continue with other methods
+        frame = np.zeros((100, 100, 3), dtype=np.uint8)
+        result = detector.determine_frame_orientation(frame)
+        assert result is not None  # Should fall back to other methods
+        detector.yunet_detector = orig_yunet
 
     def test_error_handling_network_timeouts(self, detector):
         """Test error handling for network timeouts"""
@@ -144,12 +146,13 @@ class TestStatisticsAndErrorHandling:
 
     def test_error_handling_file_io_errors(self, detector):
         """Test error handling for file I/O errors"""
-        # Mock file I/O error during model loading
-        with patch("builtins.open", side_effect=IOError("File not found")):
-            with patch("cv2.dnn.readNetFromCaffe", side_effect=IOError("Model file missing")):
-                frame = np.zeros((100, 100, 3), dtype=np.uint8)
-                result = detector.determine_frame_orientation(frame)
-                assert result is not None  # Should continue without model
+        # YuNet model not available - should continue without it
+        orig_yunet = getattr(detector, 'yunet_detector', None)
+        detector.yunet_detector = None
+        frame = np.zeros((100, 100, 3), dtype=np.uint8)
+        result = detector.determine_frame_orientation(frame)
+        assert result is not None  # Should continue without model
+        detector.yunet_detector = orig_yunet
 
     def test_error_handling_concurrent_access(self, detector):
         """Test error handling for concurrent access issues"""

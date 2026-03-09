@@ -1,13 +1,9 @@
 include README.md
 include LICENSE
-include *.yaml
-include *.caffemodel
-include *.prototxt
+include *.onnx
 include *.xml
 include *.bin
 include *.names
-include *.cfg
-include *.weights
 include *.pt
 include *.csv
 include requirements.txt

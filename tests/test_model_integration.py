@@ -14,15 +14,12 @@ class TestModelIntegration:
         """Test face detection integration"""
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        # Mock successful face detection
-        with patch("cv2.dnn.blobFromImage") as mock_blob:
-            with patch.object(detector, "face_net") as mock_net:
-                mock_blob.return_value = np.random.rand(1, 3, 300, 300)
-                mock_net.forward.return_value = np.random.rand(1, 1, 1, 7)
-                mock_net.setInput.return_value = None
+        # Mock successful YuNet face detection
+        with patch.object(detector, "yunet_detector") as mock_yunet:
+            mock_yunet.detect.return_value = (1, np.array([[10, 10, 80, 80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8]]))
 
-                result = detector.detect_faces_dnn(frame)
-                assert isinstance(result, list)
+            result = detector.detect_faces_dnn(frame)
+            assert isinstance(result, list)
 
     def test_person_detection_integration(self, detector):
         """Test YOLO person detection integration"""
@@ -47,12 +44,11 @@ class TestModelIntegration:
         """Test OpenCV DNN integration"""
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        # Mock OpenCV DNN
-        with patch("cv2.dnn.readNetFromCaffe", return_value=MagicMock()):
-            with patch("cv2.dnn.blobFromImage", return_value=np.random.rand(1, 3, 100, 100)):
-                detector.setup_mobilenet()
-                # Should not raise exception
-                assert True
+        # Test that MobileNet setup doesn't crash
+        with patch("cv2.dnn.blobFromImage", return_value=np.random.rand(1, 3, 100, 100)):
+            detector.setup_mobilenet()
+            # Should not raise exception
+            assert True
 
     def test_mediapipe_integration(self, detector):
         """Test MediaPipe pose integration"""
@@ -87,10 +83,13 @@ class TestModelIntegration:
         """Test graceful handling of model loading errors"""
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        # Test face detection with missing model
-        with patch.object(detector, "face_net", None):
-            result = detector.detect_faces_dnn(frame)
-            assert result == []
+        # Test face detection with missing YuNet model
+        detector.use_dnn_face = True
+        orig_yunet = getattr(detector, 'yunet_detector', None)
+        detector.yunet_detector = None
+        result = detector.detect_faces_dnn(frame)
+        assert result == []
+        detector.yunet_detector = orig_yunet
 
         # Test person detection with missing YOLO
         with patch.object(detector, "yolov8_model", None):
@@ -101,9 +100,9 @@ class TestModelIntegration:
         """Test network timeout handling in model operations"""
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
-        # Mock network timeout in face detection
-        with patch.object(detector, "face_net") as mock_net:
-            mock_net.forward.side_effect = Exception("Network timeout")
+        # Mock network timeout in YuNet face detection
+        with patch.object(detector, "yunet_detector") as mock_yunet:
+            mock_yunet.detect.side_effect = Exception("Network timeout")
             result = detector.detect_faces_dnn(frame)
             assert result == []  # Should handle gracefully
 

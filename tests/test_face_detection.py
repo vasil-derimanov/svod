@@ -15,15 +15,15 @@ class TestFaceDetection:
         assert result == []
 
     def test_detect_faces_dnn_with_mock(self, detector):
-        """Test detect_faces_dnn with mocked OpenCV"""
+        """Test detect_faces_dnn with mocked YuNet face detector"""
         detector.use_dnn_face = True
 
-        # Mock the face_net
-        mock_net = MagicMock()
-        # Mock forward to return detections with one face
-        # Shape: (1, 1, num_detections, 7) where 7 = [img_id, label, conf, x1, y1, x2, y2]
-        mock_net.forward.return_value = np.array([[[[0, 0, 0.8, 0.1, 0.1, 0.9, 0.9]]]])
-        detector.face_net = mock_net
+        # Mock the YuNet detector
+        mock_yunet = MagicMock()
+        # YuNet detect() returns (retval, detections) where detections is Nx15 array
+        # Columns: x, y, w, h, ..., confidence (last element)
+        mock_yunet.detect.return_value = (1, np.array([[10, 10, 80, 80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8]]))
+        detector.yunet_detector = mock_yunet
 
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
         result = detector.detect_faces_dnn(frame)

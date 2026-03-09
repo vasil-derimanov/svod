@@ -1090,9 +1090,6 @@ class OrientationDetector:
         # completely supersedes the old 68-point LBF model.
         self.use_landmarks = False
 
-        # Setup additional enhanced detection methods
-        self.setup_mobilenet()
-
     def setup_mobilenet(self):
         """Setup OpenVINO MobileNetV2 for additional feature detection"""
         global mobilenet_required_override
@@ -1109,7 +1106,8 @@ class OrientationDetector:
 
                 ov_core = ov.Core()
                 ov_module = ov
-                print_success("Using OpenVINO 2023+ API")
+                ov_version = getattr(ov, '__version__', '2023+')
+                print_success(f"Using OpenVINO {ov_version}")
             except (ImportError, AttributeError):
                 pass
 
@@ -4496,8 +4494,14 @@ class OrientationDetector:
             cv2.putText(annotated, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
             # Draw eye detection if present
-            face_region = frame[y : y + h, x : x + w]
-            eyes = self.detect_eyes_in_face(face_region)
+            fh, fw = frame.shape[:2]
+            x1, y1 = max(0, x), max(0, y)
+            x2, y2 = min(fw, x + w), min(fh, y + h)
+            if x2 > x1 and y2 > y1:
+                face_region = frame[y1:y2, x1:x2]
+            else:
+                face_region = None
+            eyes = self.detect_eyes_in_face(face_region) if face_region is not None else []
             for ex, ey, ew, eh in eyes:
                 cv2.rectangle(
                     annotated, (x + ex, y + ey), (x + ex + ew, y + ey + eh), (255, 0, 255), 1
@@ -5456,14 +5460,21 @@ class OrientationDetector:
                     verdict = "[ERROR] INCORRECT"
                     confidence = max(0.9, min(incorrect_ratio + 0.05, 1.0))
                     if "rotation_directions" in self.stats and self.stats["rotation_directions"]:
-                        direction_counts = Counter(self.stats["rotation_directions"])
+                        direction_counts = Counter(
+                            d for d in self.stats["rotation_directions"] if d != "none"
+                        )
                         self._debug(f"[DEBUG] Final rotation direction counts: {dict(direction_counts)}")
                         self._debug(
                             f"[DEBUG] All rotation directions: {self.stats['rotation_directions']}"
                         )
-                        preferred_direction = (
-                            direction_counts.most_common(1)[0][0] if direction_counts else None
-                        )
+                        top_dirs = direction_counts.most_common(2)
+                        if top_dirs and (
+                            len(top_dirs) == 1
+                            or top_dirs[0][1] >= top_dirs[1][1] * 2
+                        ):
+                            preferred_direction = top_dirs[0][0]
+                        else:
+                            preferred_direction = None
                         self._debug(f"[DEBUG] Most common direction: {preferred_direction}")
                         recommendation = (
                             f"Rotate 90° {resolve_rotation_direction(preferred_direction)}"
@@ -5603,13 +5614,17 @@ class OrientationDetector:
                                 # Tie-breaker: use rotation probe and statistical default
                                 recommendation = f"Rotate 90° {resolve_rotation_direction()}"
                         else:
-                            # Fallback to counts
-                            direction_counts = Counter(self.stats["rotation_directions"])
-                            most_common_direction = (
-                                direction_counts.most_common(1)[0][0] if direction_counts else None
+                            # Fallback to counts (filter 'none' entries)
+                            direction_counts = Counter(
+                                d for d in self.stats["rotation_directions"] if d != "none"
                             )
-                            if most_common_direction:
-                                recommendation = f"Rotate 90° {resolve_rotation_direction(most_common_direction)}"
+                            top_dirs = direction_counts.most_common(2)
+                            if top_dirs:
+                                # Only pass preferred if strong majority (2:1 ratio)
+                                if len(top_dirs) == 1 or top_dirs[0][1] >= top_dirs[1][1] * 2:
+                                    recommendation = f"Rotate 90° {resolve_rotation_direction(top_dirs[0][0])}"
+                                else:
+                                    recommendation = f"Rotate 90° {resolve_rotation_direction()}"
                 elif weighted_incorrect > weighted_correct + 0.05:
                     # Only classify as INCORRECT when there's a clear incorrect advantage
                     verdict = "[ERROR] INCORRECT"

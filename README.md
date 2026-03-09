@@ -9,10 +9,10 @@
 ## 📋 Overview
 
 SVOD automatically detects video orientation using advanced AI techniques:
-- **Face Detection** - Primary orientation indicator using DNN face detector
+- **Face Detection** - YuNet face detector with OpenCV FaceDetectorYN (ONNX model)
 - **Body Detection** - YOLOv11 as the primary detector with pose keypoints and bias controls
 - **Pattern Recognition** - Enhanced landscape portrait content detection (15.0+ bias)
-- **Facial Landmarks** - Precise orientation analysis using LBF landmark detection
+- **MediaPipe** - Face Mesh (468 landmarks) and Pose estimation for advanced orientation
 - **Environment Controls** - Tunable parameters for aggressiveness and fallback behavior
 - **Cross-Platform** - Optimized for Windows, Linux, and Apple Silicon (M1/M2/M3)
 - **Batch Processing** - Process entire folders with comprehensive reports
@@ -49,7 +49,7 @@ python video_orientation_detector.py your_video.mp4
 
 **Everything is installed automatically:**
 - Python packages (opencv-contrib-python, numpy, ultralytics, etc.)
-- AI models (YOLOv10 optimized, face detector, facial landmarks)
+- AI models (YOLOv11 detection, YuNet face detector, MobileNet classifier)
 - Environment controls for fine-tuning performance
 - No manual configuration required!
 
@@ -232,12 +232,8 @@ If automatic downloads fail, download models manually:
 
 ```bash
 # YOLOv8 (auto-downloaded via ultralytics)
-# Face detection models
-curl -O https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt
-curl -O https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
-
-# Facial landmarks
-curl -O https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml
+# Face detection model (YuNet ONNX)
+curl -O https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
 
 # COCO class names
 curl -O https://raw.githubusercontent.com/AlexeyAB/darknet/master/data/coco.names
@@ -257,7 +253,7 @@ curl -O https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/m
 ## 🔍 Detection Methods
 
 ### Primary Detection: Face Analysis
-- Uses OpenCV DNN face detector
+- Uses YuNet face detector (OpenCV FaceDetectorYN with ONNX model)
 - Analyzes face orientation and positioning
 - Most accurate for videos with visible faces
 
@@ -466,10 +462,11 @@ CMD ["python", "video_orientation_detector.py"]
 ## 📋 Version History
 
 ### Recent Versions
+- **v4.25.0** (2026-03-06): YuNet face detector, direction accuracy improvements, LBF/Caffe removal
 - **v4.24.0** (2025-11-29): Housekeeping release with documentation updates, YOLOv11 upgrade, and project cleanup
-- **v4.23.0** (2025-09-30): YOLOv10 primary detector with 100% reference validation accuracy
-- **v4.22.2** (2025-09-30): YOLOv10 optimization complete with enhanced bias controls
-- **v4.22.1** (2025-09-26): YOLOv10 restored with analysis confirmation
+- **v4.23.0** (2025-09-30): YOLOv11 primary detector with 100% reference validation accuracy
+- **v4.22.2** (2025-09-30): YOLOv11 optimization complete with enhanced bias controls
+- **v4.22.1** (2025-09-26): YOLOv11 restored with analysis confirmation
 - **v4.20.0** (2025-09-13): Enhanced error handling & security hardening
 - **v4.19.2** (2025-01-21): YOLOv8 mandatory, NumPy compatibility fixes
 - **v4.19.0** (2025-01-21): Face-only rotation detection, zero false positives
