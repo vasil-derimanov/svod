@@ -5170,8 +5170,8 @@ class OrientationDetector:
                 counts = Counter(d for d in directions if d != "none")
                 if counts:
                     top = counts.most_common(2)
-                    # Only trust a clear majority (not a tie)
-                    if len(top) == 1 or top[0][1] > top[1][1]:
+                    # Only trust a clear majority (2:1 ratio required)
+                    if len(top) == 1 or top[0][1] >= top[1][1] * 2:
                         return top[0][0]
             # Physical rotation probe as tiebreaker
             probe = self._probe_rotation_direction()
