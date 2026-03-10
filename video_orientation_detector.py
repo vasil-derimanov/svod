@@ -5170,8 +5170,10 @@ class OrientationDetector:
                 counts = Counter(d for d in directions if d != "none")
                 if counts:
                     top = counts.most_common(2)
-                    # Only trust a clear majority (2:1 ratio required)
-                    if len(top) == 1 or top[0][1] >= top[1][1] * 2:
+                    total_votes = sum(c for _, c in top)
+                    # Sample-size-aware ratio: large samples need less dominance
+                    ratio = 2.0 if total_votes < 15 else 1.3
+                    if len(top) == 1 or top[0][1] >= top[1][1] * ratio:
                         return top[0][0]
             # Physical rotation probe as tiebreaker
             probe = self._probe_rotation_direction()
@@ -5468,9 +5470,11 @@ class OrientationDetector:
                             f"[DEBUG] All rotation directions: {self.stats['rotation_directions']}"
                         )
                         top_dirs = direction_counts.most_common(2)
+                        total_dir_votes = sum(c for _, c in top_dirs)
+                        dir_ratio = 2.0 if total_dir_votes < 15 else 1.3
                         if top_dirs and (
                             len(top_dirs) == 1
-                            or top_dirs[0][1] >= top_dirs[1][1] * 2
+                            or top_dirs[0][1] >= top_dirs[1][1] * dir_ratio
                         ):
                             preferred_direction = top_dirs[0][0]
                         else:
@@ -5620,8 +5624,9 @@ class OrientationDetector:
                             )
                             top_dirs = direction_counts.most_common(2)
                             if top_dirs:
-                                # Only pass preferred if strong majority (2:1 ratio)
-                                if len(top_dirs) == 1 or top_dirs[0][1] >= top_dirs[1][1] * 2:
+                                total_dir_votes = sum(c for _, c in top_dirs)
+                                dir_ratio = 2.0 if total_dir_votes < 15 else 1.3
+                                if len(top_dirs) == 1 or top_dirs[0][1] >= top_dirs[1][1] * dir_ratio:
                                     recommendation = f"Rotate 90° {resolve_rotation_direction(top_dirs[0][0])}"
                                 else:
                                     recommendation = f"Rotate 90° {resolve_rotation_direction()}"
