@@ -30,9 +30,9 @@ SVOD uses a **weighted voting system** across multiple detection methods:
 
 ### Direction Detection Pipeline
 Direction is determined through a priority chain in `resolve_rotation_direction()`:
-1. **Face position direction** (face on left/right side of frame)
-2. **Preferred direction** (from weighted strength voting or count majority with 2:1 ratio)
-3. **Rotation direction counts** (only if clear majority, not a tie)
+1. **Face position direction** (face on left/right side of frame, 1.1x threshold)
+2. **Preferred direction** (from weighted strength voting or count majority with sample-size-aware ratio)
+3. **Rotation direction counts** (sample-size-aware: 2:1 ratio for <15 votes, 1.3:1 for ≥15 votes)
 4. **Physical rotation probe** (`_probe_rotation_direction()`)
 5. **Default: counterclockwise** (statistically most common for phone-recorded sideways video)
 
@@ -45,11 +45,11 @@ Direction is determined through a priority chain in `resolve_rotation_direction(
 ## Development Workflows
 
 ### Testing Philosophy: Two Distinct Ecosystems
-**`tests/` directory** - Automated pytest suite (17 test files):
+**`tests/` directory** - Automated pytest suite (17 test files, 158 tests):
 - Unit tests: `test_basic.py`, `test_core_detection.py`, `test_face_detection.py`
 - Integration tests: `test_integration.py`, `test_model_integration.py`
 - Run with: `pytest tests/` or `make test`
-- Coverage requirement: 15% minimum (see `pyproject.toml`)
+- Coverage requirement: 15% minimum (see `pyproject.toml`), current: ~29%
 
 **`testing/` directory** - Manual real-video testing scripts:
 - `standard_single_test.py` - Individual video testing
@@ -61,7 +61,7 @@ Direction is determined through a priority chain in `resolve_rotation_direction(
 **`reference_orientations.csv`** - Ground truth dataset (18 videos with known orientations):
 - Format: `filename,expected_orientation,confidence,notes`
 - **NEVER modify reference_orientations.csv** - it is the ground truth; fix detection code instead
-- Current accuracy: 100% orientation (37/37), 86.7% direction (13/15 Bad_Examples)
+- Current accuracy: **100% orientation (37/37), 100% direction (18/18)**
 
 ### Build & Development Commands
 ```bash
@@ -126,29 +126,23 @@ class VideoOrientation(Enum):
 - **`performance_baselines/`** - Version performance benchmarks
 - **`YOLOV10_UPGRADE.md`** - Historical migration documentation
 
-## Common Pitfalls
+## Common Pitfalls & Solutions
 
 1. **OpenCV conflict**: Only install `opencv-contrib-python` — never `opencv-python` alongside it
 2. **Stale __pycache__**: Always `Remove-Item -Recurse -Force __pycache__` before testing code changes
 3. **Batch test encoding**: Always set `$env:PYTHONIOENCODING='utf-8'` before running
 4. **NumPy v2.0**: Pin to `numpy==1.26.4`
 5. **MediaPipe unavailable**: SVOD injects a lightweight stub; install `mediapipe` for full support
-   - Each version has baseline file in `performance_baselines/`
-   - v4.23.0 achieved 100% reference validation (documented milestone)
+6. **YOLOv11 "not available" error**: Install ultralytics: `pip install "ultralytics>=8.3.0"`
+7. **MobileNet download fails**: Expected on Apple Silicon — core detection still accurate
+8. **"omz_downloader not found"**: Requires Python 3.11-3.12, install `openvino-dev`
 
-4. **Real-World Folders** - Manual testing with `Good_Examples/` and `Bad_Examples/`
-   - Good_Examples: Expected >95% CORRECT classification
-   - Bad_Examples: Expected mix of INCORRECT and UNCERTAIN (challenging cases)
+## Real-World Testing
 
-## Common Pitfalls & Solutions
-
-1. **YOLOv11 "not available" error**: Install ultralytics: `pip install "ultralytics>=8.3.0"`
-2. **MobileNet download fails**: Expected on Apple Silicon - core detection still accurate
-3. **NumPy v2.0 issues**: Pin to `numpy==1.26.4` (specified in requirements.txt)
-4. **"omz_downloader not found"**: Requires Python 3.11-3.12, install `openvino-dev`
-5. **UNCERTAIN verdicts**: Tune environment variables (see PowerShell commands above)
-6. **MediaPipe unavailable**: SVOD injects a lightweight stub; install `mediapipe` for full pose support
-7. **OpenCV conflict**: Only install `opencv-contrib-python` — never `opencv-python` alongside it
+- **Good_Examples/**: Expected >95% CORRECT classification (currently 22/22 = 100%)
+- **Bad_Examples/**: Expected INCORRECT classification (currently 15/15 = 100%)
+- Each version has a baseline file in `performance_baselines/`
+- v4.25.0 achieved 100% orientation + 100% direction accuracy
 
 ## Adding New Features
 
@@ -158,11 +152,11 @@ When extending detection capabilities:
 3. Add statistics tracking to `self.stats` dictionary
 4. Update `print_statistics()` to display new metrics
 5. Add unit tests to `tests/test_*.py` AND manual tests with `testing/standard_*_test.py`
-6. Update `README.md` usage examples and `YOLOV10_UPGRADE.md` if optimization-related
+6. Update `README.md` usage examples
 
 ## Documentation Standards
 
 - **README.md**: User-facing documentation with CLI examples
 - **Code comments**: Inline explanations for complex detection logic
 - **Docstrings**: All public methods have detailed docstrings with Args/Returns
-- **Version docs**: `YOLOV10_UPGRADE.md` for architectural decisions and migration history
+- **YOLOV10_UPGRADE.md**: Historical migration documentation (no longer actively maintained)

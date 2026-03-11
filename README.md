@@ -368,11 +368,11 @@ python cleanup.py
 ## 📈 Performance & Accuracy
 
 ### Detection Accuracy
-- **Reference Validation**: 100% accuracy against known orientation data (v4.23.0)
+- **Reference Validation**: 100% orientation accuracy + 100% direction accuracy (v4.25.0)
 - **Face Detection**: 85-95% accuracy for videos with faces
 - **Body Detection**: YOLOv11 primary detector with pose keypoints and bias controls
 - **Combined Analysis**: 95%+ overall accuracy with optimized thresholds
-- **Verdict Consistency**: Eliminated UNCERTAIN fallbacks through improved enum conversion
+- **Direction Detection**: Sample-size-aware voting with probe fallback
 
 ### Processing Speed
 - **Single Video**: 5+ seconds depending on length and time limit
@@ -462,7 +462,7 @@ CMD ["python", "video_orientation_detector.py"]
 ## 📋 Version History
 
 ### Recent Versions
-- **v4.25.0** (2026-03-06): YuNet face detector, direction accuracy improvements, LBF/Caffe removal
+- **v4.25.0** (2026-03-10): 100% direction accuracy, sample-size-aware direction voting, YuNet face detector
 - **v4.24.0** (2025-11-29): Housekeeping release with documentation updates, YOLOv11 upgrade, and project cleanup
 - **v4.23.0** (2025-09-30): YOLOv11 primary detector with 100% reference validation accuracy
 - **v4.22.2** (2025-09-30): YOLOv11 optimization complete with enhanced bias controls
@@ -475,12 +475,13 @@ CMD ["python", "video_orientation_detector.py"]
 
 ### Key Improvements
 - ✅ YOLOv11 as primary detector achieving **100% reference validation accuracy**
+- ✅ **100% direction accuracy** with sample-size-aware CW/CCW voting
 - ✅ Enhanced verdict alignment eliminating UNCERTAIN fallbacks
 - ✅ Strong bias detection system (15.0+ bias values) for decisive orientation decisions
 - ✅ Optimized environment defaults for maximum performance out-of-the-box
 - ✅ Cross-platform compatibility (Windows/Linux/macOS)
 - ✅ Security hardening and input validation
-- ✅ Comprehensive test suite with 35+ tests
+- ✅ Comprehensive test suite with 158 tests
 - ✅ Automated CI/CD with coverage reporting
 - ✅ Enhanced error handling and user feedback
 - ✅ Environment controls for runtime optimization

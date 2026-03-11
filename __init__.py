@@ -1,5 +1,5 @@
 # SVOD - Smart Video Orientation Detector Package
-__version__ = "4.24.0"
+__version__ = "4.25.0"
 
 # Ensure current directory is in path for imports
 import sys

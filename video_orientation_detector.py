@@ -2,8 +2,8 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.24.0 - Housekeeping Release: Documentation and Project Structure Updates
-Date: November 29, 2025
+Version: 4.25.0 - YuNet & Direction Accuracy Release
+Date: March 2026
 Author: Enhanced with AI assistance
 
 Features:
