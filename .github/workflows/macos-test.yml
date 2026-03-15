@@ -33,7 +33,7 @@ jobs:
     - name: Test SVOD version (vanilla environment)
       run: |
         source .venv-macos-clean/bin/activate
-        echo "🎬 Testing SVOD v4.20.0 with enhanced DNN validation..."
+        echo "🎬 Testing SVOD v4.25.0 - YuNet & Direction Accuracy Release..."
         python3 video_orientation_detector.py --version
     
     - name: Test SVOD basic functionality
@@ -46,7 +46,7 @@ jobs:
     - name: Verify models downloaded
       run: |
         echo "📦 Checking if models were auto-downloaded..."
-        ls -la *.cfg *.weights *.xml *.bin *.yaml *.prototxt *.caffemodel 2>/dev/null || echo "⚠️ Models not downloaded (expected for /dev/null test)"
+        ls -la *.xml *.bin *.names *.pt *.onnx 2>/dev/null || echo "⚠️ Models not downloaded (expected for /dev/null test)"
         
     - name: Final cleanup
       run: |

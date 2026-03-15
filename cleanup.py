@@ -7,9 +7,14 @@ Follows rules from copilot-instructions.md for safe project cleanup
 """
 
 import os
+import sys
 import shutil
 import glob
 from pathlib import Path
+
+# Ensure UTF-8 output on all platforms (Windows CI uses charmap by default)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 
 def print_colored(text, color="white"):

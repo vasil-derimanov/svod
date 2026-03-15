@@ -42,7 +42,7 @@ jobs:
     - name: Test SVOD version (vanilla environment)
       run: |
         .venv-windows-clean\Scripts\activate
-        Write-Host "🎬 Testing SVOD v4.20.0 - Enhanced Error Handling & Security Hardening"
+        Write-Host "🎬 Testing SVOD v4.25.0 - YuNet & Direction Accuracy Release"
         python video_orientation_detector.py --version
 
     - name: Test SVOD auto-installation
@@ -117,7 +117,7 @@ jobs:
     - name: Test SVOD version (vanilla environment)
       run: |
         source .venv-linux-clean/bin/activate
-        echo "🎬 Testing SVOD v4.20.0 - Enhanced Error Handling & Security Hardening"
+        echo "🎬 Testing SVOD v4.25.0 - YuNet & Direction Accuracy Release"
         python3 video_orientation_detector.py --version
 
     - name: Test SVOD auto-installation
@@ -169,7 +169,7 @@ jobs:
         python3 cleanup.py
 
   test-macos-intel:
-    runs-on: macos-12  # Intel-based macOS
+    runs-on: macos-13  # Intel-based macOS (macos-12 deprecated)
     steps:
     - uses: actions/checkout@v4
 
@@ -192,7 +192,7 @@ jobs:
     - name: Test SVOD version (vanilla environment)
       run: |
         source .venv-macos-intel-clean/bin/activate
-        echo "🎬 Testing SVOD v4.20.0 - Enhanced Error Handling & Security Hardening (Intel macOS)"
+        echo "🎬 Testing SVOD v4.25.0 - YuNet & Direction Accuracy Release (Intel macOS)"
         python3 video_orientation_detector.py --version
 
     - name: Test SVOD auto-installation
@@ -267,7 +267,7 @@ jobs:
     - name: Test SVOD version (vanilla environment)
       run: |
         source .venv-macos-arm-clean/bin/activate
-        echo "🎬 Testing SVOD v4.19.2 - YOLOv8 Mandatory - No Fallback (Apple Silicon)"
+        echo "🎬 Testing SVOD v4.25.0 - YuNet & Direction Accuracy Release (Apple Silicon)"
         python3 video_orientation_detector.py --version
 
     - name: Test SVOD auto-installation
