@@ -11,6 +11,8 @@
 SVOD automatically detects video orientation using advanced AI techniques:
 - **Face Detection** - YuNet face detector with OpenCV FaceDetectorYN (ONNX model)
 - **Body Detection** - YOLOv11 as the primary detector with pose keypoints and bias controls
+- **ONNX Runtime** - Fast CPU inference for YOLO models (with PyTorch fallback)
+- **Parallel Inference** - Concurrent model execution (YuNet/YOLO/Pose/FaceMesh)
 - **Pattern Recognition** - Enhanced landscape portrait content detection (15.0+ bias)
 - **MediaPipe** - Face Mesh (468 landmarks) and Pose estimation for advanced orientation
 - **Environment Controls** - Tunable parameters for aggressiveness and fallback behavior
@@ -29,6 +31,9 @@ SVOD automatically detects video orientation using advanced AI techniques:
 - ✅ **Automatic Setup** - All dependencies installed automatically
 - ✅ **Security Features** - Input sanitization and resource protection
 - ✅ **YOLOv11 Detection** - Primary detector with pose keypoints and bias controls
+- ✅ **ONNX Runtime** - Fast CPU inference for YOLO models (`--export-onnx` to convert)
+- ✅ **JSON Output** - Machine-readable results with `--json` flag
+- ✅ **Auto-Correction** - Rotate incorrect videos automatically with `--auto-correct`
 - ✅ **Pattern Detection** - Strong landscape portrait bias (15.0+) for decisive outcomes
 - ✅ **Environment Tuning** - Configurable parameters for different accuracy/speed trade-offs
 
@@ -132,6 +137,11 @@ python video_orientation_detector.py /videos --batch -r --time-limit 10 --report
 | `--reference` | | Reference file for validation | None |
 | `--max-files` | | Max files in batch mode | 1000 |
 | `--max-depth` | | Max directory depth | 10 |
+| `--json` | | Output results as JSON | False |
+| `--frame-size` | | Max detection frame dim (px) | 640 |
+| `--auto-correct` | | Auto-rotate incorrect videos | False |
+| `--export-onnx` | | Export YOLO models to ONNX | |
+| `--quick-scan` | | Pre-scan for human-rich segments | False |
 | `--version` | | Show version information | |
 
 ### YOLO Environment Controls
@@ -192,6 +202,7 @@ export SVOD_FORCE_DECISION=1
 - `ultralytics` - YOLOv11 object detection (required)
 - `torch` - PyTorch for model operations
 - `onnx` - Model format conversion
+- `onnxruntime` - Fast CPU inference for YOLO ONNX models
 - `tqdm` - Progress bars
 
 **Platform-Specific:**
@@ -368,7 +379,7 @@ python cleanup.py
 ## 📈 Performance & Accuracy
 
 ### Detection Accuracy
-- **Reference Validation**: 100% orientation accuracy + 100% direction accuracy (v4.25.0)
+- **Reference Validation**: 100% orientation accuracy + 100% direction accuracy (v4.26.0)
 - **Face Detection**: 85-95% accuracy for videos with faces
 - **Body Detection**: YOLOv11 primary detector with pose keypoints and bias controls
 - **Combined Analysis**: 95%+ overall accuracy with optimized thresholds
@@ -462,6 +473,7 @@ CMD ["python", "video_orientation_detector.py"]
 ## 📋 Version History
 
 ### Recent Versions
+- **v4.26.0** (2026-04-05): Performance optimization release — adaptive model cascade, early exit in all modes, reduced probe overhead
 - **v4.25.0** (2026-03-10): 100% direction accuracy, sample-size-aware direction voting, YuNet face detector
 - **v4.24.0** (2025-11-29): Housekeeping release with documentation updates, YOLOv11 upgrade, and project cleanup
 - **v4.23.0** (2025-09-30): YOLOv11 primary detector with 100% reference validation accuracy
@@ -481,6 +493,7 @@ CMD ["python", "video_orientation_detector.py"]
 - ✅ Optimized environment defaults for maximum performance out-of-the-box
 - ✅ Cross-platform compatibility (Windows/Linux/macOS)
 - ✅ Security hardening and input validation
+- ✅ Adaptive model cascade for faster processing without accuracy loss
 - ✅ Comprehensive test suite with 158 tests
 - ✅ Automated CI/CD with coverage reporting
 - ✅ Enhanced error handling and user feedback

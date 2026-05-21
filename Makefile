@@ -28,9 +28,9 @@ install:
 format:
 	python -m black .
 
-# Lint code
+# Lint code (uses .flake8 config file for all settings)
 lint:
-	python -m flake8 . --max-line-length=100 --extend-ignore=E203,W503
+	python -m flake8 .
 
 # Run basic tests
 test:

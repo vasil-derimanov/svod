@@ -190,15 +190,17 @@ def save_performance_baseline(stats: Dict, video_name: str):
     if "error" in stats:
         return
 
+    from video_orientation_detector import __version__
+    ver_tag = __version__.replace('.', '_')
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    baseline_file = f"performance_baselines/performance_v4_22_0_{timestamp}.txt"
+    baseline_file = f"performance_baselines/performance_v{ver_tag}_{timestamp}.txt"
 
     # Create directory if needed
     os.makedirs("performance_baselines", exist_ok=True)
 
     try:
         with open(baseline_file, "w", encoding="utf-8") as f:
-            f.write(f"SVOD Performance Baseline - v4.22.0 (YOLOv10)\\n")
+            f.write(f"SVOD Performance Baseline - v{__version__}\\n")
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n")
             f.write(f"Test Video: {video_name}\\n")
             f.write("=" * 50 + "\\n\\n")
@@ -251,7 +253,8 @@ def main():
 
     print("🚀 SVOD Standard Performance Test")
     print("=" * 60)
-    print(f"Version: YOLOv10 v4.22.0")
+    from video_orientation_detector import __version__ as svod_version
+    print(f"Version: SVOD v{svod_version}")
     print(f"Test Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"System: {psutil.virtual_memory().total / (1024**3):.1f}GB RAM")
 

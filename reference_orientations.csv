@@ -17,3 +17,22 @@ P7212121.mp4,incorrect,medium,needs 90° clockwise rotation - borderline case wi
 P7232269.mp4,incorrect,medium,needs 90° clockwise rotation - orientation issues requiring correction
 20151203_150603.mp4,incorrect,high,needs 90° counterclockwise rotation - start as normal oriented video till 6 second
 20161220_191829.mp4,incorrect,high,needs 90° counterclockwise rotation - start as normal oriented video till 11 second
+P2240141.mp4,correct,high,proper orientation - no rotation needed
+P2240146.mp4,correct,high,proper orientation - no rotation needed
+P2270155.mp4,correct,high,proper orientation - no rotation needed
+P2270158.mp4,correct,high,proper orientation - no rotation needed
+P2270233.mp4,correct,high,proper orientation - no rotation needed
+P2270234.mp4,correct,high,proper orientation - no rotation needed
+P7010746.mp4,correct,high,proper orientation - no rotation needed
+P7021027.mp4,correct,high,proper orientation - no rotation needed
+P7031056.mp4,correct,high,proper orientation - no rotation needed
+P7031060.mp4,correct,high,proper orientation - no rotation needed
+P7210297.mp4,correct,high,proper orientation - no rotation needed
+P7210322.mp4,correct,high,proper orientation - no rotation needed
+P7212084.mp4,correct,high,proper orientation - no rotation needed
+P7212106.mp4,correct,high,proper orientation - no rotation needed
+P7212131.mp4,correct,high,proper orientation - no rotation needed
+P7220356.mp4,correct,high,proper orientation - no rotation needed
+P7220476.mp4,correct,high,proper orientation - no rotation needed
+P7232272.mp4,correct,high,proper orientation - no rotation needed
+P7290392.mp4,correct,high,proper orientation - no rotation needed

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "svod"
-version = "4.25.0"
+version = "4.27.0"
 description = "Smart Video Orientation Detector - YOLOv11 + YuNet face detection with comprehensive validation"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -36,6 +36,7 @@ dependencies = [
     "torch>=2.0.0",
     "torchvision>=0.15.0",
     "onnx>=1.14.0",
+    "onnxruntime>=1.17.0",  # Fast CPU inference for YOLO ONNX models
     "mediapipe>=0.10.0",  # Face Mesh and Pose detection
     "tqdm>=4.65.0",
     "pytest>=7.0.0",
@@ -113,4 +114,19 @@ exclude = [
     "test_*.py",
     "debug_*.py",
     "performance_*.py"
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = [
+    "tests/",
+    "testing/",
+    "htmlcov/",
+    "build/",
+    "dist/",
 ]

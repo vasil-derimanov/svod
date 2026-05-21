@@ -279,10 +279,12 @@ def test_batch_folder(
 
 def compare_with_baseline():
     """Show baseline expectations for comparison"""
-    print("\\n🏆 Baseline Expectations (v4.21.0)")
+    print("\\n🏆 Baseline Expectations (v4.26.0)")
     print("=" * 50)
-    print("Good_Examples: 90.9% CORRECT (>95% accuracy expected)")
-    print("Bad_Examples: 76.9% INCORRECT, 23.1% UNCERTAIN")
+    print("Good_Examples: 100% CORRECT (22/22)")
+    print("Bad_Examples: 100% INCORRECT (15/15)")
+    print("Reference Orientation Accuracy: 100% (37/37)")
+    print("Reference Direction Accuracy: 100% (37/37)")
 
 
 def main():

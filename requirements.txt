@@ -1,4 +1,4 @@
-# SVOD v4.25.0 Requirements - YuNet & Direction Accuracy Release
+# SVOD v4.27.0 Requirements - Developer Experience Release
 # Pinned versions for reproducible builds and compatibility
 
 # Core computer vision and image processing
@@ -14,6 +14,7 @@ ultralytics>=8.3.0  # YOLOv11 support (Nov 2024) - required
 # Model optimization and inference
 openvino==2024.6.0
 onnx==1.19.0
+onnxruntime>=1.17.0  # Fast CPU inference for YOLO ONNX models
 
 # MediaPipe for advanced pose and face mesh detection
 mediapipe>=0.10.0  # Face Mesh (468 landmarks) and Pose detection

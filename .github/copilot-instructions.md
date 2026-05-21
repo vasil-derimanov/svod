@@ -1,10 +1,12 @@
 # SVOD - Smart Video Orientation Detector
 
 ## Project Overview
-SVOD detects video orientation (CORRECT/INCORRECT/UNCERTAIN) using AI-powered computer vision. The core is a ~6,200-line monolithic Python module (`video_orientation_detector.py`) that combines multiple detection models through a weighted voting system.
+SVOD detects video orientation (CORRECT/INCORRECT/UNCERTAIN) using AI-powered computer vision. The core is a ~5,700-line monolithic Python module (`video_orientation_detector.py`) that combines multiple detection models through a weighted voting system.
 
-**Current Version:** 4.25.0 - YuNet & Direction Accuracy Release (March 2026)
+**Current Version:** 4.27.0 - Developer Experience Release (April 2026)
 **Previous Milestones:**
+- v4.26.0 - Performance Optimization Release (adaptive cascade, early exit)
+- v4.25.0 - YuNet & Direction Accuracy Release (100% direction accuracy)
 - v4.24.0 - Housekeeping release
 - v4.23.0 - 100% orientation accuracy on reference dataset
 
@@ -12,7 +14,7 @@ SVOD detects video orientation (CORRECT/INCORRECT/UNCERTAIN) using AI-powered co
 
 ### Multi-Model Ensemble Approach
 SVOD uses a **weighted voting system** across multiple detection methods:
-1. **YOLOv11 Person Detection** (PRIMARY, REQUIRED) - `yolo11n.pt` + `yolo11n-pose.pt` models via ultralytics
+1. **YOLOv11 Person Detection** (PRIMARY, REQUIRED) - ONNX Runtime models (`yolo11n.onnx` + `yolo11n-pose.onnx`) with PyTorch fallback
 2. **YuNet Face Detection** - OpenCV FaceDetectorYN with ONNX model (`face_detection_yunet_2023mar.onnx`)
 3. **MobileNet Classification** - OpenVINO 2024.6.0 models (`mobilenet-v2.xml/.bin`) - optional enhancement
 4. **Haar Cascade Face Detection** - OpenCV fallback detector
@@ -28,11 +30,28 @@ SVOD uses a **weighted voting system** across multiple detection methods:
 - `_analyze_body_angle_from_keypoints()` - Nose-vs-hip analysis for rotation direction (weight 30.0)
 - `_probe_rotation_direction()` - Physical frame rotation probe with result caching (`_probe_cache`)
 
+### Performance Optimizations (v4.26.0+)
+- **Adaptive model cascade**: Skips Haar cascade when YuNet detects faces; skips tier-3 models (MobileNet, Hough, aspect) when YOLO+face detectors agree
+- **Early exit**: Stops frame processing when verdict is decisive (batch: 50% coverage/90% ratio; single: 80% coverage/95% ratio)
+- **Reduced probe**: Rotation direction probe samples 3 frames instead of 5
+- Stats tracked: `cascade_skipped_haar`, `cascade_skipped_tier3`
+- **Critical**: MediaPipe Pose must NOT be skipped even when YOLO detects bodies — provides independent orientation angles needed for edge cases (P7061239.mp4)
+
+### v4.27.0 Enhancements
+- **ONNX Runtime inference**: YOLO models exported to ONNX for faster CPU inference via `onnxruntime`; PyTorch fallback when ONNX unavailable
+- **Parallel model inference**: `ThreadPoolExecutor(max_workers=4)` runs YuNet/YOLO/Pose/FaceMesh concurrently per frame
+- **Frame downscaling**: `_max_detect_dim = 640` limits detection input size for speed
+- **Smart pre-scan**: `--quick-scan` probes for human-rich segments before full analysis
+- **3-tier direction voting ratio**: Stricter thresholds for small sample sizes (`<8 votes: 3.0`, `8-14: 2.0`, `≥15: 1.5`)
+- **CLI refactoring**: CLI code extracted to `svod_cli.py`; statistics mixin to `svod_statistics.py`; data models to `svod_models.py`
+- **New CLI flags**: `--json` (JSON output), `--auto-correct` (ffmpeg rotation), `--export-onnx` (model conversion), `--frame-size`, `--quick-scan`
+- **Progress callback**: `process_video_unified()` accepts optional `progress_callback` for integration
+
 ### Direction Detection Pipeline
 Direction is determined through a priority chain in `resolve_rotation_direction()`:
 1. **Face position direction** (face on left/right side of frame, 1.1x threshold)
 2. **Preferred direction** (from weighted strength voting or count majority with sample-size-aware ratio)
-3. **Rotation direction counts** (sample-size-aware: 2:1 ratio for <15 votes, 1.3:1 for ≥15 votes)
+3. **Rotation direction counts** (3-tier sample-size-aware ratio: `<8 votes: 3.0`, `8-14: 2.0`, `≥15: 1.5`)
 4. **Physical rotation probe** (`_probe_rotation_direction()`)
 5. **Default: counterclockwise** (statistically most common for phone-recorded sideways video)
 
@@ -45,11 +64,12 @@ Direction is determined through a priority chain in `resolve_rotation_direction(
 ## Development Workflows
 
 ### Testing Philosophy: Two Distinct Ecosystems
-**`tests/` directory** - Automated pytest suite (17 test files, 158 tests):
+**`tests/` directory** - Automated pytest suite (19 test files, 209 tests):
 - Unit tests: `test_basic.py`, `test_core_detection.py`, `test_face_detection.py`
 - Integration tests: `test_integration.py`, `test_model_integration.py`
+- Feature tests: `test_new_features.py`, `test_performance_optimizations.py`
 - Run with: `pytest tests/` or `make test`
-- Coverage requirement: 15% minimum (see `pyproject.toml`), current: ~29%
+- Coverage requirement: 15% minimum (see `pyproject.toml`), current: ~33%
 
 **`testing/` directory** - Manual real-video testing scripts:
 - `standard_single_test.py` - Individual video testing
@@ -58,10 +78,10 @@ Direction is determined through a priority chain in `resolve_rotation_direction(
 - **NEVER create new test scripts** - always use these 3 standard scripts
 
 ### Reference Validation System
-**`reference_orientations.csv`** - Ground truth dataset (18 videos with known orientations):
+**`reference_orientations.csv`** - Ground truth dataset (37 videos with known orientations):
 - Format: `filename,expected_orientation,confidence,notes`
 - **NEVER modify reference_orientations.csv** - it is the ground truth; fix detection code instead
-- Current accuracy: **100% orientation (37/37), 100% direction (18/18)**
+- Current accuracy: **100% orientation (37/37), 100% direction (37/37)**
 
 ### Build & Development Commands
 ```bash
@@ -102,8 +122,9 @@ class VideoOrientation(Enum):
 ## Critical Dependencies & Model Files
 
 ### Required Files (All auto-downloaded)
-- `yolo11n.pt` - YOLOv11 nano detection model
-- `yolo11n-pose.pt` - YOLOv11 nano pose model with keypoint detection
+- `yolo11n.onnx` - YOLOv11 nano detection model (ONNX Runtime, exported via `--export-onnx`)
+- `yolo11n-pose.onnx` - YOLOv11 nano pose model (ONNX Runtime)
+- `yolo11n.pt`, `yolo11n-pose.pt` - PyTorch fallback models
 - `face_detection_yunet_2023mar.onnx` - YuNet face detector
 - `coco.names` - YOLO class names
 - `mobilenet-v2.xml`, `mobilenet-v2.bin` - MobileNet OpenVINO models (optional)
@@ -114,14 +135,18 @@ class VideoOrientation(Enum):
 - `ultralytics>=8.3.0` (YOLOv11)
 - `torch==2.8.0`, `torchvision==0.23.0`
 - `openvino==2024.6.0`
+- `onnxruntime>=1.17.0` (fast CPU inference for YOLO ONNX models)
 - `mediapipe>=0.10.0`
 
 ## Key Files & Directories
 
-- **`video_orientation_detector.py`** - Monolithic ~6,200-line core module
+- **`video_orientation_detector.py`** - Core detection module (~5,700 lines)
+- **`svod_cli.py`** - CLI argument parsing, validation, and entry points
+- **`svod_statistics.py`** - `StatisticsMixin` for statistics collection and reporting
+- **`svod_models.py`** - Data models and JSON serialization (`results_to_json`, `batch_results_to_json`)
 - **`pyproject.toml`** - Project metadata, `svod` CLI entry point
 - **`.flake8`** - Flake8 linting configuration (authoritative config file)
-- **`reference_orientations.csv`** - Ground truth dataset (18 videos)
+- **`reference_orientations.csv`** - Ground truth dataset (37 videos)
 - **`inspect_rotation.py`** - Developer utility for debugging rotation direction
 - **`performance_baselines/`** - Version performance benchmarks
 - **`YOLOV10_UPGRADE.md`** - Historical migration documentation
@@ -142,7 +167,7 @@ class VideoOrientation(Enum):
 - **Good_Examples/**: Expected >95% CORRECT classification (currently 22/22 = 100%)
 - **Bad_Examples/**: Expected INCORRECT classification (currently 15/15 = 100%)
 - Each version has a baseline file in `performance_baselines/`
-- v4.25.0 achieved 100% orientation + 100% direction accuracy
+- v4.27.0 maintains 100% orientation + 100% direction accuracy
 
 ## Adding New Features
 
