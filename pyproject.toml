@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "svod"
-version = "4.27.0"
+version = "4.27.1"
 description = "Smart Video Orientation Detector - YOLOv11 + YuNet face detection with comprehensive validation"
 readme = "README.md"
 license = {file = "LICENSE"}

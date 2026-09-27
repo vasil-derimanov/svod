@@ -26,7 +26,7 @@ from typing import Optional, Dict, List
 # Add project root to Python path (go up one level from testing/)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from video_orientation_detector import OrientationDetector
+from video_orientation_detector import OrientationDetector, __version__
 
 
 def load_reference_data() -> Dict[str, Dict]:
@@ -99,7 +99,7 @@ def test_batch_folder(
     max_files: Optional[int] = None,
 ) -> Dict:
     """Test all videos in a folder"""
-    print(f"\\n🧪 Testing {folder_name} folder")
+    print(f"\n🧪 Testing {folder_name} folder")
     print(f"📁 Path: {folder_path}")
     print("=" * 60)
 
@@ -124,7 +124,7 @@ def test_batch_folder(
 
     for i, video_path in enumerate(video_files, 1):
         filename = os.path.basename(video_path)
-        print(f"\\n📹 [{i}/{len(video_files)}] Testing: {filename}")
+        print(f"\n📹 [{i}/{len(video_files)}] Testing: {filename}")
 
         try:
             # Reset stats for each video (reuse detector to avoid model reload)
@@ -223,7 +223,7 @@ def test_batch_folder(
             }
 
     # Summary
-    print(f"\\n📊 {folder_name} Summary")
+    print(f"\n📊 {folder_name} Summary")
     print("=" * 40)
 
     if results:
@@ -235,7 +235,7 @@ def test_batch_folder(
         print(f"Total time: {total_time:.2f}s")
         print(f"Average time: {total_time/total_files:.2f}s per file")
 
-        print("\\nOrientation Results:")
+        print("\nOrientation Results:")
         for orientation, count in orientation_counts.items():
             percentage = (count / total_files) * 100
             print(f"  {orientation}: {count} files ({percentage:.1f}%)")
@@ -248,7 +248,7 @@ def test_batch_folder(
 
         if total_with_reference > 0:
             accuracy = (matches / total_with_reference) * 100
-            print(f"\\nReference Accuracy: {matches}/{total_with_reference} ({accuracy:.1f}%)")
+            print(f"\nReference Accuracy: {matches}/{total_with_reference} ({accuracy:.1f}%)")
 
         # Direction suggestion quality (only for files with expected direction available)
         dir_checks = [r for r in results.values() if r.get("expected_recommendation")]
@@ -279,7 +279,7 @@ def test_batch_folder(
 
 def compare_with_baseline():
     """Show baseline expectations for comparison"""
-    print("\\n🏆 Baseline Expectations (v4.26.0)")
+    print(f"\n🏆 Baseline Expectations (v{__version__})")
     print("=" * 50)
     print("Good_Examples: 100% CORRECT (22/22)")
     print("Bad_Examples: 100% INCORRECT (15/15)")
@@ -346,7 +346,7 @@ Examples:
     compare_with_baseline()
 
     # Final summary
-    print(f"\\n🎯 Final Results")
+    print("\n🎯 Final Results")
     print("=" * 40)
 
     total_tested = 0
@@ -372,9 +372,9 @@ Examples:
 
     if total_tested > 0:
         overall_accuracy = (total_matches / total_tested) * 100 if total_tested > 0 else 0
-        print(f"\\nOverall: {total_matches}/{total_tested} ({overall_accuracy:.1f}%) accuracy")
+        print(f"\nOverall: {total_matches}/{total_tested} ({overall_accuracy:.1f}%) accuracy")
 
-    print("\\n✅ Batch testing completed!")
+    print("\n✅ Batch testing completed!")
 
 
 if __name__ == "__main__":

@@ -20,7 +20,6 @@ import sys
 import time
 import argparse
 import csv
-from pathlib import Path
 from typing import Optional
 
 # Add project root to Python path (go up one level from testing/)
@@ -32,7 +31,9 @@ from video_orientation_detector import OrientationDetector
 def load_reference_data():
     """Load reference orientation data for validation"""
     reference_data = {}
-    reference_file = "../reference_orientations.csv"
+    reference_file = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "reference_orientations.csv"
+    )
 
     if os.path.exists(reference_file):
         try:
@@ -91,7 +92,7 @@ def test_single_video(
         print()
 
         # Process video
-        print(f"🎬 Processing video...")
+        print("🎬 Processing video...")
         start_time = time.time()
 
         results = detector.process_video(video_path, display=False)
@@ -128,8 +129,8 @@ def test_single_video(
                 print(f"   Got: {orientation.upper()}")
 
         # Statistics from video processing
-        if "stats" in results:
-            stats = results["stats"]
+        if "statistics" in results:
+            stats = results["statistics"]
             print()
             print("📈 Detection Statistics:")
             for key, value in stats.items():
@@ -191,7 +192,7 @@ Examples:
     # Exit with appropriate code
     if result is None:
         sys.exit(1)
-    elif result.get("match") == False:
+    elif result.get("match") is False:
         print("⚠️ Result differs from expected - review needed")
         sys.exit(2)
     else:

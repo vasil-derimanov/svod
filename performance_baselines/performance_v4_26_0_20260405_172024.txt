@@ -1,1 +1,24 @@
-SVOD Performance Baseline - v4.26.0\nGenerated: 2026-04-05 17:20:24\nTest Video: 20150911_221520.mp4\n==================================================\n\nPerformance Metrics:\n  Average Processing Time: 81.018s\n  Average Initialization Time: 1.806s\n  Average Total Time: 82.825s\n  Average FPS: 0.0\n  Average Memory Usage: 284.3MB\n  Peak Memory: 810.4MB\n  Consistency Score: 1.000\n\nDetection Metrics:\n  Average Face Detections: 0.0\n  Average Body Detections: 0.0\n\nVariability:\n  Min Processing Time: 79.743s\n  Max Processing Time: 83.501s\n  Time Variance: 3.758s\n
+SVOD Performance Baseline - v4.26.0
+Generated: 2026-04-05 17:20:24
+Test Video: 20150911_221520.mp4
+==================================================
+
+Performance Metrics:
+  Average Processing Time: 81.018s
+  Average Initialization Time: 1.806s
+  Average Total Time: 82.825s
+  Average FPS: 0.0
+  Average Memory Usage: 284.3MB
+  Peak Memory: 810.4MB
+  Consistency Score: 1.000
+
+Detection Metrics:
+  Average Face Detections: 0.0
+  Average Body Detections: 0.0
+
+Variability:
+  Min Processing Time: 79.743s
+  Max Processing Time: 83.501s
+  Time Variance: 3.758s
+
+Note: FPS and detection counts read 0.0 because of a benchmark parsing bug fixed in v4.27.1.

@@ -85,3 +85,49 @@ class TestCoreDetection:
     def test_error_handling(self, detector):
         with pytest.raises((AttributeError, TypeError)):
             detector.determine_frame_orientation(None)
+
+
+class TestBodyVoteOverride:
+    """Landscape body-vote override in calculate_final_verdict (v4.27.1)."""
+
+    @staticmethod
+    def _landscape_stats(detector, **overrides):
+        detector.reset_stats()
+        detector.video_aspect_ratio = 1920 / 1080
+        # Recorded from P7061239.mp4 (reference: incorrect, 90° counterclockwise)
+        detector.stats.update(
+            {
+                "total_frames": 39,
+                "frames_with_humans": 32,
+                "correct_orientation_frames": 27,
+                "incorrect_orientation_frames": 5,
+                "face_detections": 19,
+                "body_detections": 24,
+                "original_body_detections": 23,
+                "face_correct_votes": 3,
+                "face_incorrect_votes": 0,
+                "body_correct_votes": 4,
+                "body_incorrect_votes": 10,
+                "num_segments": 2,
+                "rotation_directions": [
+                    "clockwise", "counterclockwise", "none", "clockwise", "counterclockwise"
+                ],
+            }
+        )
+        detector.stats.update(overrides)
+
+    def test_p7061239_pattern_is_incorrect(self, detector):
+        self._landscape_stats(detector)
+        result = detector.calculate_final_verdict()
+        assert result["orientation"] == "INCORRECT"
+        assert "counterclockwise" in result["recommendation"]
+
+    def test_strong_frame_consensus_stays_correct(self, detector):
+        self._landscape_stats(
+            detector, correct_orientation_frames=30, incorrect_orientation_frames=2
+        )
+        assert detector.calculate_final_verdict()["orientation"] == "CORRECT"
+
+    def test_body_majority_correct_stays_correct(self, detector):
+        self._landscape_stats(detector, body_correct_votes=10, body_incorrect_votes=4)
+        assert detector.calculate_final_verdict()["orientation"] == "CORRECT"

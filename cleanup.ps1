@@ -1,15 +1,19 @@
 # SVOD Project Cleanup Script
-# Version: 2.0.0
-# Last Updated: 2026-03-06
+# Version: 2.1.0
+# Last Updated: 2026-09-28
 # Follows rules from copilot-instructions.md for safe project cleanup
 
-Write-Host "SVOD Cleanup Script v2.0.0 - Safe project cleanup following copilot-instructions.md" -ForegroundColor Cyan
+Write-Host "SVOD Cleanup Script v2.1.0 - Safe project cleanup following copilot-instructions.md" -ForegroundColor Cyan
 Write-Host "WARNING: This script will only remove truly unnecessary files and folders" -ForegroundColor Yellow
 Write-Host "OK: All critical files and folders will be preserved" -ForegroundColor Green
 
 # Critical files and folders that MUST NOT be deleted (from copilot-instructions.md)
 $protectedFiles = @(
     "video_orientation_detector.py",
+    "svod_cli.py",
+    "svod_models.py",
+    "svod_statistics.py",
+    "__init__.py",
     "reference_orientations.csv",
     "pyproject.toml",
     "requirements.txt",

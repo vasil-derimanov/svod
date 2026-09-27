@@ -1,13 +1,13 @@
 # SVOD - Smart Video Orientation Detector
 
 ## Project Overview
-SVOD detects video orientation (CORRECT/INCORRECT/UNCERTAIN) using AI-powered computer vision. The core is a ~5,700-line monolithic Python module (`video_orientation_detector.py`) that combines multiple detection models through a weighted voting system.
+SVOD detects video orientation (CORRECT/INCORRECT/UNCERTAIN) using AI-powered computer vision. The core is a ~6,600-line monolithic Python module (`video_orientation_detector.py`) that combines multiple detection models through a weighted voting system.
 
-**Current Version:** 4.27.0 - Developer Experience Release (April 2026)
+**Current Version:** 4.27.1 - Reference Accuracy Fix Release (September 2026)
 **Previous Milestones:**
+- v4.27.0 - Developer Experience Release (ONNX Runtime, parallel inference, CLI refactor)
 - v4.26.0 - Performance Optimization Release (adaptive cascade, early exit)
 - v4.25.0 - YuNet & Direction Accuracy Release (100% direction accuracy)
-- v4.24.0 - Housekeeping release
 - v4.23.0 - 100% orientation accuracy on reference dataset
 
 ## Architecture & Detection Pipeline
@@ -47,6 +47,11 @@ SVOD uses a **weighted voting system** across multiple detection methods:
 - **New CLI flags**: `--json` (JSON output), `--auto-correct` (ffmpeg rotation), `--export-onnx` (model conversion), `--frame-size`, `--quick-scan`
 - **Progress callback**: `process_video_unified()` accepts optional `progress_callback` for integration
 
+### v4.27.1 Fixes
+- **Landscape body-vote override** (`calculate_final_verdict()`): landscape video (aspect > 1.2) with ≥5 body votes, `body_incorrect > body_correct * 2`, faces ≥ body votes, and frame correct-ratio < 0.90 → INCORRECT. Fixed `P7061239.mp4` (27/32 frames looked correct but body votes were 10 incorrect vs 4 correct). Regression tests: `TestBodyVoteOverride` in `tests/test_core_detection.py`
+- **No-display annotation skip**: full mode skips `annotate_frame()` when neither display nor output file is requested (removes unneeded per-frame work; speed gain not confirmed by the 3-run baseline)
+- **Testing script fixes**: performance test reads `statistics`/`detection_types` (FPS and detection counts were always 0); single test resolves the CSV from the repo root and reads `statistics`; all scripts print real newlines instead of literal `\n`
+
 ### Direction Detection Pipeline
 Direction is determined through a priority chain in `resolve_rotation_direction()`:
 1. **Face position direction** (face on left/right side of frame, 1.1x threshold)
@@ -64,24 +69,26 @@ Direction is determined through a priority chain in `resolve_rotation_direction(
 ## Development Workflows
 
 ### Testing Philosophy: Two Distinct Ecosystems
-**`tests/` directory** - Automated pytest suite (19 test files, 209 tests):
+**`tests/` directory** - Automated pytest suite (19 test files, 212 tests):
 - Unit tests: `test_basic.py`, `test_core_detection.py`, `test_face_detection.py`
 - Integration tests: `test_integration.py`, `test_model_integration.py`
 - Feature tests: `test_new_features.py`, `test_performance_optimizations.py`
 - Run with: `pytest tests/` or `make test`
-- Coverage requirement: 15% minimum (see `pyproject.toml`), current: ~33%
+- Coverage requirement: 15% minimum (`pyproject.toml` and `make test-ci`), current: ~33%
 
-**`testing/` directory** - Manual real-video testing scripts:
-- `standard_single_test.py` - Individual video testing
-- `standard_batch_test.py` - Batch folder validation with reference data comparison
-- `standard_performance_test.py` - Performance benchmarking
+**`testing/` directory** - Manual real-video testing scripts (videos live in `C:\Users\boris\Good_Examples` and `C:\Users\boris\Bad_Examples`):
+- `standard_single_test.py <video> --time-limit 10` - Individual video, compared against the CSV (exit 2 on mismatch)
+- `standard_batch_test.py --time-limit 10 [--folder Good_Examples|Bad_Examples]` - Full reference validation (~30 min for all 37)
+- `standard_performance_test.py [--test-video PATH] [--save-baseline]` - Performance benchmarking
 - **NEVER create new test scripts** - always use these 3 standard scripts
 
 ### Reference Validation System
-**`reference_orientations.csv`** - Ground truth dataset (37 videos with known orientations):
-- Format: `filename,expected_orientation,confidence,notes`
-- **NEVER modify reference_orientations.csv** - it is the ground truth; fix detection code instead
-- Current accuracy: **100% orientation (37/37), 100% direction (37/37)**
+**`reference_orientations.csv`** - Gold-standard ground truth (37 videos: 22 correct, 15 incorrect):
+- Format: `filename,expected_orientation,confidence,notes` (direction is in `notes`)
+- **NEVER modify reference_orientations.csv without explicit user approval** - fix detection code instead
+- Current accuracy: **100% orientation (37/37), 100% direction (37/37)** (verified 2026-09-28)
+- **After ANY detection change, rerun all 37 videos** with `standard_batch_test.py` before claiming success
+- **Never push to git before the full reference validation and `pytest tests/` pass**
 
 ### Build & Development Commands
 ```bash
@@ -140,16 +147,17 @@ class VideoOrientation(Enum):
 
 ## Key Files & Directories
 
-- **`video_orientation_detector.py`** - Core detection module (~5,700 lines)
+- **`video_orientation_detector.py`** - Core detection module (~6,600 lines)
 - **`svod_cli.py`** - CLI argument parsing, validation, and entry points
 - **`svod_statistics.py`** - `StatisticsMixin` for statistics collection and reporting
 - **`svod_models.py`** - Data models and JSON serialization (`results_to_json`, `batch_results_to_json`)
 - **`pyproject.toml`** - Project metadata, `svod` CLI entry point
 - **`.flake8`** - Flake8 linting configuration (authoritative config file)
-- **`reference_orientations.csv`** - Ground truth dataset (37 videos)
+- **`reference_orientations.csv`** - Gold-standard ground truth (37 videos)
 - **`inspect_rotation.py`** - Developer utility for debugging rotation direction
+- **`cleanup.ps1` / `cleanup.py`** - Safe cleanup of caches, coverage output, and legacy models
 - **`performance_baselines/`** - Version performance benchmarks
-- **`YOLOV10_UPGRADE.md`** - Historical migration documentation
+- **`YOLOV10_UPGRADE.md`** - Historical migration documentation (not actively maintained)
 
 ## Common Pitfalls & Solutions
 
@@ -161,13 +169,14 @@ class VideoOrientation(Enum):
 6. **YOLOv11 "not available" error**: Install ultralytics: `pip install "ultralytics>=8.3.0"`
 7. **MobileNet download fails**: Expected on Apple Silicon — core detection still accurate
 8. **"omz_downloader not found"**: Requires Python 3.11-3.12, install `openvino-dev`
+9. **PowerShell exit code 1 with `*>` / `2>&1`**: native stderr (MediaPipe/TF warnings) triggers `NativeCommandError`; check the pytest summary or `$LASTEXITCODE`, not the terminal exit status
+10. **`make clean` on Windows**: uses Unix `find`; run `.\cleanup.ps1` instead
 
 ## Real-World Testing
 
-- **Good_Examples/**: Expected >95% CORRECT classification (currently 22/22 = 100%)
-- **Bad_Examples/**: Expected INCORRECT classification (currently 15/15 = 100%)
-- Each version has a baseline file in `performance_baselines/`
-- v4.27.0 maintains 100% orientation + 100% direction accuracy
+- **Good_Examples/**: 22/22 CORRECT; **Bad_Examples/**: 15/15 INCORRECT with correct direction (v4.27.1)
+- Hard cases to watch after detection changes: `P7061239.mp4` (landscape body-vote override), `P2170127.mp4` (landscape-portrait content), `VID_20200907_202511.mp4` (rotation metadata)
+- Each version should have a baseline file in `performance_baselines/` (`standard_performance_test.py --save-baseline`); v4.27.1: 111.4s avg, 0.7 FPS, 1072.6MB peak on `20150911_221520.mp4`
 
 ## Adding New Features
 
@@ -181,7 +190,7 @@ When extending detection capabilities:
 
 ## Documentation Standards
 
-- **README.md**: User-facing documentation with CLI examples
+- **README.md**: User-facing documentation with CLI examples and version history
 - **Code comments**: Inline explanations for complex detection logic
 - **Docstrings**: All public methods have detailed docstrings with Args/Returns
-- **YOLOV10_UPGRADE.md**: Historical migration documentation (no longer actively maintained)
+- **Version bumps**: update `__version__`/`__release_*` in `video_orientation_detector.py`, `__init__.py`, `pyproject.toml`, `requirements.txt` header, README version history, and this file

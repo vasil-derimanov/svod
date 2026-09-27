@@ -242,7 +242,7 @@ pip install "numpy<2.0"
 If automatic downloads fail, download models manually:
 
 ```bash
-# YOLOv8 (auto-downloaded via ultralytics)
+# YOLOv11 (auto-downloaded via ultralytics)
 # Face detection model (YuNet ONNX)
 curl -O https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
 
@@ -328,7 +328,7 @@ make test
 # Run with coverage
 make test-cov
 
-# Run CI tests (no coverage)
+# Run CI tests (15% coverage gate)
 make test-ci
 ```
 
@@ -379,7 +379,7 @@ python cleanup.py
 ## 📈 Performance & Accuracy
 
 ### Detection Accuracy
-- **Reference Validation**: 100% orientation accuracy + 100% direction accuracy (v4.26.0)
+- **Reference Validation**: 100% orientation accuracy + 100% direction accuracy on 37 reference videos (v4.27.1)
 - **Face Detection**: 85-95% accuracy for videos with faces
 - **Body Detection**: YOLOv11 primary detector with pose keypoints and bias controls
 - **Combined Analysis**: 95%+ overall accuracy with optimized thresholds
@@ -392,7 +392,7 @@ python cleanup.py
 - **GPU Acceleration**: Automatic when available
 
 ### System Resources
-- **RAM**: 2-4GB typical usage
+- **RAM**: ~1GB peak on a 1080p reference video (1072.6MB in the v4.27.1 baseline)
 - **CPU**: Multi-core optimized
 - **Storage**: 100MB for models + output files
 
@@ -427,20 +427,19 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "-v --tb=short"
+python_files = "test_*.py"
+addopts = "-ra -q --cov=video_orientation_detector --cov-report=html --cov-report=term-missing --cov-fail-under=15"
 ```
 
-#### `requirements.txt`
+#### `requirements.txt` (key pins)
 ```
-opencv-contrib-python>=4.8.0
-numpy>=1.24.0
+opencv-contrib-python==4.11.0.86
+numpy==1.26.4
+torch==2.8.0
 ultralytics>=8.3.0
-torch>=2.0.0
-onnx>=1.14.0
-tqdm>=4.65.0
-pytest>=7.4.0
-pytest-cov>=4.1.0
+openvino==2024.6.0
+onnxruntime>=1.17.0
+mediapipe>=0.10.0
 ```
 
 ## 🚀 Deployment
@@ -473,6 +472,8 @@ CMD ["python", "video_orientation_detector.py"]
 ## 📋 Version History
 
 ### Recent Versions
+- **v4.27.1** (2026-09-28): Reference accuracy fix (P7061239.mp4 landscape body-vote override), benchmark statistics fix, frame annotation skipped when there is no display or output file
+- **v4.27.0** (2026-04-11): Developer experience release — ONNX Runtime inference, parallel model inference, CLI refactor, `--json`/`--auto-correct`/`--quick-scan`
 - **v4.26.0** (2026-04-05): Performance optimization release — adaptive model cascade, early exit in all modes, reduced probe overhead
 - **v4.25.0** (2026-03-10): 100% direction accuracy, sample-size-aware direction voting, YuNet face detector
 - **v4.24.0** (2025-11-29): Housekeeping release with documentation updates, YOLOv11 upgrade, and project cleanup
@@ -494,7 +495,7 @@ CMD ["python", "video_orientation_detector.py"]
 - ✅ Cross-platform compatibility (Windows/Linux/macOS)
 - ✅ Security hardening and input validation
 - ✅ Adaptive model cascade for faster processing without accuracy loss
-- ✅ Comprehensive test suite with 158 tests
+- ✅ Comprehensive test suite with 212 tests
 - ✅ Automated CI/CD with coverage reporting
 - ✅ Enhanced error handling and user feedback
 - ✅ Environment controls for runtime optimization

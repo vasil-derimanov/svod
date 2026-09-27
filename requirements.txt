@@ -1,4 +1,4 @@
-# SVOD v4.27.0 Requirements - Developer Experience Release
+# SVOD v4.27.1 Requirements - Reference Accuracy Fix Release
 # Pinned versions for reproducible builds and compatibility
 
 # Core computer vision and image processing

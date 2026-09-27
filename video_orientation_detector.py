@@ -2,8 +2,8 @@
 Smart Video Orientation Detector (SVOD)
 Enhanced video orientation detection using multi-model ensemble approach
 
-Version: 4.27.0 - Developer Experience Release
-Date: April 2026
+Version: 4.27.1 - Reference Accuracy Fix Release
+Date: September 2026
 Author: Enhanced with AI assistance
 
 Features:
@@ -44,9 +44,9 @@ from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Version information
-__version__ = "4.27.0"
-__release_date__ = "2026-04-11"
-__release_name__ = "Developer Experience Release"
+__version__ = "4.27.1"
+__release_date__ = "2026-09-28"
+__release_name__ = "Reference Accuracy Fix Release"
 
 # Fast path: allow `--version` to run without importing heavy dependencies
 if __name__ == "__main__" and any(arg == "--version" for arg in sys.argv[1:]):
@@ -2201,7 +2201,7 @@ class OrientationDetector(StatisticsMixin):
 
     def analyze_face_mesh_orientation(self, face_mesh: Dict) -> str:
         """Analyze face orientation using 468-point Face Mesh landmarks
-        
+
         Key landmarks for orientation detection:
         - Nose tip: 1
         - Left eye: 33, 133, 159, 145
@@ -2226,7 +2226,7 @@ class OrientationDetector(StatisticsMixin):
             # Calculate eye line angle (should be horizontal when upright)
             eye_dx = right_eye_outer["pixel_x"] - left_eye_outer["pixel_x"]
             eye_dy = right_eye_outer["pixel_y"] - left_eye_outer["pixel_y"]
-            
+
             if abs(eye_dx) > 1:  # Avoid division by zero
                 eye_angle = math.degrees(math.atan2(eye_dy, eye_dx))
             else:
@@ -2236,7 +2236,7 @@ class OrientationDetector(StatisticsMixin):
             # Calculate face vertical axis (forehead to chin should be vertical when upright)
             face_dx = chin["pixel_x"] - forehead["pixel_x"]
             face_dy = chin["pixel_y"] - forehead["pixel_y"]
-            
+
             if abs(face_dy) > 1:
                 face_angle = math.degrees(math.atan2(face_dx, face_dy))
             else:
@@ -2246,15 +2246,15 @@ class OrientationDetector(StatisticsMixin):
             # Upright: eyes horizontal (-15° to +15°), face vertical (-15° to +15°)
             if abs(eye_angle) < 15 and abs(face_angle) < 15:
                 return "upright"
-            
+
             # Upside down: eyes horizontal but face inverted
             if abs(abs(eye_angle) - 180) < 15:
                 return "upside_down"
-            
+
             # Sideways: eyes or face significantly rotated
             if abs(eye_angle) > 60 or abs(face_angle) > 60:
                 return "sideways"
-            
+
             return "uncertain"
 
         except Exception as e:
@@ -4876,13 +4876,16 @@ class OrientationDetector(StatisticsMixin):
                     # Mode-specific processing (display, annotation, output)
                     if not is_batch_mode:
                         # Annotate frame for full/quick modes
-                        try:
-                            annotated_frame = self.annotate_frame(
-                                frame, orientation, detection_info
-                            )
-                        except Exception as e:
-                            print(f"[WARNING] Frame annotation failed: {e}")
-                            annotated_frame = frame  # Use original frame if annotation fails
+                        if display or writer:
+                            try:
+                                annotated_frame = self.annotate_frame(
+                                    frame, orientation, detection_info
+                                )
+                            except Exception as e:
+                                print(f"[WARNING] Frame annotation failed: {e}")
+                                annotated_frame = frame  # Use original frame if annotation fails
+                        else:
+                            annotated_frame = frame
 
                         # Display for full/quick modes if requested
                         if display:
@@ -5372,19 +5375,19 @@ class OrientationDetector(StatisticsMixin):
                 verdict = "[ERROR] INCORRECT"
                 confidence = 0.85
                 recommendation = f"Rotate 90° {resolve_rotation_direction()}"
-            # BODY VOTE RATIO OVERRIDE: If body detection overwhelmingly says "incorrect"
-            # (83%+ of body votes), AND faces outnumber body votes (rotation signature:
+            # BODY VOTE RATIO OVERRIDE: If body detection strongly says "incorrect"
+            # (about 67%+ of body votes), AND faces outnumber body votes (rotation signature:
             # face detection is rotation-invariant but body detection isn't), trust the
             # body signal over ambient methods like mobilenet/hough/aspect.
             # Guard: skip when frame-level consensus is strongly CORRECT (≥80%) to
             # avoid overriding a clear correct verdict with noisy body vote tallies.
             elif (video_aspect_ratio > 1.2
                     and total_body_votes >= 5
-                    and body_incorrect > body_correct * 5
+                    and body_incorrect > body_correct * 2
                     and face_count >= total_body_votes
-                    and correct_ratio < 0.80):
+                    and correct_ratio < 0.90):
                 self._debug(
-                    f"[DEBUG] Body votes strongly indicate rotation: {body_incorrect}/{total_body_votes} incorrect ({body_incorrect/max(total_body_votes,1)*100:.0f}%)"
+                    f"[DEBUG] Body votes strongly indicate rotation: {body_incorrect}/{total_body_votes} incorrect ({body_incorrect / max(total_body_votes, 1) * 100:.0f}%)"
                 )
                 verdict = "[ERROR] INCORRECT"
                 confidence = 0.85

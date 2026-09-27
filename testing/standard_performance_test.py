@@ -21,7 +21,7 @@ import time
 import argparse
 import psutil
 import gc
-from typing import Dict, List, Optional
+from typing import Dict, List
 from datetime import datetime
 
 # Add project root to Python path (go up one level from testing/)
@@ -50,7 +50,7 @@ def test_performance_single_video(video_path: str, iterations: int = 3) -> List[
     results = []
 
     for i in range(iterations):
-        print(f"\\n🧪 Iteration {i+1}/{iterations}")
+        print(f"\n🧪 Iteration {i+1}/{iterations}")
 
         # Force garbage collection
         gc.collect()
@@ -79,11 +79,12 @@ def test_performance_single_video(video_path: str, iterations: int = 3) -> List[
             orientation = video_results.get("orientation", "UNCERTAIN")
             confidence = video_results.get("confidence", 0.0)
 
-            # Get detection statistics
-            stats = video_results.get("stats", {})
-            face_count = stats.get("face_detections", 0)
-            body_count = stats.get("body_detections", 0)
-            frames_analyzed = stats.get("frames_analyzed", 0)
+            # Get detection statistics from the normal single-video result shape
+            statistics = video_results.get("statistics", {})
+            detection_types = video_results.get("detection_types", {})
+            face_count = detection_types.get("face_detections", 0)
+            body_count = detection_types.get("body_detections", 0)
+            frames_analyzed = statistics.get("total_frames", 0)
 
             iteration_result = {
                 "iteration": i + 1,
@@ -200,29 +201,29 @@ def save_performance_baseline(stats: Dict, video_name: str):
 
     try:
         with open(baseline_file, "w", encoding="utf-8") as f:
-            f.write(f"SVOD Performance Baseline - v{__version__}\\n")
-            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n")
-            f.write(f"Test Video: {video_name}\\n")
-            f.write("=" * 50 + "\\n\\n")
+            f.write(f"SVOD Performance Baseline - v{__version__}\n")
+            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Test Video: {video_name}\n")
+            f.write("=" * 50 + "\n\n")
 
-            f.write("Performance Metrics:\\n")
-            f.write(f"  Average Processing Time: {stats['avg_processing_time']:.3f}s\\n")
-            f.write(f"  Average Initialization Time: {stats['avg_initialization_time']:.3f}s\\n")
-            f.write(f"  Average Total Time: {stats['avg_total_time']:.3f}s\\n")
-            f.write(f"  Average FPS: {stats['avg_fps']:.1f}\\n")
-            f.write(f"  Average Memory Usage: {stats['avg_memory_used']:.1f}MB\\n")
-            f.write(f"  Peak Memory: {stats['avg_memory_peak']:.1f}MB\\n")
-            f.write(f"  Consistency Score: {stats['consistency_score']:.3f}\\n")
+            f.write("Performance Metrics:\n")
+            f.write(f"  Average Processing Time: {stats['avg_processing_time']:.3f}s\n")
+            f.write(f"  Average Initialization Time: {stats['avg_initialization_time']:.3f}s\n")
+            f.write(f"  Average Total Time: {stats['avg_total_time']:.3f}s\n")
+            f.write(f"  Average FPS: {stats['avg_fps']:.1f}\n")
+            f.write(f"  Average Memory Usage: {stats['avg_memory_used']:.1f}MB\n")
+            f.write(f"  Peak Memory: {stats['avg_memory_peak']:.1f}MB\n")
+            f.write(f"  Consistency Score: {stats['consistency_score']:.3f}\n")
 
-            f.write("\\nDetection Metrics:\\n")
-            f.write(f"  Average Face Detections: {stats['avg_face_detections']:.1f}\\n")
-            f.write(f"  Average Body Detections: {stats['avg_body_detections']:.1f}\\n")
+            f.write("\nDetection Metrics:\n")
+            f.write(f"  Average Face Detections: {stats['avg_face_detections']:.1f}\n")
+            f.write(f"  Average Body Detections: {stats['avg_body_detections']:.1f}\n")
 
             if "processing_time_variance" in stats:
-                f.write(f"\\nVariability:\\n")
-                f.write(f"  Min Processing Time: {stats['min_processing_time']:.3f}s\\n")
-                f.write(f"  Max Processing Time: {stats['max_processing_time']:.3f}s\\n")
-                f.write(f"  Time Variance: {stats['processing_time_variance']:.3f}s\\n")
+                f.write("\nVariability:\n")
+                f.write(f"  Min Processing Time: {stats['min_processing_time']:.3f}s\n")
+                f.write(f"  Max Processing Time: {stats['max_processing_time']:.3f}s\n")
+                f.write(f"  Time Variance: {stats['processing_time_variance']:.3f}s\n")
 
         print(f"✅ Baseline saved: {baseline_file}")
 
@@ -273,7 +274,7 @@ def main():
         sys.exit(1)
 
     # Display results
-    print(f"\\n📊 Performance Results")
+    print("\n📊 Performance Results")
     print("=" * 50)
     print(f"🔄 Valid iterations: {stats['iterations']}")
     print(f"⏱️ Avg processing time: {stats['avg_processing_time']:.3f}s")
@@ -283,12 +284,12 @@ def main():
     print(f"📈 Peak memory: {stats['avg_memory_peak']:.1f}MB")
     print(f"🎯 Consistency score: {stats['consistency_score']:.3f}")
 
-    print(f"\\n👁️ Detection Performance:")
+    print("\n👁️ Detection Performance:")
     print(f"  Faces per run: {stats['avg_face_detections']:.1f}")
     print(f"  Bodies per run: {stats['avg_body_detections']:.1f}")
 
     if "processing_time_variance" in stats:
-        print(f"\\n📊 Time Variability:")
+        print("\n📊 Time Variability:")
         print(f"  Fastest: {stats['min_processing_time']:.3f}s")
         print(f"  Slowest: {stats['max_processing_time']:.3f}s")
         print(f"  Variance: {stats['processing_time_variance']:.3f}s")
@@ -297,7 +298,7 @@ def main():
     if args.save_baseline:
         save_performance_baseline(stats, os.path.basename(args.test_video))
 
-    print("\\n✅ Performance test completed!")
+    print("\n✅ Performance test completed!")
 
 
 if __name__ == "__main__":
