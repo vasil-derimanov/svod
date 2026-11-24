@@ -25,7 +25,7 @@ rich>=13.7.1
 
 # Development and testing (optional)
 black==25.1.0
-flake8==7.3.0
+flake8==7.5.0
 pre-commit==4.3.0
 pytest==8.3.4
 pytest-cov==6.0.0
