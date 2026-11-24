@@ -26,7 +26,7 @@ from typing import Optional, Dict, List
 # Add project root to Python path (go up one level from testing/)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from video_orientation_detector import OrientationDetector, __version__
+from video_orientation_detector import OrientationDetector, __version__  # noqa: E402
 
 
 def load_reference_data() -> Dict[str, Dict]:
@@ -114,9 +114,7 @@ def test_batch_folder(
     reference_data = load_reference_data()
 
     # Create detector ONCE and reuse across videos (model loading is the bottleneck)
-    detector = OrientationDetector(
-        confidence_threshold=confidence_threshold, time_limit=time_limit
-    )
+    detector = OrientationDetector(confidence_threshold=confidence_threshold, time_limit=time_limit)
 
     # Test results
     results = {}
@@ -257,7 +255,10 @@ def test_batch_folder(
                 1 for r in dir_checks if str(r.get("direction_match", "")).startswith("✅")
             )
             print(
-                f"Direction Suggestion Accuracy: {dir_matches}/{len(dir_checks)} ({(dir_matches/len(dir_checks))*100:.1f}%)"
+                (
+                    f"Direction Suggestion Accuracy: {dir_matches}/{len(dir_checks)} "
+                    f"({(dir_matches/len(dir_checks))*100:.1f}%)"
+                )
             )
             # Print mismatches for quick diagnosis
             mismatches = [
@@ -271,7 +272,10 @@ def test_batch_folder(
                 for n in mismatches:
                     r = results[n]
                     print(
-                        f"   - {n}: expected '{r.get('expected_recommendation')}', got '{str(r.get('recommendation','')).lower()}'"
+                        (
+                            f"   - {n}: expected '{r.get('expected_recommendation')}', got "
+                            f"'{str(r.get('recommendation', '')).lower()}'"
+                        )
                     )
 
     return results

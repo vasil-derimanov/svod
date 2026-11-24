@@ -1,15 +1,17 @@
-﻿import pytest
-import numpy as np
-import sys
 import os
+import sys
 
-# Add parent directory to Python path for imports
+import numpy as np
+import pytest
+
+# Keep the project root importable when pytest is launched from another directory.
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from video_orientation_detector import OrientationDetector, mobilenet_required_override
+import video_orientation_detector as vod  # noqa: E402
+from video_orientation_detector import OrientationDetector  # noqa: E402
 
-# Disable MobileNet requirement for tests
-mobilenet_required_override = False
+# The flag lives on the package, not on a local name.
+vod.mobilenet_required_override = False
 
 
 @pytest.fixture

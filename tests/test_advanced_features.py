@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from video_orientation_detector import OrientationDetector
 
 
@@ -59,14 +59,6 @@ class TestAdvancedFeatures:
 
     def test_ensemble_voting_system(self, detector):
         """Test ensemble voting system"""
-        votes = {
-            "face": ["correct"],
-            "yolo": ["correct"],
-            "pose": ["correct"],
-            "mobilenet": ["correct"],
-            "hough": ["correct"],
-            "aspect": ["correct"],
-        }
         detection_info = {
             "faces": [{"box": [20, 20, 60, 60], "confidence": 0.9}],
             "bodies": [{"box": [10, 10, 80, 90], "confidence": 0.8}],

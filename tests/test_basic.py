@@ -1,7 +1,5 @@
-﻿import pytest
 import numpy as np
 from unittest.mock import patch
-from video_orientation_detector import OrientationDetector, VideoOrientation
 
 
 class TestBasicFunctionality:

@@ -25,7 +25,7 @@ from typing import Optional
 # Add project root to Python path (go up one level from testing/)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from video_orientation_detector import OrientationDetector
+from video_orientation_detector import OrientationDetector  # noqa: E402
 
 
 def load_reference_data():

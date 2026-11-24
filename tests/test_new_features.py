@@ -6,27 +6,27 @@ and CLI flags.
 import json
 import os
 import sys
-import tempfile
 
 import numpy as np
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from svod_models import (
+from svod_models import (  # noqa: E402
     BatchResult,
     VideoOrientation,
     _sanitize_for_json,
     batch_results_to_json,
     results_to_json,
 )
-from svod_statistics import StatisticsMixin
-from video_orientation_detector import OrientationDetector
+from svod_statistics import StatisticsMixin  # noqa: E402
+from video_orientation_detector import OrientationDetector  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def detector():
@@ -166,6 +166,7 @@ class TestProgressCallback:
     def test_callback_signature(self, detector):
         """process_video_unified should accept progress_callback kwarg."""
         import inspect
+
         sig = inspect.signature(detector.process_video_unified)
         assert "progress_callback" in sig.parameters
 
@@ -230,15 +231,18 @@ class TestAutoCorrect:
 
     def test_import(self):
         from svod_cli import auto_correct_video
+
         assert callable(auto_correct_video)
 
     def test_no_direction(self):
         from svod_cli import auto_correct_video
+
         result = auto_correct_video("some_video.mp4", None)
         assert result is None
 
     def test_none_direction(self):
         from svod_cli import auto_correct_video
+
         result = auto_correct_video("some_video.mp4", "none")
         assert result is None
 
@@ -253,12 +257,13 @@ class TestCLIFlags:
 
     def test_cli_has_json_flag(self):
         """Verify --json flag is registered in argparse."""
-        import argparse
         # We can't easily test argparse without calling cli_main,
         # but we verify the module imports cleanly
         from svod_cli import cli_main
+
         assert callable(cli_main)
 
     def test_cli_has_auto_correct(self):
         from svod_cli import auto_correct_video
+
         assert callable(auto_correct_video)

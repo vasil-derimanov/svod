@@ -14,6 +14,19 @@ from typing import List, Optional
 from pathlib import Path
 
 
+def path_traversal_error(path: str) -> Optional[str]:
+    """Return an error when a path component is '..' or a longer run of dots.
+
+    A file name may contain the characters '..' (for example ``clip..final.mp4``).
+    Only a component made entirely of dots is treated as traversal.
+    """
+    expanded = os.path.expanduser(path)
+    for part in Path(expanded).parts:
+        if len(part) >= 2 and set(part) == {"."}:
+            return "Directory traversal not allowed in path"
+    return None
+
+
 def get_video_files_in_folder(folder_path: str, recursive: bool = False) -> List[Path]:
     """Get list of video files in folder"""
     video_extensions = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm", ".m4v"}
@@ -62,9 +75,14 @@ def auto_correct_video(
         output_path = str(Path(video_path).parent / f"{Path(video_path).stem}_corrected.mp4")
 
     cmd = [
-        "ffmpeg", "-y", "-i", video_path,
-        "-vf", f"transpose={transpose}",
-        "-c:a", "copy",
+        "ffmpeg",
+        "-y",
+        "-i",
+        video_path,
+        "-vf",
+        f"transpose={transpose}",
+        "-c:a",
+        "copy",
         output_path,
     ]
 
@@ -280,34 +298,24 @@ Examples:
 
     # Sanitize and validate path
     try:
+        raw_path = args.path
+        for char in ("\x00", "\n", "\r"):
+            if char in raw_path:
+                print_error(f"Invalid characters in path: {repr(char)}")
+                return 1
+
+        traversal_error = path_traversal_error(raw_path)
+        if traversal_error:
+            print_error(traversal_error)
+            return 1
+
         # Convert to absolute path and resolve any symlinks
-        args.path = os.path.abspath(os.path.expanduser(args.path))
+        args.path = os.path.abspath(os.path.expanduser(raw_path))
 
         # Check for path length limits (prevent extremely long paths)
         if len(args.path) > 4096:  # Common filesystem limit
             print_error(f"Path too long (max 4096 characters): {len(args.path)}")
             return 1
-
-        # Check for potentially dangerous path patterns (cross-platform)
-        # Only reject truly dangerous characters, allow platform path separators
-        dangerous_chars = ["\x00", "\n", "\r"]  # Null byte and line breaks
-        for char in dangerous_chars:
-            if char in args.path:
-                print_error(f"Invalid characters in path: {repr(char)}")
-                return 1
-
-        # Check for directory traversal attempts
-        if ".." in args.path:
-            # Allow .. in paths as long as it doesn't escape the allowed directories
-            # This is a basic check - in production you'd want more sophisticated validation
-            normalized_path = os.path.normpath(args.path)
-            if (
-                normalized_path.startswith("..")
-                or "\\..\\" in normalized_path
-                or "/../" in normalized_path
-            ):
-                print_error("Directory traversal not allowed in path")
-                return 1
 
         # Check if path exists
         if not os.path.exists(args.path):
@@ -440,8 +448,6 @@ Examples:
 
         # Check for suspicious path patterns that might indicate attacks
         suspicious_patterns = [
-            "...",
-            "....",
             "\\x",
             "\\u00",
             "\\u0000",
@@ -658,7 +664,9 @@ Examples:
                 corrected = 0
                 for r in results:
                     if r.orientation == VideoOrientation.INCORRECT:
-                        direction = r.detection_info.get("rotation_direction") if r.detection_info else None
+                        direction = (
+                            r.detection_info.get("rotation_direction") if r.detection_info else None
+                        )
                         out = auto_correct_video(r.filepath, direction)
                         if out:
                             print_success(f"Corrected: {r.filename} → {os.path.basename(out)}")

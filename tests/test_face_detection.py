@@ -1,7 +1,5 @@
-import pytest
 import numpy as np
 from unittest.mock import patch, MagicMock
-from video_orientation_detector import OrientationDetector
 
 
 class TestFaceDetection:
@@ -22,7 +20,10 @@ class TestFaceDetection:
         mock_yunet = MagicMock()
         # YuNet detect() returns (retval, detections) where detections is Nx15 array
         # Columns: x, y, w, h, ..., confidence (last element)
-        mock_yunet.detect.return_value = (1, np.array([[10, 10, 80, 80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8]]))
+        mock_yunet.detect.return_value = (
+            1,
+            np.array([[10, 10, 80, 80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8]]),
+        )
         detector.yunet_detector = mock_yunet
 
         frame = np.zeros((100, 100, 3), dtype=np.uint8)

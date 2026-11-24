@@ -1,13 +1,13 @@
-﻿import pytest
+import pytest
 import numpy as np
 import sys
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # Add parent directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from video_orientation_detector import OrientationDetector, VideoOrientation
+from video_orientation_detector import OrientationDetector  # noqa: E402
 
 
 class TestCoreDetection:
@@ -110,7 +110,11 @@ class TestBodyVoteOverride:
                 "body_incorrect_votes": 10,
                 "num_segments": 2,
                 "rotation_directions": [
-                    "clockwise", "counterclockwise", "none", "clockwise", "counterclockwise"
+                    "clockwise",
+                    "counterclockwise",
+                    "none",
+                    "clockwise",
+                    "counterclockwise",
                 ],
             }
         )

@@ -1,9 +1,7 @@
 import pytest
 import numpy as np
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch
 from video_orientation_detector import OrientationDetector
-import tempfile
-import os
 
 
 class TestStatisticsAndErrorHandling:
@@ -83,7 +81,7 @@ class TestStatisticsAndErrorHandling:
     def test_error_handling_model_loading_failures(self, detector):
         """Test error handling when model loading fails"""
         # Mock model loading failure - YuNet detector unavailable
-        orig_yunet = getattr(detector, 'yunet_detector', None)
+        orig_yunet = getattr(detector, "yunet_detector", None)
         detector.yunet_detector = None
         # Should not crash, should continue with other methods
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -147,7 +145,7 @@ class TestStatisticsAndErrorHandling:
     def test_error_handling_file_io_errors(self, detector):
         """Test error handling for file I/O errors"""
         # YuNet model not available - should continue without it
-        orig_yunet = getattr(detector, 'yunet_detector', None)
+        orig_yunet = getattr(detector, "yunet_detector", None)
         detector.yunet_detector = None
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
         result = detector.determine_frame_orientation(frame)

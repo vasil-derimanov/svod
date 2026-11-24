@@ -44,8 +44,6 @@ class TestUtilityFunctions:
 
     def test_rotation_hints_all_types(self, detector):
         """Test all rotation hint methods"""
-        faces = [{"box": [20, 20, 60, 60], "confidence": 0.9}]
-        bodies = [{"box": [10, 10, 80, 90], "confidence": 0.8}]
 
         # Test face rotation hint
         face_hint = detector._analyze_face_orientation(1.2, 20, 20, 40, 40, 100, 100, 1.0, 0.0)

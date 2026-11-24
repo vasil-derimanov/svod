@@ -1,7 +1,5 @@
 [flake8]
 max-line-length = 120
-extend-ignore = E203
-exclude = .git,.venv,__pycache__,htmlcov,build,dist,release,*.egg-info,tests,testing,cleanup.py
-
-per-file-ignores =
-	video_orientation_detector.py: E401,E402,E501,E722,F401,F402,F403,F541,F811,F821,F824,F841
+# E501: Black does not wrap long debug strings in svod_detector.py.
+extend-ignore = E203, W503, E501
+exclude = .git,.venv,__pycache__,htmlcov,build,dist,release,*.egg-info

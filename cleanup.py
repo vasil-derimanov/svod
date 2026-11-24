@@ -10,7 +10,6 @@ import os
 import sys
 import shutil
 import glob
-from pathlib import Path
 
 # Ensure UTF-8 output on all platforms (Windows CI uses charmap by default)
 if hasattr(sys.stdout, "reconfigure"):
@@ -37,6 +36,9 @@ def is_protected(path):
     # Critical files that MUST NOT be deleted
     protected_files = [
         "video_orientation_detector.py",
+        "svod_detector.py",
+        "svod_bootstrap.py",
+        "svod_state.py",
         "svod_cli.py",
         "svod_models.py",
         "svod_statistics.py",
@@ -55,10 +57,20 @@ def is_protected(path):
         ".pre-commit-config.yaml",
         ".flake8",
         ".gitignore",
+        "Dockerfile",
+        ".dockerignore",
+        "LESSONS.md",
     ]
 
     # Critical folders that MUST NOT be deleted (including all contents)
-    protected_folders = ["tests", "testing", ".vscode", ".github", "performance_baselines", "release"]
+    protected_folders = [
+        "tests",
+        "testing",
+        ".vscode",
+        ".github",
+        "performance_baselines",
+        "release",
+    ]
 
     # Normalize path separators
     path = path.replace("\\", "/")
@@ -187,14 +199,12 @@ def main():
             if safe_remove(temp_file, "(temporary file)"):
                 removed_count += 1
 
-    # Check deployment files (don't auto-remove, require manual review)
+    # Deployment files are part of the project and are kept.
     print_colored("\n🚀 Checking deployment files...", "yellow")
-    deployment_files = ["Dockerfile", "docker-compose.yml"]
+    deployment_files = ["Dockerfile", ".dockerignore", "docker-compose.yml"]
     for deploy_file in deployment_files:
         if os.path.exists(deploy_file):
-            print_colored(
-                f"⚠️  Review needed: {deploy_file} (marked for potential removal)", "yellow"
-            )
+            print_colored(f"🛡️  Kept: {deploy_file}", "blue")
 
     # Summary
     print_colored(f"\n✨ Safe cleanup completed! Removed {removed_count} items", "green")
@@ -203,6 +213,12 @@ def main():
     print_colored("\n📋 Protected items:", "cyan")
     protected_files = [
         "video_orientation_detector.py",
+        "svod_detector.py",
+        "svod_bootstrap.py",
+        "svod_state.py",
+        "svod_cli.py",
+        "svod_models.py",
+        "svod_statistics.py",
         "reference_orientations.csv",
         "pyproject.toml",
         "requirements.txt",
@@ -217,8 +233,18 @@ def main():
         ".pre-commit-config.yaml",
         ".flake8",
         ".gitignore",
+        "Dockerfile",
+        ".dockerignore",
+        "LESSONS.md",
     ]
-    protected_folders = ["tests", "testing", ".vscode", ".github", "performance_baselines", "release"]
+    protected_folders = [
+        "tests",
+        "testing",
+        ".vscode",
+        ".github",
+        "performance_baselines",
+        "release",
+    ]
 
     for file in protected_files:
         print_colored(f"   • {file}", "white")

@@ -4,16 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "svod"
-version = "4.27.1"
+version = "4.28.0"
 description = "Smart Video Orientation Detector - YOLOv11 + YuNet face detection with comprehensive validation"
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 authors = [
-    {name = "Boris", email = "boris@example.com"},
+    {name = "Boris Jalov", email = "boris.jalov@gmail.com"},
 ]
 maintainers = [
-    {name = "Boris", email = "boris@example.com"},
+    {name = "Boris Jalov", email = "boris.jalov@gmail.com"},
 ]
 keywords = ["video", "orientation", "detection", "ai", "computer-vision", "opencv", "yolov11", "yolo"]
 classifiers = [
@@ -31,7 +31,7 @@ classifiers = [
 ]
 dependencies = [
     "opencv-contrib-python>=4.8.0",  # contrib required by mediapipe
-    "numpy>=1.24.0",
+    "numpy>=1.24.0,<2",
     "ultralytics>=8.3.0",  # YOLOv11 support (Nov 2024)
     "torch>=2.0.0",
     "torchvision>=0.15.0",
@@ -39,6 +39,11 @@ dependencies = [
     "onnxruntime>=1.17.0",  # Fast CPU inference for YOLO ONNX models
     "mediapipe>=0.10.0",  # Face Mesh and Pose detection
     "tqdm>=4.65.0",
+    "rich>=13.7.1",
+]
+
+[project.optional-dependencies]
+dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "black>=23.0.0",
@@ -47,17 +52,25 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/boris/svod"
-Documentation = "https://github.com/boris/svod#readme"
-Repository = "https://github.com/boris/svod.git"
-Issues = "https://github.com/boris/svod/issues"
-Changelog = "https://github.com/boris/svod/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/vasil-derimanov/svod"
+Documentation = "https://github.com/vasil-derimanov/svod#readme"
+Repository = "https://github.com/vasil-derimanov/svod.git"
+Issues = "https://github.com/vasil-derimanov/svod/issues"
 
 [project.scripts]
 svod = "video_orientation_detector:main"
 
 [tool.setuptools]
 include-package-data = true
+py-modules = [
+    "video_orientation_detector",
+    "svod_detector",
+    "svod_bootstrap",
+    "svod_state",
+    "svod_cli",
+    "svod_statistics",
+    "svod_models",
+]
 
 [tool.setuptools.packages.find]
 exclude = ["tests*", "docs*"]
@@ -93,7 +106,7 @@ extend-exclude = '''
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --cov=video_orientation_detector --cov-report=html --cov-report=term-missing --cov-fail-under=15"
+addopts = "-ra -q --cov=video_orientation_detector --cov=svod_detector --cov=svod_bootstrap --cov=svod_cli --cov=svod_models --cov=svod_statistics --cov=svod_state --cov-report=html --cov-report=term-missing --cov-fail-under=30"
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"

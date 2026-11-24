@@ -16,7 +16,10 @@ class TestModelIntegration:
 
         # Mock successful YuNet face detection
         with patch.object(detector, "yunet_detector") as mock_yunet:
-            mock_yunet.detect.return_value = (1, np.array([[10, 10, 80, 80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8]]))
+            mock_yunet.detect.return_value = (
+                1,
+                np.array([[10, 10, 80, 80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8]]),
+            )
 
             result = detector.detect_faces_dnn(frame)
             assert isinstance(result, list)
@@ -42,7 +45,6 @@ class TestModelIntegration:
 
     def test_opencv_integration(self, detector):
         """Test OpenCV DNN integration"""
-        frame = np.zeros((100, 100, 3), dtype=np.uint8)
 
         # Test that MobileNet setup doesn't crash
         with patch("cv2.dnn.blobFromImage", return_value=np.random.rand(1, 3, 100, 100)):
@@ -85,7 +87,7 @@ class TestModelIntegration:
 
         # Test face detection with missing YuNet model
         detector.use_dnn_face = True
-        orig_yunet = getattr(detector, 'yunet_detector', None)
+        orig_yunet = getattr(detector, "yunet_detector", None)
         detector.yunet_detector = None
         result = detector.detect_faces_dnn(frame)
         assert result == []

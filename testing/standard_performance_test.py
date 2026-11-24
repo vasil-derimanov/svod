@@ -27,7 +27,7 @@ from datetime import datetime
 # Add project root to Python path (go up one level from testing/)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from video_orientation_detector import OrientationDetector
+from video_orientation_detector import OrientationDetector  # noqa: E402
 
 
 def get_memory_usage() -> float:
@@ -192,7 +192,8 @@ def save_performance_baseline(stats: Dict, video_name: str):
         return
 
     from video_orientation_detector import __version__
-    ver_tag = __version__.replace('.', '_')
+
+    ver_tag = __version__.replace(".", "_")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     baseline_file = f"performance_baselines/performance_v{ver_tag}_{timestamp}.txt"
 
@@ -255,6 +256,7 @@ def main():
     print("🚀 SVOD Standard Performance Test")
     print("=" * 60)
     from video_orientation_detector import __version__ as svod_version
+
     print(f"Version: SVOD v{svod_version}")
     print(f"Test Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"System: {psutil.virtual_memory().total / (1024**3):.1f}GB RAM")

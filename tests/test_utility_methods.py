@@ -1,7 +1,6 @@
-import pytest
 import numpy as np
-from unittest.mock import patch, MagicMock
-from video_orientation_detector import OrientationDetector, VideoOrientation
+from unittest.mock import patch
+from video_orientation_detector import VideoOrientation
 
 
 class TestUtilityMethods:

@@ -1,7 +1,7 @@
 # YOLOv10 Primary Detector Implementation - SVOD v4.23.0
 
-> **Note:** This is historical documentation. SVOD v4.25.0 now uses YOLOv11 as the primary detector
-> with 100% orientation and 100% direction accuracy. See `README.md` for current information.
+> **Note:** This is historical documentation. Current SVOD (v4.28.0) uses YOLOv11 as the primary detector
+> with 100% orientation and 100% direction accuracy on the 37 reference videos. See `README.md`.
 
 ## Overview
 

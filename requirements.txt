@@ -1,4 +1,4 @@
-# SVOD v4.27.1 Requirements - Reference Accuracy Fix Release
+# SVOD v4.28.0 Requirements - Project Structure Release
 # Pinned versions for reproducible builds and compatibility
 
 # Core computer vision and image processing

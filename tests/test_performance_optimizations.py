@@ -9,11 +9,11 @@ import numpy as np
 import sys
 import os
 import cv2
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from video_orientation_detector import OrientationDetector
+from video_orientation_detector import OrientationDetector  # noqa: E402
 
 
 class TestAdaptiveCascadeHaarSkip:
@@ -103,13 +103,9 @@ class TestAdaptiveCascadeTier3Skip:
         with patch.object(detector, "detect_faces_dnn", return_value=[mock_face]):
             with patch.object(detector, "detect_persons", return_value=[mock_body]):
                 with patch.object(detector, "detect_poses", return_value=[]):
-                    with patch.object(
-                        detector, "mobilenet_detect_orientation"
-                    ) as mock_mobilenet:
+                    with patch.object(detector, "mobilenet_detect_orientation") as mock_mobilenet:
                         with patch.object(detector, "detect_hough_lines") as mock_hough:
-                            with patch.object(
-                                detector, "analyze_aspect_ratio"
-                            ) as mock_aspect:
+                            with patch.object(detector, "analyze_aspect_ratio") as mock_aspect:
                                 detector.determine_frame_orientation(frame)
 
         # If primary models agreed, tier-3 should have been skipped
@@ -131,9 +127,7 @@ class TestAdaptiveCascadeTier3Skip:
                     with patch.object(
                         detector, "mobilenet_detect_orientation", return_value="uncertain"
                     ) as mock_mobilenet:
-                        with patch.object(
-                            detector, "detect_hough_lines", return_value="uncertain"
-                        ):
+                        with patch.object(detector, "detect_hough_lines", return_value="uncertain"):
                             with patch.object(
                                 detector, "analyze_aspect_ratio", return_value="uncertain"
                             ):
@@ -240,7 +234,6 @@ class TestReducedProbe:
         mock_cap.read.return_value = (True, np.zeros((100, 100, 3), dtype=np.uint8))
 
         frame_positions = []
-        original_set = mock_cap.set
 
         def track_set(prop, val):
             if prop == cv2.CAP_PROP_POS_FRAMES:

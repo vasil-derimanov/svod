@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+.venv-*/
+**/__pycache__
+.pytest_cache
+htmlcov
+.coverage
+*.mp4
+*.pt
+*.onnx
+*.bin
+*.xml
+tests
+testing
+performance_baselines

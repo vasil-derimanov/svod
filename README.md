@@ -328,7 +328,7 @@ make test
 # Run with coverage
 make test-cov
 
-# Run CI tests (15% coverage gate)
+# Run CI tests (30% coverage gate)
 make test-ci
 ```
 
@@ -379,7 +379,7 @@ python cleanup.py
 ## 📈 Performance & Accuracy
 
 ### Detection Accuracy
-- **Reference Validation**: 100% orientation accuracy + 100% direction accuracy on 37 reference videos (v4.27.1)
+- **Reference Validation**: 100% orientation accuracy + 100% direction accuracy on 37 reference videos (rechecked 2026-11-24, v4.28.0, `--time-limit 10`)
 - **Face Detection**: 85-95% accuracy for videos with faces
 - **Body Detection**: YOLOv11 primary detector with pose keypoints and bias controls
 - **Combined Analysis**: 95%+ overall accuracy with optimized thresholds
@@ -428,7 +428,7 @@ line-length = 100
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
-addopts = "-ra -q --cov=video_orientation_detector --cov-report=html --cov-report=term-missing --cov-fail-under=15"
+addopts = "-ra -q --cov=video_orientation_detector --cov=svod_detector --cov=svod_bootstrap --cov=svod_cli --cov=svod_models --cov=svod_statistics --cov=svod_state --cov-report=html --cov-report=term-missing --cov-fail-under=30"
 ```
 
 #### `requirements.txt` (key pins)
@@ -451,27 +451,23 @@ pip install svod
 ```
 
 ### Docker Deployment
-```dockerfile
-FROM python:3.12-slim
 
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+The image is defined in `Dockerfile` (Python 3.12, pinned requirements, non-root user).
 
-COPY . .
-RUN python video_orientation_detector.py --version
-
-CMD ["python", "video_orientation_detector.py"]
+```bash
+docker build -t svod .
+docker run --rm -v "${PWD}/data:/data" svod /data/video.mp4 --no-display
 ```
 
 ### CI/CD Integration
-- GitHub Actions workflows for cross-platform testing
-- Automated testing on Windows, Linux, macOS
-- Coverage reporting and quality checks
+- GitHub Actions runs pytest on Ubuntu (Python 3.11 and 3.12), Windows (3.11), and Apple Silicon (3.11)
+- Intel macOS runs a `--version` smoke test because PyTorch 2.8 has no macOS x86_64 wheel
+- Coverage gate is 30% across the SVOD modules
 
 ## 📋 Version History
 
 ### Recent Versions
+- **v4.28.0** (2026-11-24): Project structure release — detector, setup, and runtime flags split into `svod_detector.py`, `svod_bootstrap.py`, and `svod_state.py`; CI runs pytest; reference set rechecked at 37/37
 - **v4.27.1** (2026-09-28): Reference accuracy fix (P7061239.mp4 landscape body-vote override), benchmark statistics fix, frame annotation skipped when there is no display or output file
 - **v4.27.0** (2026-04-11): Developer experience release — ONNX Runtime inference, parallel model inference, CLI refactor, `--json`/`--auto-correct`/`--quick-scan`
 - **v4.26.0** (2026-04-05): Performance optimization release — adaptive model cascade, early exit in all modes, reduced probe overhead
@@ -495,7 +491,7 @@ CMD ["python", "video_orientation_detector.py"]
 - ✅ Cross-platform compatibility (Windows/Linux/macOS)
 - ✅ Security hardening and input validation
 - ✅ Adaptive model cascade for faster processing without accuracy loss
-- ✅ Comprehensive test suite with 212 tests
+- ✅ Comprehensive test suite with 216 tests
 - ✅ Automated CI/CD with coverage reporting
 - ✅ Enhanced error handling and user feedback
 - ✅ Environment controls for runtime optimization
