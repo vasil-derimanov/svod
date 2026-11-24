@@ -24,7 +24,7 @@ tqdm==4.67.1
 rich>=13.7.1
 
 # Development and testing (optional)
-black==25.1.0
+black==26.10.1
 flake8==7.3.0
 pre-commit==4.3.0
 pytest==8.3.4
