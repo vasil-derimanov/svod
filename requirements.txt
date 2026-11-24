@@ -3,7 +3,7 @@
 
 # Core computer vision and image processing
 # contrib version required by mediapipe; do NOT install opencv-python alongside
-opencv-contrib-python==4.11.0.86
+opencv-contrib-python==5.1.0.95
 numpy==1.26.4
 
 # AI/ML frameworks
