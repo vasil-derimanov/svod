@@ -20,7 +20,7 @@ onnxruntime>=1.17.0  # Fast CPU inference for YOLO ONNX models
 mediapipe>=0.10.0  # Face Mesh (468 landmarks) and Pose detection
 
 # User experience and utilities
-tqdm==4.67.1
+tqdm==4.70.1
 rich>=13.7.1
 
 # Development and testing (optional)
